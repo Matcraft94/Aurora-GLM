@@ -1,6 +1,7 @@
 """Utility helpers for distribution implementations."""
 from __future__ import annotations
 
+import math
 import numpy as np
 
 try:  # pragma: no cover - optional dependency
@@ -49,3 +50,20 @@ def log_factorial(value, xp):
     if xp is torch:  # type: ignore[comparison-overlap]
         return torch.lgamma(value + 1.0)
     return np.vectorize(lambda v: np.math.lgamma(v + 1.0))(value)
+
+
+def log_gamma(value, xp):
+    if xp is torch:  # type: ignore[comparison-overlap]
+        return torch.lgamma(value)
+    return np.vectorize(math.lgamma)(value)
+
+
+__all__ = [
+    "as_namespace_array",
+    "clip_probability",
+    "is_torch",
+    "log_factorial",
+    "log_gamma",
+    "namespace",
+    "ones_like",
+]
