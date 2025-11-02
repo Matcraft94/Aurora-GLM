@@ -1,11 +1,13 @@
 """Cross-validation scoring utilities."""
 from __future__ import annotations
 
+import copy
+from dataclasses import is_dataclass, replace
 from typing import Any, Callable, Sequence
 
 import numpy as np
 
-from .split import KFold
+from .split import KFold, StratifiedKFold
 
 FitFunc = Callable[..., Any]
 ScoreFunc = Callable[[Any, Sequence[Any], Sequence[Any]], float]
@@ -20,6 +22,7 @@ def cross_val_score(
     n_splits: int = 5,
     shuffle: bool = False,
     random_state: int | None = None,
+    splitter: str | Any | None = None,
     fit_kwargs: dict[str, Any] | None = None,
     score_kwargs: dict[str, Any] | None = None,
 ) -> np.ndarray:
@@ -39,10 +42,15 @@ def cross_val_score(
     X_np = _to_numpy(X)
     y_np = _to_numpy(y)
 
-    splitter = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+    splitter_obj = _resolve_splitter(
+        splitter,
+        n_splits=n_splits,
+        shuffle=shuffle,
+        random_state=random_state,
+    )
     scores: list[float] = []
 
-    for train_idx, test_idx in splitter.split(X_np, y_np):
+    for train_idx, test_idx in splitter_obj.split(X_np, y_np):
         X_train = X_np[train_idx]
         y_train = y_np[train_idx]
         X_test = X_np[test_idx]
@@ -63,6 +71,39 @@ def _to_numpy(value: Sequence[Any] | Any) -> np.ndarray:
     if hasattr(value, "cpu") and hasattr(value, "numpy"):
         return value.cpu().numpy().astype(np.float64, copy=False)
     return np.asarray(value, dtype=np.float64)
+
+
+def _resolve_splitter(
+    splitter: str | Any | None,
+    *,
+    n_splits: int,
+    shuffle: bool,
+    random_state: int | None,
+) -> Any:
+    if splitter is None:
+        return KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+
+    if isinstance(splitter, str):
+        key = splitter.lower()
+        if key in {"kfold", "k-fold"}:
+            return KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+        if key in {"stratified", "stratifiedkfold", "stratified-kfold"}:
+            return StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+        raise ValueError(f"Unknown splitter identifier: {splitter!r}")
+
+    if hasattr(splitter, "split") and callable(splitter.split):
+        return _clone_splitter(splitter)
+
+    raise TypeError("splitter must be None, a string identifier, or an object with a split() method")
+
+
+def _clone_splitter(splitter: Any) -> Any:
+    if is_dataclass(splitter):
+        return replace(splitter)
+    try:
+        return copy.deepcopy(splitter)
+    except Exception:  # pragma: no cover - fallback branch
+        return splitter
 
 
 __all__ = ["cross_val_score"]
