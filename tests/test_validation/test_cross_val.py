@@ -6,7 +6,7 @@ import pytest
 
 from aurora.models.glm import fit_glm
 from aurora.validation.metrics import mean_squared_error
-from aurora.validation.cross_val import KFold, StratifiedKFold, cross_val_score
+from aurora.validation.cross_val import CrossValResult, KFold, StratifiedKFold, cross_val_score
 
 
 def _dataset(seed: int = 2024) -> tuple[np.ndarray, np.ndarray]:
@@ -77,6 +77,28 @@ def test_cross_val_score_returns_expected_length_and_variability():
     assert scores.shape == (4,)
     assert np.all(np.isfinite(scores))
     assert not np.allclose(scores, scores[0])
+
+
+def test_cross_val_score_can_return_summary_result():
+    X, y = _dataset()
+    result = cross_val_score(
+        fit_glm,
+        _scoring_function,
+        X,
+        y,
+        n_splits=5,
+        shuffle=True,
+        random_state=101,
+        fit_kwargs={"family": "gaussian", "link": None},
+        return_result=True,
+    )
+
+    assert isinstance(result, CrossValResult)
+    assert result.scores.shape == (5,)
+    expected_mean = float(np.mean(result.scores))
+    expected_std = float(np.std(result.scores, ddof=1))
+    assert result.mean == expected_mean
+    assert pytest.approx(expected_std, rel=1e-9, abs=1e-9) == result.std
 
 
 def test_cross_val_score_with_deterministic_shuffling():
