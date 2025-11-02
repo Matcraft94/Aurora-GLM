@@ -4,8 +4,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from aurora.distributions.families import GaussianFamily
 from aurora.models.glm import fit_glm
 from aurora.validation.metrics import (
+    aic,
+    bic,
+    generalized_deviance,
     mean_absolute_error,
     mean_squared_error,
     pseudo_r2,
@@ -60,5 +64,32 @@ def test_pseudo_r2_mcfadden():
     same_score = pseudo_r2(result, method="deviance")
     assert same_score == pytest.approx(score)
 
+    cs = pseudo_r2(result, method="cox_snell")
+    nk = pseudo_r2(result, method="nagelkerke")
+    adj = pseudo_r2(result, method="mcfadden_adj")
+
+    assert 0.0 <= cs <= 1.0
+    assert 0.0 <= nk <= 1.0
+    assert nk >= cs
+    assert 0.0 <= adj <= 1.0
+
     with pytest.raises(NotImplementedError):
-        pseudo_r2(result, method="cox-snell")
+        pseudo_r2(result, method="unsupported")
+
+
+def test_generalized_deviance_and_information_criteria():
+    X, y = _gaussian_dataset(seed=24)
+    result = fit_glm(X, y, family="gaussian", link=None, max_iter=80, tol=1e-10)
+
+    family = GaussianFamily()
+    dev = generalized_deviance(y, np.asarray(result.mu_, dtype=float), family)
+    assert dev == pytest.approx(result.deviance_)
+
+    n_params = result.coef_.shape[0] + (1 if result.intercept_ is not None else 0)
+    n_samples = y.shape[0]
+
+    assert aic(dev, n_params) == pytest.approx(result.aic_)
+    assert bic(dev, n_params, n_samples) == pytest.approx(result.bic_)
+
+    with pytest.raises(ValueError):
+        bic(dev, n_params, 0)
