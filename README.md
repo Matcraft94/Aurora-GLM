@@ -2,107 +2,134 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ⚠️ **Early Development**: This project is in active development. Core infrastructure is in place, but GLM fitting functions are not yet implemented. Contributions and feedback are welcome!
+> ⚠️ **Development Status**: Phase 2 in progress. Core infrastructure is complete, GLM fitting functions are currently being implemented. Contributions and feedback are welcome!
+
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/Matcraft94/Aurora-GLM)
 
 ## Project Identity
 
 - **Package name**: `aurora-glm`
 - **Python import**: `import aurora`
-- **Repository**: [aurora-glm](https://github.com/yourusername/aurora-glm) *(update with actual URL)*
-- **PyPI install**: `pip install aurora-glm` *(planned)*
-- **Tagline**: *Illuminating complex data with modern generalized linear modeling tools.*
+- **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
+- **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
+- **Version**: 0.2.0-dev
+- **Status**: Phase 2 - GLM fitting implemented (~60% complete, inference pending)
+- **Python**: 3.10+
+- **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
-## Design Philosophy
+## Vision and Goals
 
-Aurora-GLM embraces modern Python best practices while prioritizing scientific rigor and performance:
+Aurora-GLM aims to be:
 
-- **Functional and modular**: Prefer composition over complex object hierarchies
-- **Extensible by design**: Every major component can be replaced or extended by users
-- **Type-safe**: Exhaustive use of Python type hints with Protocol-based interfaces
-- **Multi-backend**: Transparent support for NumPy, PyTorch, and JAX arrays
-- **Performance-oriented**: Designed for JIT compilation, GPU acceleration, and scalability
+1. **Scientifically rigorous**: Correct implementations validated against R (mgcv) and statsmodels
+2. **High performance**: Competitive or superior to existing alternatives, with GPU support
+3. **Extensible**: Users can add custom distributions, link functions, and algorithms
+4. **Multi-backend**: Transparent support for NumPy, PyTorch, and JAX
+5. **Modular and functional**: Clean design favoring composition over complex inheritance
+
+### Use Cases
+
+- **Academic research**: Ecology, epidemiology, social sciences
+- **Pharmaceutical industry**: Clinical trials analysis
+- **Financial analysis**: Credit scoring, risk modeling
+- **Machine learning**: Statistical foundations with modern tools
 
 ## Current Implementation Status
 
-### ✅ Implemented
+### Phase 1: Core Numerical Foundation - COMPLETED ✅ (100%)
 
-**Core Infrastructure**:
+**Backend Infrastructure**:
 - ✅ Backend abstraction layer (JAX, PyTorch)
 - ✅ Type system with comprehensive Protocols
 - ✅ Array namespace utilities for transparent NumPy/PyTorch compatibility
 
 **Optimization Algorithms**:
-- ✅ Newton-Raphson
-- ✅ IRLS (Iteratively Reweighted Least Squares)
-- ✅ L-BFGS
+- ✅ Newton-Raphson with automatic Hessian
+- ✅ IRLS (Iteratively Reweighted Least Squares) for GLM
+- ✅ L-BFGS with line search and two-loop recursion
+- ✅ Callbacks for monitoring
+- ✅ Robust convergence checking
 
-**Distribution Families**:
+**Distribution Families** (4/10 planned):
 - ✅ Gaussian (Normal)
 - ✅ Poisson
 - ✅ Binomial
 - ✅ Gamma
 
-**Link Functions**:
-- ✅ Identity: g(μ) = μ
-- ✅ Log: g(μ) = log(μ)
-- ✅ Logit: g(μ) = log(μ/(1-μ))
-- ✅ Inverse: g(μ) = 1/μ
-- ✅ CLogLog: g(μ) = log(-log(1-μ))
+**Link Functions** (5/8 planned):
+- ✅ Identity: `g(μ) = μ`
+- ✅ Log: `g(μ) = log(μ)`
+- ✅ Logit: `g(μ) = log(μ/(1-μ))`
+- ✅ Inverse: `g(μ) = 1/μ`
+- ✅ CLogLog: `g(μ) = log(-log(1-μ))`
 
-### 🚧 In Progress / Planned
+### Phase 2: Basic GLM - IN PROGRESS 🚧 (60%)
 
-**Phase 2: Basic GLM** (In Progress)
-- 🚧 GLM model fitting with IRLS
-- 🚧 Prediction and inference
-- 🚧 Model diagnostics
-- 🚧 Evaluation metrics
+**Implemented**:
+- ✅ GLM model fitting with IRLS (317 lines)
+- ✅ `fit_glm()` function with multi-backend support
+- ✅ `GLMResult` class with `predict()` method
+- ✅ Evaluation metrics (deviance, AIC, BIC, null deviance)
+- ✅ Support for weights and offsets
 
-**Phase 3: GAM** (Planned)
-- 📋 Spline basis functions (cubic, B-splines, P-splines, thin plate)
-- 📋 Penalization and smoothing parameter selection (GCV, REML)
-- 📋 R-style formula parser
+**Still to implement**:
+- 🚧 Inference (std errors, p-values, confidence intervals)
+- 🚧 Model diagnostics (residuals, Cook's distance, leverage)
+- 🚧 Additional metrics (pseudo R², concordance index)
+- 🚧 Validation against statsmodels and R
+- 🚧 `summary()` and `plot_diagnostics()` methods
+
+**Timeline**: Expected completion in 2 weeks
+
+### Phase 3: GAM (Splines and Smoothing) - PLANNED 📋
+
+**Timeline**: 6-8 weeks after Phase 2
+
+**Planned features**:
+- 📋 Spline basis functions (cubic, B-splines, P-splines, thin plate, tensor product)
+- 📋 Penalization and smoothing parameter selection (GCV, REML, AIC)
+- 📋 R-style formula parser (`y ~ s(x1, bs='tp') + s(x2)`)
 - 📋 Visualization of smooth terms
 
-**Phase 4: GAMM** (Planned)
-- 📋 Random effects (intercepts, slopes, crossed, nested)
-- 📋 REML/ML estimation
-- 📋 Covariance structures (AR, compound symmetry, custom)
+### Phase 4: GAMM (Random Effects) - PLANNED 📋
 
-**Phase 5: Extended Features** (Planned)
-- 📋 Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
-- 📋 Additional link functions (Probit, Square root, Power)
+**Timeline**: 6-8 weeks after Phase 3
+
+**Planned features**:
+- 📋 Random effects (intercepts, slopes, crossed, nested)
+- 📋 REML/ML/Laplace estimation
+- 📋 Covariance structures (AR, compound symmetry, custom)
+- 📋 Hierarchical multilevel models
+
+### Phase 5: Extended Features - PLANNED 📋
+
+**Additional distributions**:
+- 📋 Inverse Gaussian
+- 📋 Negative Binomial
+- 📋 Beta
+- 📋 Tweedie
+- 📋 Exponential
+- 📋 Multinomial
+
+**Additional link functions**:
+- 📋 Probit: `g(μ) = Φ⁻¹(μ)`
+- 📋 Square root: `g(μ) = √μ`
+- 📋 Power: `g(μ) = μᵖ`
+
+**Advanced features**:
 - 📋 Comprehensive diagnostics and visualization
 - 📋 Validation against R's mgcv and statsmodels
+- 📋 Performance optimizations (Cython, sparse matrices)
 
-## Technology Stack
+## Planned API (Phase 2 - Not Yet Available)
 
-### Numerical Backends
-
-- **JAX** (primary): Auto-differentiation, JIT compilation, GPU/TPU support
-- **PyTorch** (optional): Flexible backend selection
-- **NumPy**: Always available as fallback
-
-Backend selection is transparent to users through an abstraction layer that supports pluggable custom backends.
-
-### Data Handling (Planned)
-
-- **Polars**: High-performance data manipulation (primary)
-- **Pandas**: Broad ecosystem compatibility (with PyArrow backend)
-- Internal computations use backend-native arrays (JAX, PyTorch, NumPy)
-
-### External Compatibility (Planned)
-
-- **scikit-learn**: Compatible API for metrics and pipelines
-- **statsmodels**: Interoperability and validation
-- **R/mgcv**: Numerical parity checks for GAM/GAMM
-
-## Quick Start (Planned API)
-
-> ⚠️ Note: The API below is the planned design. GLM fitting is not yet implemented.
+> ⚠️ **Note**: The API below shows the planned design. GLM fitting is currently being implemented.
 
 ```python
 import numpy as np
-from aurora.models.glm import fit_glm, predict_glm
+from aurora.models.glm import fit_glm
 
 # Generate sample data
 np.random.seed(42)
@@ -110,19 +137,61 @@ X = np.random.randn(100, 3)
 y = np.random.poisson(np.exp(X[:, 0] * 0.5))
 
 # Fit a Poisson GLM with log link
-result = fit_glm(X, y, family='poisson', link='log', backend='jax')
+result = fit_glm(
+    X, y,
+    family='poisson',
+    link='log',
+    backend='jax'
+)
+
+# Model summary
+print(result.summary())
 
 # Make predictions
 X_new = np.random.randn(10, 3)
-predictions = predict_glm(result, X_new)
+predictions = result.predict(X_new, type='response')
 
-# GAM with smooth terms (planned)
+# Confidence intervals
+ci_lower, ci_upper = result.predict(X_new, interval='confidence', level=0.95)
+
+# Diagnostic plots
+result.plot_diagnostics()
+```
+
+### Planned GAM API (Phase 3)
+
+```python
 from aurora.models.gam import fit_gam
 
+# R-style formula with smooth terms
 result = fit_gam(
-    formula="y ~ s(x1, bs='tp') + s(x2, bs='cr')",
+    formula="y ~ s(x1, bs='tp', k=10) + s(x2, bs='cr') + x3",
     data=df,
     family='gaussian',
+    method='REML'
+)
+
+# Visualize smooth terms
+result.plot_smooth('s(x1)')
+result.summary()
+```
+
+### Planned GAMM API (Phase 4)
+
+```python
+from aurora.models.gamm import fit_gamm
+
+# Mixed model with random effects
+result = fit_gamm(
+    formula="""
+        y ~ s(time, by=treatment, k=10) +
+            s(age, bs='cr') +
+            (1 + time | subject) +
+            (1 | clinic)
+    """,
+    data=df,
+    family='gamma',
+    link='log',
     method='REML'
 )
 ```
@@ -157,17 +226,18 @@ var = poisson.variance(mu)
 
 ### Multi-Backend Support
 
-The same code works with PyTorch tensors:
+The same code works seamlessly with PyTorch tensors:
 
 ```python
 import torch
 
 # PyTorch tensors work transparently
-y_torch = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float32)
-mu_torch = torch.tensor([1.5, 2.0, 2.8, 4.2, 5.1], dtype=torch.float32)
+y_torch = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
+mu_torch = torch.tensor([1.5, 2.0, 2.8, 4.2, 5.1])
 
 # Same API, different backend
 log_lik_torch = poisson.log_likelihood(y_torch, mu_torch)
+dev_torch = poisson.deviance(y_torch, mu_torch)
 ```
 
 ### Using Backend Abstraction
@@ -190,8 +260,12 @@ torch_backend = get_backend("pytorch")
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/aurora-glm.git
-cd aurora-glm
+git clone https://github.com/Matcraft94/Aurora-GLM.git
+cd Aurora-GLM
+
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install in development mode
 pip install -e .
@@ -219,50 +293,109 @@ pytest tests/test_distributions/test_links.py
 
 # Run specific test
 pytest tests/test_distributions/test_links.py::test_identity_link_roundtrip
+
+# Run with verbose output
+pytest -v
 ```
 
-### Project Structure
+### Code Quality
 
+```bash
+# Format code
+ruff format aurora/ tests/
+
+# Lint code
+ruff check aurora/ tests/
+
+# Type checking
+mypy aurora/
 ```
-aurora/
-├── core/
-│   ├── backends/         # Backend abstraction (JAX, PyTorch)
-│   ├── optimization/     # Optimization algorithms
-│   └── types.py          # Type definitions and Protocols
-├── distributions/
-│   ├── families/         # Distribution families
-│   ├── links/            # Link functions
-│   └── _utils.py         # Array namespace utilities
-├── models/               # GLM/GAM/GAMM (planned)
-├── smoothing/            # Splines and penalties (planned)
-├── inference/            # Hypothesis testing (planned)
-├── estimation/           # REML/ML/Laplace (planned)
-├── validation/           # Metrics and cross-validation (planned)
-└── visualization/        # Plotting utilities (planned)
+
+### Development Workflow
+
+```bash
+# Create feature branch
+git checkout -b feature/implement-glm-fitting
+
+# Make changes and test
+pytest
+pytest --cov=aurora --cov-report=html
+
+# Format and lint
+ruff format aurora/ tests/
+ruff check aurora/ tests/
+mypy aurora/
+
+# Commit with descriptive message
+git commit -m "feat(glm): implement IRLS fitting algorithm"
+
+# Push and create PR
+git push origin feature/implement-glm-fitting
 ```
 
 ## Contributing
 
-Contributions are welcome! This project is in early stages and there are many opportunities to help:
+Contributions are welcome! This project is in active development with many opportunities to help:
 
-- **Core GLM implementation**: Help build the GLM fitting functions
-- **Additional distributions**: Implement Inverse Gaussian, Negative Binomial, Beta, Tweedie
-- **Additional link functions**: Implement Probit, Square root, Power links
-- **Spline algorithms**: Implement various spline basis functions
-- **Testing and validation**: Compare results against R and statsmodels
-- **Documentation**: Write examples and tutorials
+### HIGH PRIORITY (needed for Phase 2)
+
+1. **Core GLM implementation**
+   - Implement `fit_glm()` with IRLS algorithm
+   - Complete `GLMResult` with inference (std errors, p-values)
+   - Implement residuals and diagnostics
+   - Validate against statsmodels and R
+
+2. **Testing and validation**
+   - Tests comparing with statsmodels
+   - Tests comparing with R's `glm()`
+   - Performance benchmarks
+   - Edge case handling
+
+3. **Documentation**
+   - Examples with real datasets
+   - Tutorial notebooks
+   - API documentation
+
+### MEDIUM PRIORITY (nice to have)
+
+1. **Additional distributions**
+   - Inverse Gaussian
+   - Negative Binomial
+   - Beta
+   - Tweedie
+
+2. **Additional link functions**
+   - Probit
+   - Square root
+   - Power
+
+3. **Performance optimizations**
+   - Benchmarking suite
+   - Cython for critical loops (if needed)
+   - Sparse matrix support
+
+### LOW PRIORITY (future phases)
+
+1. GAM implementation (Phase 3)
+2. GAMM implementation (Phase 4)
+3. Advanced visualization
+
+### Contribution Guidelines
 
 Please ensure:
-- All code has type hints
-- Tests cover both NumPy and PyTorch backends
-- Docstrings follow NumPy/Google format
-- Code follows the namespace pattern for multi-backend support
+- **Type hints** on all public functions
+- **Tests** covering both NumPy and PyTorch backends
+- **Docstrings** in NumPy/Google format with examples
+- **Code formatting** with `ruff format`
+- **Multi-backend support** using the namespace pattern
+
+See [CLAUDE.md](CLAUDE.md) for detailed implementation patterns and architectural guidelines.
 
 ## Design Principles
 
 ### Array Namespace Pattern
 
-Aurora-GLM uses a namespace abstraction pattern to support multiple array libraries transparently:
+Aurora-GLM uses a namespace abstraction to support multiple array libraries transparently:
 
 ```python
 from aurora.distributions._utils import namespace, as_namespace_array
@@ -278,7 +411,7 @@ def my_function(x, y):
     return xp.sum(x_arr)
 ```
 
-This allows distribution families and link functions to work seamlessly with NumPy arrays, PyTorch tensors, or JAX arrays without code changes.
+This pattern allows distribution families and link functions to work seamlessly with any array library without code changes.
 
 ### Extensibility
 
@@ -290,41 +423,99 @@ from aurora.distributions.base import Family, LinkFunction
 class MyDistribution(Family):
     def log_likelihood(self, y, mu, **params):
         # Implementation using namespace pattern
-        pass
+        xp = namespace(y, mu)
+        # ...
 
-    def deviance(self, y, mu, **params):
-        pass
-
-    def variance(self, mu, **params):
-        pass
-
-    def initialize(self, y):
-        pass
+    def deviance(self, y, mu, **params): ...
+    def variance(self, mu, **params): ...
+    def initialize(self, y): ...
 
     @property
     def default_link(self):
         return MyLink()
 
 class MyLink(LinkFunction):
-    def link(self, mu):
-        pass
+    def link(self, mu): ...
+    def inverse(self, eta): ...
+    def derivative(self, mu): ...
+```
 
-    def inverse(self, eta):
-        pass
+## Project Structure
 
-    def derivative(self, mu):
-        pass
+```
+aurora/
+├── core/
+│   ├── backends/         # Backend abstraction (JAX, PyTorch)
+│   ├── optimization/     # Optimization algorithms
+│   └── types.py          # Type definitions and Protocols
+├── distributions/
+│   ├── families/         # Distribution families
+│   ├── links/            # Link functions
+│   └── _utils.py         # Array namespace utilities
+├── models/               # GLM/GAM/GAMM (in progress)
+├── smoothing/            # Splines and penalties (planned)
+├── inference/            # Hypothesis testing (to implement)
+├── estimation/           # REML/ML/Laplace (planned)
+├── validation/           # Metrics and cross-validation (to implement)
+└── visualization/        # Plotting utilities (planned)
 ```
 
 ## Roadmap
 
-**Q1 2025**: GLM implementation with IRLS fitting, basic inference, and diagnostics
+### Short Term (3 months)
+- [x] Core infrastructure (backends, types, optimization)
+- [x] Distribution families (Gaussian, Poisson, Binomial, Gamma)
+- [x] Link functions (Identity, Log, Logit, Inverse, CLogLog)
+- [ ] GLM fitting with IRLS
+- [ ] Inference (confidence intervals, p-values)
+- [ ] Diagnostics (residuals, Cook's distance)
+- [ ] Validation against statsmodels and R
+- [ ] Basic examples and documentation
 
-**Q2 2025**: Spline basis functions, GAM fitting with penalization
+### Medium Term (6 months)
+- [ ] GAM with spline basis functions
+- [ ] Formula parser for R-style formulas
+- [ ] Smoothing parameter selection (GCV, REML)
+- [ ] Visualization of smooth terms
+- [ ] Performance benchmarks published
+- [ ] 10+ GitHub stars
+- [ ] External users reporting issues
 
-**Q3 2025**: Random effects, GAMM implementation, REML estimation
+### Long Term (12 months)
+- [ ] GAMM with random effects
+- [ ] REML/ML/Laplace estimation
+- [ ] 100+ GitHub stars
+- [ ] 1000+ PyPI downloads/month
+- [ ] Research paper or conference presentation
+- [ ] 5+ active contributors
 
-**Q4 2025**: Comprehensive validation, documentation, performance optimization
+## Success Metrics
+
+### Phase 2 Success Criteria
+
+**Functionality** (Must Have):
+- [ ] `fit_glm()` works with all implemented families
+- [ ] Predictions are correct
+- [ ] Confidence intervals match reference implementations
+- [ ] P-values match reference implementations
+- [ ] Residuals (deviance, Pearson) implemented
+
+**Validation** (Must Have):
+- [ ] Results match statsmodels within tolerance (1e-6 for coefficients)
+- [ ] Results match R's `glm()` within tolerance
+- [ ] Tests pass with NumPy, PyTorch, and JAX backends
+- [ ] Test coverage >90%
+
+**Performance** (Should Have):
+- [ ] Comparable or faster than statsmodels
+- [ ] No memory leaks
+- [ ] Scalable to 100K+ observations
+
+**Documentation** (Must Have):
+- [ ] All docstrings complete
+- [ ] At least 3 working examples
+- [ ] README updated with usage examples
+- [ ] Basic tutorial notebook
 
 ## Performance Goals
 
@@ -333,9 +524,27 @@ class MyLink(LinkFunction):
 - **Scalability**: Handle 1M+ observations efficiently
 - **GPU acceleration**: Efficient utilization when available
 
+## References
+
+### Theory
+- McCullagh, P. & Nelder, J.A. (1989). *Generalized Linear Models* (2nd ed.)
+- Wood, S.N. (2017). *Generalized Additive Models: An Introduction with R* (2nd ed.)
+- Hastie, T. & Tibshirani, R. (1990). *Generalized Additive Models*
+
+### Reference Implementations
+- **R glm()**: Base stats package
+- **R mgcv**: GAM implementation by Simon Wood
+- **statsmodels.genmod**: Python GLM implementation
+- **scikit-learn**: API design patterns
+
+### Technical Resources
+- JAX: https://jax.readthedocs.io
+- PyTorch: https://pytorch.org/docs
+- Array API Standard: https://data-apis.org/array-api
+
 ## License
 
-*(Add license information here)*
+*(Add license information here - e.g., MIT)*
 
 ## Citation
 
@@ -346,10 +555,15 @@ class MyLink(LinkFunction):
 Aurora-GLM draws inspiration from:
 - R's **mgcv** package by Simon Wood
 - Python's **statsmodels** library
-- The JAX ecosystem for array programming
+- The JAX ecosystem for modern array programming
+
+Special thanks to the open-source community for providing excellent tools and libraries.
 
 ---
 
-**Status**: 🚧 Under active development | **Version**: 0.1.0-dev | **Python**: 3.10+
+**Status**: 🚧 Phase 2 in development (GLM fitting complete, inference pending)
+**Version**: 0.2.0-dev
+**Python**: 3.10+
+**Maintained by**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 
 *Illuminating complex data with modern generalized linear modeling tools.*
