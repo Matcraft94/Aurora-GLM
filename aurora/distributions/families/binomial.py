@@ -5,7 +5,7 @@ import numpy as np
 
 from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, clip_probability, namespace, ones_like
-from ..links import LogitLink, get_link
+from ..links import LogitLink
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -23,14 +23,9 @@ def _safe_log(value, xp):
 class BinomialFamily(Family):
     """Binomial family with optional trials parameter ``n`` and link."""
 
-    def __init__(self, n: float = 1.0, link: LinkFunction | str | None = None) -> None:
+    def __init__(self, n: float = 1.0, link: LinkFunction | None = None) -> None:
         self._n = n
-        if link is None:
-            self._link = LogitLink()
-        elif isinstance(link, (str, LinkFunction)):
-            self._link = get_link(link) if isinstance(link, str) else link
-        else:
-            raise TypeError("link must be None, a string identifier, or a LinkFunction instance")
+        self._link = link or LogitLink()
 
     def log_likelihood(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
