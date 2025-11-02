@@ -300,6 +300,21 @@ pytest tests/test_distributions/test_links.py::test_identity_link_roundtrip
 pytest -v
 ```
 
+### External Validation
+
+Compare Aurora fits against statsmodels using the benchmarking harness:
+
+```bash
+PYTHONPATH=. python benchmarks/run_glm_checks.py --replicates 3 --output benchmarks/results/glm_vs_statsmodels.json
+```
+
+By default the script benchmarks Gaussian (identity), Poisson (log), Binomial (logit) and Gamma (log). Append `--gamma-inverse` to include the numerically fragile Gamma+inverse combination.
+
+**Latest Statsmodels comparison (replicates=3):**
+- max |delta_coef| ≈ `4.07e-06`
+- max delta_deviance ≈ `5.69e-09`
+- max mean |delta_mu| ≈ `2.07e-05`
+
 ### Code Quality
 
 ```bash
