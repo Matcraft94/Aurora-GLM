@@ -4,7 +4,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from aurora.distributions.links import CLogLogLink, IdentityLink, InverseLink, LogLink, LogitLink
+from aurora.distributions.links import (
+    CLogLogLink,
+    IdentityLink,
+    InverseLink,
+    LogLink,
+    LogitLink,
+    get_link,
+)
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -140,3 +147,14 @@ def test_cloglog_link_clips_extremes(xp):
         assert np.all(np.isfinite(eta))
     else:
         assert torch.all(torch.isfinite(eta))
+
+
+def test_get_link_by_name():
+    assert isinstance(get_link("logit"), LogitLink)
+    assert isinstance(get_link("CLOGLOG"), CLogLogLink)
+    link_instance = LogLink()
+    assert get_link(link_instance) is link_instance
+    with pytest.raises(ValueError):
+        get_link("unknown")
+    with pytest.raises(TypeError):
+        get_link(123)  # type: ignore[arg-type]
