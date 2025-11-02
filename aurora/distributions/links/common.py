@@ -73,4 +73,23 @@ class LogitLink(LinkFunction):
         return 1.0 / (mu_arr * (1.0 - mu_arr))
 
 
-__all__ = ["IdentityLink", "LogLink", "LogitLink"]
+class InverseLink(LinkFunction):
+    """Inverse link ``g(mu) = 1 / mu``."""
+
+    def link(self, mu):  # noqa: ANN001 - signature from base class
+        xp = namespace(mu)
+        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        return 1.0 / mu_arr
+
+    def inverse(self, eta):  # noqa: ANN001 - signature from base class
+        xp = namespace(eta)
+        eta_arr = _ensure_positive(as_namespace_array(eta, xp, like=eta), xp)
+        return 1.0 / eta_arr
+
+    def derivative(self, mu):  # noqa: ANN001 - signature from base class
+        xp = namespace(mu)
+        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        return -1.0 / (mu_arr**2)
+
+
+__all__ = ["IdentityLink", "LogLink", "LogitLink", "InverseLink"]
