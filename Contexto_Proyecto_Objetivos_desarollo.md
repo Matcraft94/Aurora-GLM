@@ -6,7 +6,7 @@
 **Repositorio**: https://github.com/Matcraft94/Aurora-GLM  
 **Autor**: Lucy E. Arias (@matcraf94)  
 **Versión actual**: 0.1.0-dev  
-**Estado**: Fase 2 en progreso (Core completado, GLM en desarrollo)  
+**Estado**: Fase 2 en progreso (Core completado, GLM con inferencia y métricas)  
 **Python**: 3.10+  
 
 ---
@@ -156,210 +156,94 @@ Implementar modelos GLM funcionales con:
 - Inferencia básica (intervalos de confianza, p-values)
 - Diagnósticos del modelo
 - Métricas de evaluación
+- Herramientas de validación (cross-validation, scoring)
 
 ### Estado Actual
 
-**Estructura creada**:
-```
-aurora/models/
-├── base/
-│   ├── __init__.py           ✅ Exports
-│   └── result.py             🚧 ModelResult (esqueleto)
-├── glm/
-│   ├── __init__.py           🚧 fit_glm (NO implementado)
-│   └── fitting.py            ❌ Por crear
-├── gam/                      ⏳ Fase 3
-└── gamm/                     ⏳ Fase 4
-```
+**Componentes completados**:
+- `aurora/models/glm/fitting.py`: algoritmo IRLS estable con soporte para weights, offset y namespaces NumPy/PyTorch, incluyendo `_matvec` libre de BLAS.
+- `aurora/models/base/result.py`: `GLMResult` con inferencia diferida (covarianza, errores estándar, p-values) y caché de diagnósticos.
+- `aurora/inference/intervals/confidence.py`: intervalos de confianza tipo Wald empaquetados en `ConfidenceIntervalResult`.
+- `aurora/inference/hypothesis/wald.py`: pruebas de Wald para contrastes lineales univariados.
+- `aurora/inference/diagnostics/glm.py`: residuales (response, Pearson, deviance, working), leverage y distancia de Cook agrupados en `GLMDiagnosticResult`.
+- `aurora/inference/__init__.py`: API pública consolidada (`confidence_intervals`, `wald_test`, `glm_diagnostics`).
+- `aurora/validation/metrics`: métricas de regresión (MSE/MAE/RMSE), pseudo R² y métricas de clasificación (accuracy, log-loss, Brier).
+- `aurora/validation/cross_val`: `KFold` y `cross_val_score` con barajado reproducible.
+- Suites de pruebas en `tests/test_inference/*` y `tests/test_validation/*` cubriendo inferencia, diagnósticos, métricas y validación cruzada.
 
-### Componentes a Implementar (PRIORIDAD ALTA)
+**Cobertura de pruebas representativa**:
+- `pytest tests/test_inference/test_confidence_intervals.py`
+- `pytest tests/test_inference/test_hypothesis.py`
+- `pytest tests/test_inference/test_diagnostics.py`
+- `pytest tests/test_validation/test_metrics.py`
+- `pytest tests/test_validation/test_classification_metrics.py`
+- `pytest tests/test_validation/test_cross_val.py`
+- `pytest tests/test_validation`
 
-#### 1. GLM Fitting Function
+**Pendientes inmediatos**:
+- Soporte para contrastes multivariados y pruebas chi-cuadrado en `wald_test`.
+- Diagnósticos adicionales (DFBETAs, residuos estudentizados, gráficos integrados).
+- Métricas avanzadas: deviance generalizada, índices de concordancia y reporting integrado.
+- Validación cruzada estratificada y scoring específico para clasificación.
+- Documentación end-to-end y comparativas con statsmodels/R.
 
-**Archivo**: `aurora/models/glm/fitting.py`
+### Checklist de Avance
 
-**Función principal**:
-```python
-def fit_glm(
-    X: Array,
-    y: Array,
-    *,
-    family: str | Family = "gaussian",
-    link: str | LinkFunction | None = None,
-    weights: Array | None = None,
-    offset: Array | None = None,
-    backend: str = "jax",
-    max_iter: int = 25,
-    tol: float = 1e-8,
-    fit_intercept: bool = True,
-) -> GLMResult:
-    """
-    Fit a Generalized Linear Model using IRLS.
-    
-    Parameters
-    ----------
-    X : array-like, shape (n_samples, n_features)
-        Design matrix
-    y : array-like, shape (n_samples,)
-        Response variable
-    family : str or Family
-        Distribution family ('gaussian', 'poisson', 'binomial', 'gamma')
-    link : str or LinkFunction, optional
-        Link function. If None, uses canonical link for family
-    weights : array-like, optional
-        Observation weights
-    offset : array-like, optional
-        Offset term
-    backend : str
-        Backend to use ('jax', 'pytorch', 'numpy')
-    max_iter : int
-        Maximum IRLS iterations
-    tol : float
-        Convergence tolerance
-    fit_intercept : bool
-        Whether to fit intercept
-        
-    Returns
-    -------
-    GLMResult
-        Fitted model result with parameters, predictions, inference
-        
-    Examples
-    --------
-    >>> X = np.random.randn(100, 3)
-    >>> y = np.random.poisson(np.exp(X[:, 0] * 0.5))
-    >>> result = fit_glm(X, y, family='poisson', link='log')
-    >>> result.coef_
-    array([0.52, -0.03, 0.01])
-    """
-```
+- [x] `fit_glm()` con IRLS robusto y pruebas sintéticas.
+- [x] `GLMResult` con inferencia diferida y método `predict` operativo.
+- [x] Intervalos de confianza y p-values vía aproximación Wald.
+- [x] Residuales principales, leverage y distancia de Cook en `glm_diagnostics`.
+- [x] Métricas de regresión y clasificación con soporte para pesos de muestra.
+- [x] Implementación de `pseudo_r2` para GLM.
+- [x] `KFold` y `cross_val_score` con semilla reproducible.
+- [ ] Extender `wald_test` a contrastes múltiples y pruebas LRT.
+- [ ] Incorporar residuales/influencias adicionales (DFBETAs, leverage bayesiano).
+- [ ] Añadir métricas específicas (concordancia, deviance generalizada) y reporting integrado.
+- [ ] Documentar ejemplos end-to-end y notebooks.
 
-**Pasos del algoritmo IRLS**:
-1. Inicializar μ usando `family.initialize(y)`
-2. Para cada iteración:
-   - Calcular η = link(μ)
-   - Calcular working response: z = η + (y - μ) * link.derivative(μ)
-   - Calcular weights: w = 1 / (link.derivative(μ)² * family.variance(μ))
-   - Resolver: β = (X'WX)⁻¹ X'Wz
-   - Actualizar: η = Xβ, μ = link.inverse(η)
-   - Verificar convergencia
+### Plan de Implementación Ajustado
 
-**Criterio de convergencia**:
-```python
-# Convergencia basada en cambio en deviance
-dev_change = abs(deviance_new - deviance_old) / (abs(deviance_old) + 0.1)
-converged = dev_change < tol
-```
+**Semana 1 (completada)**
+- [x] Implementar `fit_glm()` y pruebas de convergencia.
+- [x] Completar `GLMResult` con propiedades lazy y predicción.
+- [x] Calcular covariance, errores estándar y p-values.
 
-#### 2. GLMResult Class
+**Semana 2 (en curso)**
+- [x] Residuales básicos y medidas de influencia iniciales.
+- [x] Métricas de evaluación (regresión, clasificación, pseudo R²).
+- [x] Cross-validation genérico (`KFold`, `cross_val_score`).
+- [ ] Métricas avanzadas (deviance específica, concordance index).
+- [ ] Integración con benchmarks y validación externa.
 
-**Archivo**: `aurora/models/base/result.py`
+**Semana 3 (pendiente)**
+- [ ] Ejemplos documentados y notebooks.
+- [ ] Visualizaciones y diagnósticos gráficos.
+- [ ] Documentación y preparación de release 0.2.0.
 
-**Estructura requerida**:
-```python
-@dataclass
-class GLMResult:
-    """Container for GLM fitting results."""
-    
-    # Fitted parameters
-    coef_: Array              # Coefficients (excluding intercept if fit)
-    intercept_: float | None  # Intercept (if fitted)
-    
-    # Model specification
-    family: Family
-    link: LinkFunction
-    
-    # Fitted values
-    mu_: Array                # Fitted means
-    eta_: Array               # Linear predictor
-    
-    # Model statistics
-    deviance_: float          # Deviance
-    null_deviance_: float     # Null model deviance
-    aic_: float               # Akaike Information Criterion
-    bic_: float               # Bayesian Information Criterion
-    
-    # Convergence info
-    n_iter_: int              # Number of iterations
-    converged_: bool          # Whether converged
-    
-    # Inference (optional, computed on demand)
-    _coef_cov: Array | None = None     # Coefficient covariance matrix
-    _std_errors: Array | None = None    # Standard errors
-    _p_values: Array | None = None      # P-values
-    
-    # Data info
-    _X: Array | None = None
-    _y: Array | None = None
-    _weights: Array | None = None
-    
-    @property
-    def std_errors_(self) -> Array:
-        """Standard errors of coefficients."""
-        if self._std_errors is None:
-            self._compute_inference()
-        return self._std_errors
-    
-    @property
-    def p_values_(self) -> Array:
-        """P-values for coefficients."""
-        if self._p_values is None:
-            self._compute_inference()
-        return self._p_values
-    
-    @property
-    def coef_cov_(self) -> Array:
-        """Covariance matrix of coefficients."""
-        if self._coef_cov is None:
-            self._compute_inference()
-        return self._coef_cov
-    
-    def _compute_inference(self):
-        """Compute standard errors and p-values."""
-        # Fisher information matrix: I = X'WX
-        # where W = diag(1 / (link'(μ)² * Var(μ)))
-        # Covariance: Cov(β) = I⁻¹
-        pass
-    
-    def predict(
-        self,
-        X_new: Array,
-        type: str = "response",
-        interval: str | None = None,
-        level: float = 0.95,
-    ) -> Array | tuple[Array, Array, Array]:
-        """
-        Make predictions on new data.
-        
-        Parameters
-        ----------
-        X_new : array-like
-            New design matrix
-        type : str
-            Type of prediction: 'response', 'link', or 'terms'
-        interval : str, optional
-            Type of interval: 'confidence' or 'prediction'
-        level : float
-            Confidence level for intervals
-            
-        Returns
-        -------
-        predictions : Array
-            Predictions (and intervals if requested)
-        """
-        pass
-    
-    def summary(self) -> str:
-        """Print summary of fit."""
-        pass
-    
-    def plot_diagnostics(self):
-        """Generate diagnostic plots."""
-        pass
-```
+### Criterios de Éxito para Fase 2 (estado)
 
-#### 3. Inference Module
+**Funcionalidad (Debe)**
+- [x] `fit_glm()` funciona con familias gaussian, poisson, binomial y gamma.
+- [x] Predicción (`type="response"`/`"link"`) validada con datos sintéticos.
+- [x] Intervalos de confianza y p-values por aproximación Wald.
+- [x] Residuales principales (response, Pearson, deviance, working) implementados.
 
+**Validación (Debe)**
+- [ ] Resultados validados contra statsmodels.
+- [ ] Resultados validados contra R `glm()`.
+- [x] Tests automatizados cubren rutas NumPy y (parcialmente) PyTorch.
+- [ ] Coverage >90% (medición pendiente).
+
+**Performance (Debería)**
+- [ ] Benchmarks frente a statsmodels.
+- [ ] Escalabilidad probada en datasets >100K observaciones.
+
+**Documentación (Debe)**
+- [ ] Docstrings y ejemplos consolidados.
+- [ ] README actualizado con nuevas capacidades.
+- [ ] Tutorial básico publicado.
+
+---
 **Archivos a crear**:
 ```
 aurora/inference/
