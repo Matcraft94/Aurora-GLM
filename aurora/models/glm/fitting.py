@@ -226,7 +226,7 @@ def _irls(
         beta = _weighted_least_squares(xp, X_weighted, z_weighted)
         beta = beta.reshape(-1)
 
-        eta_linear = (X @ beta).reshape(-1)
+        eta_linear = _matvec(xp, X, beta)
         eta_with_offset = eta_linear if offset is None else eta_linear + offset
         mu = link.inverse(eta_with_offset)
 
@@ -356,6 +356,18 @@ def _gaussian_elimination_solve_numpy(
         x[i] = b[i] - np.dot(A[i, i + 1 :], x[i + 1 :])
 
     return x.astype(matrix.dtype, copy=False)
+
+
+def _matvec(xp, matrix: Array, vector: Array) -> Array:
+    if xp is np:
+        matrix_np = np.asarray(matrix, dtype=np.float64)
+        vector_np = np.asarray(vector, dtype=np.float64)
+        return np.sum(matrix_np * vector_np, axis=1)
+
+    matmul = getattr(matrix, "matmul", None)
+    if callable(matmul):
+        return matmul(vector).reshape(-1)
+    return (matrix @ vector).reshape(-1)
 
 
 def _zeros_vector(xp, length: int, *, like: Array) -> Array:

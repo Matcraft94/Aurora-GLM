@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ...core.types import Array, ArrayLike
 from ...distributions._utils import as_namespace_array, namespace
 from ...distributions.base import Family, LinkFunction
+
+if TYPE_CHECKING:  # pragma: no cover - typing aid only
+    from ...inference.diagnostics import GLMDiagnosticResult
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,7 @@ class GLMResult:
     _fit_intercept: bool = True
     _intercept_std_error: float | None = None
     _intercept_p_value: float | None = None
+    _diagnostics_cache: "GLMDiagnosticResult" | None = None
 
     @property
     def std_errors_(self) -> Array:
@@ -156,6 +160,16 @@ class GLMResult:
         if self._intercept_p_value is None:
             self._compute_inference()
         return self._intercept_p_value
+
+    @property
+    def diagnostics_(self) -> "GLMDiagnosticResult":
+        """Return (and cache) residual and influence diagnostics for this fit."""
+
+        if self._diagnostics_cache is None:
+            from ...inference.diagnostics import glm_diagnostics
+
+            self._diagnostics_cache = glm_diagnostics(self)
+        return self._diagnostics_cache
 
     def predict(
         self,
