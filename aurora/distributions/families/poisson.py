@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import Family
+from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, namespace
+from ..links import LogLink
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -21,6 +22,9 @@ def _positive(value, xp, eps: float = 1e-12):
 
 class PoissonFamily(Family):
     """Poisson distribution family."""
+
+    def __init__(self, link: LinkFunction | None = None) -> None:
+        self._link = link or LogLink()
 
     def log_likelihood(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
@@ -51,6 +55,10 @@ class PoissonFamily(Family):
         if xp is torch:  # type: ignore[comparison-overlap]
             return torch.clamp(y_arr + 0.1, min=0.1)
         return np.clip(y_arr + 0.1, 0.1, None)
+
+    @property
+    def default_link(self) -> LinkFunction:
+        return self._link
 
 
 __all__ = ["PoissonFamily"]
