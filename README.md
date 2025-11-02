@@ -1,207 +1,355 @@
 # Aurora-GLM
 
-Aurora-GLM is a modular, extensible, and high-performance framework under active
-development for statistical modeling in Python. The project centers on
-Generalized Linear Models (GLM) with planned support for Generalized Additive
-Models (GAM) and Generalized Additive Mixed Models (GAMM).
+**Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
+
+> ⚠️ **Early Development**: This project is in active development. Core infrastructure is in place, but GLM fitting functions are not yet implemented. Contributions and feedback are welcome!
 
 ## Project Identity
 
 - **Package name**: `aurora-glm`
 - **Python import**: `import aurora`
-- **Repository**: `aurora-glm`
-- **PyPI install**: `pip install aurora-glm` (planned)
-- **Tagline**: *Illuminating complex data with modern generalized linear
-  modeling tools.*
+- **Repository**: [aurora-glm](https://github.com/yourusername/aurora-glm) *(update with actual URL)*
+- **PyPI install**: `pip install aurora-glm` *(planned)*
+- **Tagline**: *Illuminating complex data with modern generalized linear modeling tools.*
 
 ## Design Philosophy
 
-- Prefer functional, modular composition instead of heavyweight OOP.
-- Encourage extensibility: every major component is replaceable by the user.
-- Embrace composability through small, independent building blocks.
-- Default to immutable data structures wherever feasible.
-- Use exhaustive Python type hints for clarity and documentation.
+Aurora-GLM embraces modern Python best practices while prioritizing scientific rigor and performance:
 
-## Planned Technology Stack
+- **Functional and modular**: Prefer composition over complex object hierarchies
+- **Extensible by design**: Every major component can be replaced or extended by users
+- **Type-safe**: Exhaustive use of Python type hints with Protocol-based interfaces
+- **Multi-backend**: Transparent support for NumPy, PyTorch, and JAX arrays
+- **Performance-oriented**: Designed for JIT compilation, GPU acceleration, and scalability
+
+## Current Implementation Status
+
+### ✅ Implemented
+
+**Core Infrastructure**:
+- ✅ Backend abstraction layer (JAX, PyTorch)
+- ✅ Type system with comprehensive Protocols
+- ✅ Array namespace utilities for transparent NumPy/PyTorch compatibility
+
+**Optimization Algorithms**:
+- ✅ Newton-Raphson
+- ✅ IRLS (Iteratively Reweighted Least Squares)
+- ✅ L-BFGS
+
+**Distribution Families**:
+- ✅ Gaussian (Normal)
+- ✅ Poisson
+- ✅ Binomial
+- ✅ Gamma
+
+**Link Functions**:
+- ✅ Identity: g(μ) = μ
+- ✅ Log: g(μ) = log(μ)
+- ✅ Logit: g(μ) = log(μ/(1-μ))
+- ✅ Inverse: g(μ) = 1/μ
+- ✅ CLogLog: g(μ) = log(-log(1-μ))
+
+### 🚧 In Progress / Planned
+
+**Phase 2: Basic GLM** (In Progress)
+- 🚧 GLM model fitting with IRLS
+- 🚧 Prediction and inference
+- 🚧 Model diagnostics
+- 🚧 Evaluation metrics
+
+**Phase 3: GAM** (Planned)
+- 📋 Spline basis functions (cubic, B-splines, P-splines, thin plate)
+- 📋 Penalization and smoothing parameter selection (GCV, REML)
+- 📋 R-style formula parser
+- 📋 Visualization of smooth terms
+
+**Phase 4: GAMM** (Planned)
+- 📋 Random effects (intercepts, slopes, crossed, nested)
+- 📋 REML/ML estimation
+- 📋 Covariance structures (AR, compound symmetry, custom)
+
+**Phase 5: Extended Features** (Planned)
+- 📋 Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
+- 📋 Additional link functions (Probit, Square root, Power)
+- 📋 Comprehensive diagnostics and visualization
+- 📋 Validation against R's mgcv and statsmodels
+
+## Technology Stack
 
 ### Numerical Backends
 
-- **Primary**: JAX (auto-differentiation, JIT, GPU/TPU support).
-- **Optional**: PyTorch (flexible backend selection via `backend="pytorch"`).
-- Operations abstracted behind backend registry for seamless switching.
+- **JAX** (primary): Auto-differentiation, JIT compilation, GPU/TPU support
+- **PyTorch** (optional): Flexible backend selection
+- **NumPy**: Always available as fallback
 
-### Data Handling
+Backend selection is transparent to users through an abstraction layer that supports pluggable custom backends.
 
-- **Preferred**: Polars for fast data ingestion and manipulation.
-- **Fallback**: Pandas (with PyArrow backend) for broad compatibility.
-- Internal computation uses `jax.numpy.ndarray` (or backend equivalents).
+### Data Handling (Planned)
 
-### Performance Acceleration
+- **Polars**: High-performance data manipulation (primary)
+- **Pandas**: Broad ecosystem compatibility (with PyArrow backend)
+- Internal computations use backend-native arrays (JAX, PyTorch, NumPy)
 
-- Selective use of Cython for critical loops or dense linear algebra.
-- Optional C++ extensions for advanced spline algorithms.
-- Benchmark suite to identify hotspots before low-level optimization.
+### External Compatibility (Planned)
 
-### External Compatibility
+- **scikit-learn**: Compatible API for metrics and pipelines
+- **statsmodels**: Interoperability and validation
+- **R/mgcv**: Numerical parity checks for GAM/GAMM
 
-- scikit-learn-compatible API surfaces for metrics and tooling.
-- Interoperability with statsmodels for validation.
-- Numerical parity checks with R's `mgcv` for GAM/GAMM components.
+## Quick Start (Planned API)
 
-## Module Layout
+> ⚠️ Note: The API below is the planned design. GLM fitting is not yet implemented.
 
-```
-aurora/
-├── __init__.py
-├── core/
-│   ├── backends/
-│   ├── autodiff/
-│   ├── optimization/
-│   └── linalg/
-├── distributions/
-│   ├── families/
-│   ├── links/
-│   └── custom/
-├── models/
-│   ├── glm/
-│   ├── gam/
-│   ├── gamm/
-│   └── base/
-├── smoothing/
-│   ├── splines/
-│   ├── penalties/
-│   └── selection/
-├── inference/
-│   ├── hypothesis/
-│   ├── anova/
-│   ├── intervals/
-│   └── diagnostics/
-├── estimation/
-│   ├── reml/
-│   ├── ml/
-│   └── laplace/
-├── validation/
-│   ├── metrics/
-│   ├── cross_val/
-│   └── sensitivity/
-├── visualization/
-│   ├── model_plots/
-│   ├── residuals/
-│   └── predictions/
-├── io/
-│   ├── readers/
-│   ├── writers/
-│   └── converters/
-└── utils/
-	 ├── exceptions/
-	 └── validation/
+```python
+import numpy as np
+from aurora.models.glm import fit_glm, predict_glm
+
+# Generate sample data
+np.random.seed(42)
+X = np.random.randn(100, 3)
+y = np.random.poisson(np.exp(X[:, 0] * 0.5))
+
+# Fit a Poisson GLM with log link
+result = fit_glm(X, y, family='poisson', link='log', backend='jax')
+
+# Make predictions
+X_new = np.random.randn(10, 3)
+predictions = predict_glm(result, X_new)
+
+# GAM with smooth terms (planned)
+from aurora.models.gam import fit_gam
+
+result = fit_gam(
+    formula="y ~ s(x1, bs='tp') + s(x2, bs='cr')",
+    data=df,
+    family='gaussian',
+    method='REML'
+)
 ```
 
-## Core Components (Planned)
+## Current Usage (Low-Level Components)
 
-### Backends
+While high-level GLM fitting is not yet available, you can use the foundational components:
+
+### Using Distribution Families
+
+```python
+from aurora.distributions.families import GaussianFamily, PoissonFamily
+from aurora.distributions.links import LogLink
+import numpy as np
+
+# Create a Poisson family with log link
+poisson = PoissonFamily(link=LogLink())
+
+# Generate data
+y = np.array([1, 2, 3, 4, 5])
+mu = np.array([1.5, 2.0, 2.8, 4.2, 5.1])
+
+# Compute log-likelihood
+log_lik = poisson.log_likelihood(y, mu)
+
+# Compute deviance
+dev = poisson.deviance(y, mu)
+
+# Variance function
+var = poisson.variance(mu)
+```
+
+### Multi-Backend Support
+
+The same code works with PyTorch tensors:
+
+```python
+import torch
+
+# PyTorch tensors work transparently
+y_torch = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float32)
+mu_torch = torch.tensor([1.5, 2.0, 2.8, 4.2, 5.1], dtype=torch.float32)
+
+# Same API, different backend
+log_lik_torch = poisson.log_likelihood(y_torch, mu_torch)
+```
+
+### Using Backend Abstraction
 
 ```python
 from aurora.core.backends import get_backend
 
-backend = get_backend("jax")
-x = backend.array([1, 2, 3])
-grad_fn = backend.grad(loss_function)
+# Get JAX backend
+jax_backend = get_backend("jax")
+x = jax_backend.array([1, 2, 3])
+grad_fn = jax_backend.grad(my_loss_function)
+
+# Get PyTorch backend
+torch_backend = get_backend("pytorch")
 ```
 
-- Unified interface for linear algebra, differentiation, and device transfers.
-- Automatic backend registration; users can plug in custom backends.
-- JIT compilation support where available.
+## Installation
 
-### Optimization
+### From Source (Development)
 
-Algorithms to implement:
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/aurora-glm.git
+cd aurora-glm
 
-- Newton-Raphson, IRLS, BFGS/L-BFGS, conjugate gradient, trust-region.
-- Proximal gradient, Adam/RMSprop, Nelder-Mead.
-- Configurable convergence criteria, warm starts, and rich callbacks.
+# Install in development mode
+pip install -e .
 
-### Distributions & Links
+# Optional: Install PyTorch for multi-backend support
+pip install torch
 
-- Built-in families: Gaussian, Binomial, Poisson, Gamma, Inverse Gaussian,
-  Negative Binomial, Beta, Tweedie, Exponential, Multinomial.
-- Standard link functions: identity, log, logit, probit, inverse,
-  square-root, power.
-- Extensible protocol for user-defined distributions/link functions.
+# Optional: Install JAX for GPU support
+pip install jax jaxlib
+```
 
-### Model APIs
+## Development
 
-- `fit_glm` for generalized linear models with weights, offsets, and missing
-  data handling.
-- `fit_gam` supporting varied spline bases, penalization, and formula parsing.
-- `fit_gamm` with hierarchical random effects and covariance structures.
-- Predictive helpers, summaries, and diagnostic hooks.
+### Running Tests
 
-### Smoothing & Splines
+```bash
+# Run all tests
+pytest
 
-- Basis types: cubic, natural cubic, B-splines, P-splines, thin plate, tensor
-  product, adaptive, monotonic, cyclic.
-- Selection methods: ridge, CV/GCV, REML, AIC/BIC, Mallows' Cp.
+# Run with coverage
+pytest --cov=aurora --cov-report=html
 
-### Inference & Validation
+# Run specific test file
+pytest tests/test_distributions/test_links.py
 
-- Hypothesis testing: Wald, likelihood-ratio, score, F, t, chi-squared,
-  permutation tests.
-- ANOVA (Type I/II/III), deviance analysis, smooth term tests.
-- Metrics: deviance, AIC/BIC/EBIC, GCV, concordance, Brier, calibration.
-- Cross-validation and sensitivity analysis utilities.
+# Run specific test
+pytest tests/test_distributions/test_links.py::test_identity_link_roundtrip
+```
 
-### Visualization
+### Project Structure
 
-- Partial effects, smooth components, residual diagnostics, Q-Q plots,
-  leverage/Cook's distance, ACF/PACF of residuals.
-- Prediction intervals, contour/heatmap representations for interactions.
-- Matplotlib/Seaborn-based plotting with theming hooks.
+```
+aurora/
+├── core/
+│   ├── backends/         # Backend abstraction (JAX, PyTorch)
+│   ├── optimization/     # Optimization algorithms
+│   └── types.py          # Type definitions and Protocols
+├── distributions/
+│   ├── families/         # Distribution families
+│   ├── links/            # Link functions
+│   └── _utils.py         # Array namespace utilities
+├── models/               # GLM/GAM/GAMM (planned)
+├── smoothing/            # Splines and penalties (planned)
+├── inference/            # Hypothesis testing (planned)
+├── estimation/           # REML/ML/Laplace (planned)
+├── validation/           # Metrics and cross-validation (planned)
+└── visualization/        # Plotting utilities (planned)
+```
 
-## Development Roadmap
+## Contributing
 
-1. **Core Numerical Foundations (Weeks 1-3)**
-	- Backend abstraction (JAX/PyTorch) and autodiff helpers.
-	- Initial optimization suite (Newton, IRLS, L-BFGS).
-	- Linear algebra utilities, testing, and benchmarking harness.
+Contributions are welcome! This project is in early stages and there are many opportunities to help:
 
-2. **Foundational GLM Support (Weeks 4-7)**
-	- Canonical families and link functions.
-	- IRLS solver, inference basics, and evaluation metrics.
+- **Core GLM implementation**: Help build the GLM fitting functions
+- **Additional distributions**: Implement Inverse Gaussian, Negative Binomial, Beta, Tweedie
+- **Additional link functions**: Implement Probit, Square root, Power links
+- **Spline algorithms**: Implement various spline basis functions
+- **Testing and validation**: Compare results against R and statsmodels
+- **Documentation**: Write examples and tutorials
 
-3. **GAM Functionality (Weeks 8-13)**
-	- Spline implementations, penalization strategies, REML/GCV selection.
-	- Formula parser and visualization of smooth terms.
+Please ensure:
+- All code has type hints
+- Tests cover both NumPy and PyTorch backends
+- Docstrings follow NumPy/Google format
+- Code follows the namespace pattern for multi-backend support
 
-4. **GAMM & Mixed Effects (Weeks 14-19)**
-	- Random effect structures, REML/ML/Laplace estimation.
-	- Covariance matrices (independent, compound symmetry, AR/ARMA, custom).
+## Design Principles
 
-5. **Extensibility & Ecosystem (Weeks 20-23)**
-	- Plugin systems for custom distributions, links, loss functions, optimizers.
-	- Validation against R/Stata implementations.
+### Array Namespace Pattern
 
-## Quality & Testing Targets
+Aurora-GLM uses a namespace abstraction pattern to support multiple array libraries transparently:
 
-- Unit, integration, property-based, and performance tests (pytest + Hypothesis).
-- Coverage > 90% with continuous benchmarking.
-- Numerical stability safeguards and informative error handling.
+```python
+from aurora.distributions._utils import namespace, as_namespace_array
 
-## Documentation & UX Goals
+def my_function(x, y):
+    # Automatically detect NumPy or PyTorch
+    xp = namespace(x, y)
 
-- Comprehensive docstrings (NumPy/Google style) with LaTeX formulas.
-- Sphinx-based API reference and narrative guides.
-- Example notebooks showcasing GLM, GAM, and GAMM usage.
-- Clear error messages with actionable guidance.
+    # Convert to appropriate array type
+    x_arr = as_namespace_array(x, xp, like=y)
 
-## Branding Notes
+    # Use namespace-specific operations
+    return xp.sum(x_arr)
+```
 
-- Color palette inspired by auroras: greens (#00FF87), blues (#00D4FF),
-  accented with dark purples (#2D1B69) and light highlights (#B4FFA4).
-- Consistent naming across code, documentation, and publications.
+This allows distribution families and link functions to work seamlessly with NumPy arrays, PyTorch tensors, or JAX arrays without code changes.
+
+### Extensibility
+
+Users can create custom distributions and link functions:
+
+```python
+from aurora.distributions.base import Family, LinkFunction
+
+class MyDistribution(Family):
+    def log_likelihood(self, y, mu, **params):
+        # Implementation using namespace pattern
+        pass
+
+    def deviance(self, y, mu, **params):
+        pass
+
+    def variance(self, mu, **params):
+        pass
+
+    def initialize(self, y):
+        pass
+
+    @property
+    def default_link(self):
+        return MyLink()
+
+class MyLink(LinkFunction):
+    def link(self, mu):
+        pass
+
+    def inverse(self, eta):
+        pass
+
+    def derivative(self, mu):
+        pass
+```
+
+## Roadmap
+
+**Q1 2025**: GLM implementation with IRLS fitting, basic inference, and diagnostics
+
+**Q2 2025**: Spline basis functions, GAM fitting with penalization
+
+**Q3 2025**: Random effects, GAMM implementation, REML estimation
+
+**Q4 2025**: Comprehensive validation, documentation, performance optimization
+
+## Performance Goals
+
+- **GLM**: Competitive with statsmodels, ideally faster
+- **GAM**: Within 2x of R's mgcv package
+- **Scalability**: Handle 1M+ observations efficiently
+- **GPU acceleration**: Efficient utilization when available
+
+## License
+
+*(Add license information here)*
+
+## Citation
+
+*(Add citation information when published)*
+
+## Acknowledgments
+
+Aurora-GLM draws inspiration from:
+- R's **mgcv** package by Simon Wood
+- Python's **statsmodels** library
+- The JAX ecosystem for array programming
 
 ---
 
-Aurora-GLM aims to provide a scientifically rigorous, performant, and pleasant
-experience for practitioners and researchers working with generalized linear
-modeling techniques.
+**Status**: 🚧 Under active development | **Version**: 0.1.0-dev | **Python**: 3.10+
+
+*Illuminating complex data with modern generalized linear modeling tools.*
