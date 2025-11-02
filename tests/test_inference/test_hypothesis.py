@@ -36,8 +36,8 @@ def test_wald_test_validates_input_lengths():
     with pytest.raises(ValueError):
         wald_test(result, [1.0, 0.0])
 
-    with pytest.raises(NotImplementedError):
-        wald_test(result, [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
+    with pytest.raises(ValueError):
+        wald_test(result, [[1.0, 0.0], [0.0, 1.0]])
 
 
 def test_wald_without_intercept():
@@ -46,3 +46,20 @@ def test_wald_without_intercept():
 
     test = wald_test(result, coef, include_intercept=False)
     assert test["p_value"] < 1e-6
+
+
+def test_wald_test_supports_multiple_constraints():
+    X, y, _ = _dataset(987)
+    result = fit_glm(X, y, family="gaussian", link=None, max_iter=60, tol=1e-9)
+
+    contrast = np.array(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    outcome = wald_test(result, contrast, value=[0.0, 0.0])
+
+    assert outcome["df"] == pytest.approx(2.0)
+    assert outcome["statistic"] >= 0.0
+    assert 0.0 <= outcome["p_value"] <= 1.0
