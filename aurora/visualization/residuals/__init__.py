@@ -1,0 +1,1 @@
+"""Residual diagnostic plots."""

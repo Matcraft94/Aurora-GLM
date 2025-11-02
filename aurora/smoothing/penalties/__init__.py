@@ -1,0 +1,1 @@
+"""Penalties for smoothing parameter estimation."""

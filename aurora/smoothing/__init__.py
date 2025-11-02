@@ -1,0 +1,1 @@
+"""Smoothing components for additive models."""
