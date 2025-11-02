@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from statistics import NormalDist
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -179,14 +180,20 @@ class GLMResult:
         backend: str | None = None,
         interval: str | None = None,
         level: float = 0.95,
-    ) -> Array:
-        """Generate predictions for new design matrices."""
+    ) -> Array | tuple[Array, Array, Array]:
+        """Generate predictions for new design matrices.
+
+        Returns the mean prediction when ``interval`` is ``None``; otherwise a
+        tuple ``(mean, lower, upper)`` with Wald confidence bounds.
+        """
 
         del backend  # Reserved for future multi-backend dispatching
-        del level  # Level support will be introduced with intervals
 
-        if interval is not None:
-            raise NotImplementedError("Prediction intervals are not implemented yet.")
+        interval_kind = interval.lower() if interval is not None else None
+        if interval_kind not in (None, "confidence"):
+            raise NotImplementedError(f"Unsupported interval type: {interval!r}")
+        if interval_kind is not None and not (0.0 < level < 1.0):
+            raise ValueError("level must be in the open interval (0, 1)")
 
         xp = namespace(X_new, self._X, self._y)
         like = self._X if self._X is not None else self.mu_
@@ -210,11 +217,44 @@ class GLMResult:
             eta = eta + self.intercept_
 
         if type == "link":
-            return eta
-        if type == "response":
-            return self.link.inverse(eta)
+            predictions = eta
+        elif type == "response":
+            predictions = self.link.inverse(eta)
+        else:
+            raise ValueError(f"Unknown prediction type: {type!r}")
 
-        raise ValueError(f"Unknown prediction type: {type!r}")
+        if interval_kind is None:
+            return predictions
+
+        if self._coef_cov is None or self._std_errors is None or self._p_values is None:
+            self._compute_inference()
+
+        design_np = _design_with_intercept_numpy(X_arr, fit_intercept=self._fit_intercept)
+        cov = np.asarray(self._coef_cov, dtype=np.float64)
+        se_eta = _prediction_standard_errors(design_np, cov)
+
+        quantile = NormalDist().inv_cdf(0.5 + level / 2.0)
+        eta_np = _to_numpy(eta)
+        lower_eta = eta_np - quantile * se_eta
+        upper_eta = eta_np + quantile * se_eta
+
+        if type == "link":
+            lower_vals = as_namespace_array(lower_eta, xp, like=eta)
+            upper_vals = as_namespace_array(upper_eta, xp, like=eta)
+            return predictions, lower_vals, upper_vals
+
+        # Delta method for response-scale intervals
+        mu = predictions
+        derivative = self.link.derivative(mu)
+        deriv_np = np.clip(np.abs(_to_numpy(derivative)), 1e-12, None)
+        se_mu = se_eta / deriv_np
+        mu_np = _to_numpy(mu)
+        lower_mu = mu_np - quantile * se_mu
+        upper_mu = mu_np + quantile * se_mu
+
+        lower_vals = as_namespace_array(lower_mu, xp, like=mu)
+        upper_vals = as_namespace_array(upper_mu, xp, like=mu)
+        return predictions, lower_vals, upper_vals
 
 
 def _to_numpy(value: Any | None) -> np.ndarray:
@@ -301,6 +341,26 @@ def _weighted_gram_numpy(X: np.ndarray, weights: np.ndarray) -> np.ndarray:
                 gram[j, k] += val
                 gram[k, j] += val
     return gram
+
+
+def _design_with_intercept_numpy(X: Array, *, fit_intercept: bool) -> np.ndarray:
+    matrix = _to_numpy(X)
+    if matrix.ndim == 1:
+        matrix = matrix.reshape(1, -1)
+    if not fit_intercept:
+        return matrix
+    ones = np.ones((matrix.shape[0], 1), dtype=matrix.dtype)
+    return np.concatenate((ones, matrix), axis=1)
+
+
+def _prediction_standard_errors(design: np.ndarray, covariance: np.ndarray) -> np.ndarray:
+    covariance = np.asarray(covariance, dtype=np.float64)
+    if covariance.shape[0] != design.shape[1]:
+        raise ValueError("Covariance matrix and design matrix dimensions are incompatible")
+    projection = design @ covariance
+    variances = np.einsum("ij,ij->i", projection, design)
+    variances = np.clip(variances, 1e-12, None)
+    return np.sqrt(variances)
 
 
 __all__.append("GLMResult")
