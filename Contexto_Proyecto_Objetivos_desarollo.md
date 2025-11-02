@@ -5,8 +5,8 @@
 **Proyecto**: Aurora-GLM  
 **Repositorio**: https://github.com/Matcraft94/Aurora-GLM  
 **Autor**: Lucy E. Arias (@matcraf94)  
-**Versión actual**: 0.1.0-dev  
-**Estado**: Fase 2 en progreso (Core completado, GLM con inferencia y métricas)  
+**Versión actual**: 0.2.0-dev  
+**Estado**: Fase 2 en progreso (GLM al 80%, preparativos GAM)  
 **Python**: 3.10+  
 
 ---
@@ -244,239 +244,41 @@ Implementar modelos GLM funcionales con:
 - [ ] Tutorial básico publicado.
 
 ---
-**Archivos a crear**:
-```
-aurora/inference/
-├── __init__.py
-├── confidence.py         # Confidence intervals
-├── hypothesis.py         # Hypothesis tests
-└── diagnostics.py        # Model diagnostics
-```
 
-**Funciones clave**:
+## 🗂️ Backlog Operativo Prioritario (Nov 2025)
 
-```python
-# confidence.py
-def confidence_intervals(
-    result: GLMResult,
-    level: float = 0.95,
-    method: str = "wald"
-) -> tuple[Array, Array]:
-    """
-    Compute confidence intervals for coefficients.
-    
-    Parameters
-    ----------
-    result : GLMResult
-        Fitted model
-    level : float
-        Confidence level (default 0.95)
-    method : str
-        Method: 'wald' or 'profile'
-        
-    Returns
-    -------
-    lower, upper : Array
-        Lower and upper bounds
-    """
-    pass
+| Categoría | Objetivo | Definición de terminado |
+| --- | --- | --- |
+| **Inferencia** | Integrar intervalos y p-values en `GLMResult`, ampliar `wald_test` a contrastes multivariados y LRT. | `predict(interval="confidence")` funcional, rutas nuevas cubiertas en `tests/test_models/test_glm_fitting.py` y `tests/test_inference/test_hypothesis.py`. |
+| **Diagnósticos** | Añadir residuales studentizados, DFBETAs y resumen tabular reutilizable. | API `glm_diagnostics` extendida, fixtures sintéticos actualizados, documentación básica en docstrings. |
+| **Métricas & Validación** | Incorporar concordance index, deviance específica, pseudo R² avanzados y `StratifiedKFold`. | Funciones disponibles en `aurora/validation`, pruebas en `tests/test_validation`, ejemplos en notebooks. |
+| **Documentación & UX** | Actualizar README/guías y preparar notebooks demostrativos. | README sincronizado, guía rápida GLM publicada, dos notebooks revisados. |
+| **Validación Externa** | Automatizar comparativas con statsmodels/R y registrar benchmarks. | Scripts en `benchmarks/` con resultados versionados y reporte semanal.
 
-# hypothesis.py
-def wald_test(
-    result: GLMResult,
-    hypothesis: str | Array,
-) -> dict:
-    """
-    Perform Wald test for coefficient hypotheses.
-    
-    Parameters
-    ----------
-    result : GLMResult
-        Fitted model
-    hypothesis : str or Array
-        Hypothesis to test (e.g., "x1 = 0" or contrast matrix)
-        
-    Returns
-    -------
-    dict with keys: statistic, p_value, df
-    """
-    pass
+### Tablero y seguimiento
 
-def likelihood_ratio_test(
-    result_full: GLMResult,
-    result_reduced: GLMResult,
-) -> dict:
-    """
-    Likelihood ratio test comparing nested models.
-    
-    Returns
-    -------
-    dict with keys: statistic, p_value, df
-    """
-    pass
+- GitHub Projects en modo Kanban (`Todo → In progress → Review → Done`).
+- Issues etiquetados por categoría, tamaño (`S/M/L`) y responsable claro.
+- Revisión de backlog los lunes; retro semanal de riesgos y ajustes.
 
-# diagnostics.py
-def residuals(
-    result: GLMResult,
-    type: str = "deviance"
-) -> Array:
-    """
-    Compute residuals.
-    
-    Parameters
-    ----------
-    type : str
-        Type of residuals: 'deviance', 'pearson', 'working', 'response'
-    """
-    pass
+### Ciclo QA semanal
 
-def influential_observations(
-    result: GLMResult
-) -> dict[str, Array]:
-    """
-    Compute measures of influence.
-    
-    Returns
-    -------
-    dict with keys: cooks_d, leverage, dfbetas
-    """
-    pass
-```
+- Pipeline: `pytest`, suites específicas por módulo, comparación automática vs statsmodels/R (`benchmarks/run_glm_checks.py`).
+- Indicadores mínimos: cobertura ≥85%, error relativo en coeficientes <1e-6, tiempo de ajuste registrado (NumPy y PyTorch).
+- Entrega de hallazgos en `docs/reports/QA_SEMANA.md` con acciones correctivas.
 
-#### 4. Validation Metrics
+### Hitos Sprint (3 semanas)
 
-**Archivo**: `aurora/validation/metrics/__init__.py`
+1. **Semana 1**: Backlog de inferencia cerrado + script de validación externa operativo.
+2. **Semana 2**: Diagnósticos y métricas avanzadas listos; primera versión de `GLMResult.summary()`.
+3. **Semana 3**: Documentación y notebooks publicados; prototipo de `plot_diagnostics` con hooks a visualización.
 
-**Métricas a implementar**:
-```python
-def deviance(y_true: Array, y_pred: Array, family: Family) -> float:
-    """Compute deviance."""
-    pass
+### Preparativos Release 0.2.0
 
-def aic(deviance: float, n_params: int) -> float:
-    """Akaike Information Criterion."""
-    return deviance + 2 * n_params
+- Checklist funcional (inferencias, diagnósticos, métricas, documentación) completado.
+- Changelog redactado y versiones sincronizadas.
+- Validaciones cruzadas firmadas (NumPy, PyTorch); publicar resultados comparativos.
 
-def bic(deviance: float, n_params: int, n_samples: int) -> float:
-    """Bayesian Information Criterion."""
-    return deviance + np.log(n_samples) * n_params
-
-def pseudo_r_squared(
-    deviance: float,
-    null_deviance: float,
-    method: str = "mcfadden"
-) -> float:
-    """
-    Pseudo R² measures.
-    
-    Methods: 'mcfadden', 'cox_snell', 'nagelkerke'
-    """
-    pass
-
-def concordance_index(y_true: Array, y_pred: Array) -> float:
-    """C-statistic for binary outcomes."""
-    pass
-```
-
----
-
-## 📅 Plan de Implementación Detallado
-
-### Semana 1: GLM Fitting Core
-
-**Día 1-2**: Implementar `fit_glm()` con IRLS
-- [ ] Crear `aurora/models/glm/fitting.py`
-- [ ] Implementar algoritmo IRLS completo
-- [ ] Manejo de weights y offset
-- [ ] Convergencia robusta
-- [ ] Tests con datos sintéticos
-
-**Día 3**: Implementar `GLMResult`
-- [ ] Completar dataclass en `result.py`
-- [ ] Propiedades lazy para inferencia
-- [ ] Método `predict()`
-- [ ] Tests de predicción
-
-**Día 4-5**: Inferencia básica
-- [ ] Implementar cálculo de covariance matrix
-- [ ] Standard errors
-- [ ] Wald confidence intervals
-- [ ] P-values
-- [ ] Tests de inferencia
-
-### Semana 2: Diagnósticos y Validación
-
-**Día 1-2**: Residuales y diagnósticos
-- [ ] Implementar tipos de residuales
-- [ ] Cook's distance
-- [ ] Leverage
-- [ ] DFBETAs
-- [ ] Tests
-
-**Día 3**: Métricas de evaluación
-- [ ] Deviance
-- [ ] AIC/BIC
-- [ ] Pseudo R²
-- [ ] Concordance index
-- [ ] Tests
-
-**Día 4-5**: Integración y tests
-- [ ] Tests end-to-end completos
-- [ ] Validación contra statsmodels
-- [ ] Validación contra R (glm)
-- [ ] Benchmarks de performance
-- [ ] Documentación
-
-### Semana 3: Casos de uso y ejemplos
-
-**Día 1-2**: Ejemplos documentados
-- [ ] Regresión Poisson (count data)
-- [ ] Regresión logística (binomial)
-- [ ] Regresión Gamma (positive continuous)
-- [ ] Casos con weights y offset
-- [ ] Notebooks Jupyter
-
-**Día 3**: Visualización
-- [ ] Diagnostic plots básicos
-- [ ] Partial residual plots
-- [ ] QQ plots
-- [ ] Influence plots
-
-**Día 4-5**: Documentación y cleanup
-- [ ] README con ejemplos actualizados
-- [ ] Docstrings completos
-- [ ] Tutorial básico
-- [ ] Preparar release 0.2.0
-
----
-
-## 🎯 Criterios de Éxito para Fase 2
-
-### Funcionalidad (Debe)
-- [ ] `fit_glm()` funciona con todas las familias implementadas
-- [ ] Predicción funciona correctamente
-- [ ] Intervalos de confianza correctos
-- [ ] P-values correctos
-- [ ] Residuales implementados
-
-### Validación (Debe)
-- [ ] Resultados coinciden con statsmodels (dentro de tolerancia)
-- [ ] Resultados coinciden con R glm() (dentro de tolerancia)
-- [ ] Tests pasan con NumPy, PyTorch y JAX backends
-- [ ] Coverage >90%
-
-### Performance (Debería)
-- [ ] Comparable o más rápido que statsmodels
-- [ ] Sin memory leaks
-- [ ] Escalable a 100K+ observaciones
-
-### Documentación (Debe)
-- [ ] Todos los docstrings completos
-- [ ] Al menos 3 ejemplos funcionando
-- [ ] README actualizado
-- [ ] Tutorial básico
-
----
 
 ## 📊 Fase 3: GAM - PLANEADO (No iniciado)
 
@@ -511,6 +313,8 @@ aurora/models/gam/
 ├── formula.py                # Formula parser (patsy-like)
 └── result.py                 # GAMResult
 ```
+
+> Referencia: ver `aurora/smoothing/DESIGN.md` para el borrador de arquitectura, entregables incrementales y riesgos identificados.
 
 ### API objetivo
 
@@ -722,7 +526,7 @@ pip install -e ".[dev,test]"
 pip install torch jax jaxlib
 ```
 
-### Workflow de Desarrollo
+### Workflow de Desarrollo 
 
 ```bash
 # Crear branch para feature
