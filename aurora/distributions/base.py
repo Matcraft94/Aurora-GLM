@@ -1,38 +1,45 @@
-"""Base protocols for probability distributions and link functions."""
+"""Abstract base classes for GLM distribution families and link functions."""
 from __future__ import annotations
 
-from typing import Protocol
+from abc import ABC, abstractmethod
 
-from ..core.types import ArrayLike
-
-
-class Distribution(Protocol):
-    """Protocol describing the interface for Aurora-GLM distribution families."""
-
-    def log_likelihood(self, y: ArrayLike, mu: ArrayLike, **params) -> float:
-        ...
-
-    def deviance(self, y: ArrayLike, mu: ArrayLike, **params) -> float:
-        ...
-
-    def variance(self, mu: ArrayLike, **params) -> ArrayLike:
-        ...
-
-    def initialize(self, y: ArrayLike):
-        ...
+from ..core.types import Array, Scalar
 
 
-class LinkFunction(Protocol):
-    """Protocol describing the interface for link functions."""
+class Family(ABC):
+    """Abstract base class for probability distribution families."""
 
-    def link(self, mu: ArrayLike) -> ArrayLike:
-        ...
+    @abstractmethod
+    def log_likelihood(self, y: Array, mu: Array, **params) -> Scalar:
+        """Return the log-likelihood of observations ``y`` given mean ``mu``."""
 
-    def inverse(self, eta: ArrayLike) -> ArrayLike:
-        ...
+    @abstractmethod
+    def deviance(self, y: Array, mu: Array, **params) -> Scalar:
+        """Return the deviance contribution for observations ``y`` and mean ``mu``."""
 
-    def derivative(self, mu: ArrayLike) -> ArrayLike:
-        ...
+    @abstractmethod
+    def variance(self, mu: Array, **params) -> Array:
+        """Return the variance function evaluated at ``mu``."""
+
+    @abstractmethod
+    def initialize(self, y: Array) -> Array:
+        """Return starting values for the mean parameter ``mu`` given data ``y``."""
 
 
-__all__ = ["Distribution", "LinkFunction"]
+class LinkFunction(ABC):
+    """Abstract base class for link functions."""
+
+    @abstractmethod
+    def link(self, mu: Array) -> Array:
+        """Apply the link function ``g(mu)``."""
+
+    @abstractmethod
+    def inverse(self, eta: Array) -> Array:
+        """Apply the inverse link ``g^{-1}(eta)``."""
+
+    @abstractmethod
+    def derivative(self, mu: Array) -> Array:
+        """Return the derivative ``dg/dmu`` evaluated at ``mu``."""
+
+
+__all__ = ["Family", "LinkFunction"]
