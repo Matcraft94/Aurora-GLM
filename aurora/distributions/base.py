@@ -6,6 +6,22 @@ from abc import ABC, abstractmethod
 from ..core.types import Array, Scalar
 
 
+class LinkFunction(ABC):
+    """Abstract base class for link functions."""
+
+    @abstractmethod
+    def link(self, mu: Array) -> Array:
+        """Apply the link function ``g(mu)``."""
+
+    @abstractmethod
+    def inverse(self, eta: Array) -> Array:
+        """Apply the inverse link ``g^{-1}(eta)``."""
+
+    @abstractmethod
+    def derivative(self, mu: Array) -> Array:
+        """Return the derivative ``dg/dmu`` evaluated at ``mu``."""
+
+
 class Family(ABC):
     """Abstract base class for probability distribution families."""
 
@@ -25,21 +41,10 @@ class Family(ABC):
     def initialize(self, y: Array) -> Array:
         """Return starting values for the mean parameter ``mu`` given data ``y``."""
 
-
-class LinkFunction(ABC):
-    """Abstract base class for link functions."""
-
+    @property
     @abstractmethod
-    def link(self, mu: Array) -> Array:
-        """Apply the link function ``g(mu)``."""
-
-    @abstractmethod
-    def inverse(self, eta: Array) -> Array:
-        """Apply the inverse link ``g^{-1}(eta)``."""
-
-    @abstractmethod
-    def derivative(self, mu: Array) -> Array:
-        """Return the derivative ``dg/dmu`` evaluated at ``mu``."""
+    def default_link(self) -> LinkFunction:
+        """Return the canonical link for this family."""
 
 
 __all__ = ["Family", "LinkFunction"]

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import Family
+from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, clip_probability, namespace, ones_like
+from ..links import LogitLink
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -20,10 +21,11 @@ def _safe_log(value, xp):
 
 
 class BinomialFamily(Family):
-    """Binomial family with optional trials parameter ``n``."""
+    """Binomial family with optional trials parameter ``n`` and link."""
 
-    def __init__(self, n: float = 1.0) -> None:
+    def __init__(self, n: float = 1.0, link: LinkFunction | None = None) -> None:
         self._n = n
+        self._link = link or LogitLink()
 
     def log_likelihood(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
@@ -72,6 +74,10 @@ class BinomialFamily(Family):
         n_arr = as_namespace_array(self._n, xp, like=y_arr)
         p_init = clip_probability((y_arr + 0.5) / (n_arr + 1.0), xp)
         return n_arr * p_init
+
+    @property
+    def default_link(self) -> LinkFunction:
+        return self._link
 
 
 __all__ = ["BinomialFamily"]

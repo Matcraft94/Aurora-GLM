@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import Family
+from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, namespace, ones_like
+from ..links import IdentityLink
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -13,10 +14,11 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class GaussianFamily(Family):
-    """Gaussian family with optional variance parameter."""
+    """Gaussian family with optional variance parameter and link."""
 
-    def __init__(self, variance: float = 1.0) -> None:
+    def __init__(self, variance: float = 1.0, link: LinkFunction | None = None) -> None:
         self._variance = variance
+        self._link = link or IdentityLink()
 
     def log_likelihood(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
@@ -48,6 +50,10 @@ class GaussianFamily(Family):
     def initialize(self, y):  # noqa: ANN001 - match Family signature
         xp = namespace(y)
         return as_namespace_array(y, xp, like=y)
+
+    @property
+    def default_link(self) -> LinkFunction:
+        return self._link
 
 
 __all__ = ["GaussianFamily"]
