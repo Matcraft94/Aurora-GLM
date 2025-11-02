@@ -24,12 +24,14 @@ class PyTorchBackend:
 
     def array(self, data: Any, dtype: Any | None = None):
         """Convert data to PyTorch tensor."""
-        tensor_kwargs: dict[str, Any] = {"device": self._device}
-        if dtype is not None:
-            tensor_kwargs["dtype"] = dtype
-        else:
-            tensor_kwargs["dtype"] = self._dtype
-        return torch.tensor(data, **tensor_kwargs)
+        target_dtype = dtype or self._dtype
+        if isinstance(data, torch.Tensor):
+            tensor = data.to(self._device)
+            if tensor.dtype != target_dtype:
+                tensor = tensor.to(dtype=target_dtype)
+            return tensor
+
+        return torch.as_tensor(data, dtype=target_dtype, device=self._device)
 
     def as_numpy(self, data: Any):
         """Convert tensor to NumPy array."""
@@ -75,7 +77,7 @@ class PyTorchBackend:
         """Move data to default device."""
         if isinstance(data, torch.Tensor):
             return data.to(self._device)
-        return torch.tensor(data, device=self._device, dtype=self._dtype)
+        return torch.as_tensor(data, device=self._device, dtype=self._dtype)
 
     def vmap(self, func: Callable, *, in_axes=0, out_axes=0):  # noqa: ANN001 - mirrors backend protocol
         """Vectorized map (similar to JAX vmap)."""
