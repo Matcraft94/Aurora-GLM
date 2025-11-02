@@ -51,6 +51,19 @@ def test_glm_diagnostics_gaussian_identity():
     assert np.all(diagnostics.leverage <= 1.0 + 1e-6)
     assert np.all(diagnostics.cooks_distance >= -1e-9)
 
+    studentized_expected = pearson_expected / np.sqrt(np.clip(1.0 - diagnostics.leverage, 1e-12, None))
+    np.testing.assert_allclose(diagnostics.studentized_residuals, studentized_expected, atol=1e-6)
+
+    assert diagnostics.summary.shape == (y.shape[0], len(diagnostics.summary_columns))
+    assert diagnostics.summary_columns == (
+        "response_residual",
+        "pearson_residual",
+        "deviance_residual",
+        "studentized_residual",
+        "leverage",
+        "cooks_distance",
+    )
+
 
 def test_glm_diagnostics_without_intercept():
     X, y = _gaussian_dataset(intercept=0.0)
@@ -62,6 +75,35 @@ def test_glm_diagnostics_without_intercept():
     leverage_sum = np.sum(diagnostics.leverage)
     assert leverage_sum == pytest.approx(p, rel=1e-5)
     assert diagnostics.cooks_distance.shape == y.shape
+
+
+def test_dfbetas_approximate_leave_one_out():
+    X, y = _gaussian_dataset(seed=2025, n_samples=60)
+    result = fit_glm(X, y, family="gaussian", link=None, max_iter=80, tol=1e-10)
+
+    diagnostics = glm_diagnostics(result)
+
+    if result.intercept_ is not None:
+        beta_full = np.concatenate(([result.intercept_], np.asarray(result.coef_, dtype=float)))
+        se_full = np.concatenate(([result.intercept_std_error_], np.asarray(result.std_errors_, dtype=float)))
+    else:
+        beta_full = np.asarray(result.coef_, dtype=float)
+        se_full = np.asarray(result.std_errors_, dtype=float)
+
+    assert diagnostics.dfbetas.shape == (X.shape[0], beta_full.shape[0])
+
+    indices = [0, 5, 10]
+    for idx in indices:
+        mask = np.ones(X.shape[0], dtype=bool)
+        mask[idx] = False
+        refit = fit_glm(X[mask], y[mask], family="gaussian", link=None, max_iter=80, tol=1e-10)
+        if refit.intercept_ is not None:
+            beta_ref = np.concatenate(([refit.intercept_], np.asarray(refit.coef_, dtype=float)))
+        else:
+            beta_ref = np.asarray(refit.coef_, dtype=float)
+        delta = beta_full - beta_ref
+        dfbeta_expected = delta / np.clip(se_full, 1e-12, None)
+        np.testing.assert_allclose(diagnostics.dfbetas[idx], dfbeta_expected, atol=5e-2)
 
 
 def test_glmresult_diagnostics_property_caches_result():

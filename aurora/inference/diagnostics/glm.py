@@ -18,8 +18,12 @@ class GLMDiagnosticResult:
     pearson_residuals: np.ndarray
     deviance_residuals: np.ndarray
     working_residuals: np.ndarray
+    studentized_residuals: np.ndarray
     leverage: np.ndarray
     cooks_distance: np.ndarray
+    dfbetas: np.ndarray
+    summary: np.ndarray
+    summary_columns: tuple[str, ...]
 
 
 def glm_diagnostics(result: GLMResult) -> GLMDiagnosticResult:
@@ -61,13 +65,30 @@ def glm_diagnostics(result: GLMResult) -> GLMDiagnosticResult:
     denom = np.clip(1.0 - leverage, 1e-12, None)
     cooks = (pearson**2 / np.clip(scale, 1e-12, None)) * (leverage / (p * denom**2))
 
+    studentized = pearson / np.sqrt(denom)
+    dfbetas = _dfbetas(design, weights, cov, pearson, leverage)
+
+    summary_cols = (
+        "response_residual",
+        "pearson_residual",
+        "deviance_residual",
+        "studentized_residual",
+        "leverage",
+        "cooks_distance",
+    )
+    summary = np.column_stack((response, pearson, deviance, studentized, leverage, cooks))
+
     return GLMDiagnosticResult(
         response_residuals=response,
         pearson_residuals=pearson,
         deviance_residuals=deviance,
         working_residuals=working,
+        studentized_residuals=studentized,
         leverage=leverage,
         cooks_distance=cooks,
+        dfbetas=dfbetas,
+        summary=summary,
+        summary_columns=summary_cols,
     )
 
 
@@ -143,6 +164,31 @@ def _hat_diagonal(X: np.ndarray, weights: np.ndarray, cov: np.ndarray) -> np.nda
 def _estimate_dispersion(deviance: float, p: int, n_obs: int) -> float:
     df = max(n_obs - p, 1)
     return deviance / df
+
+
+def _dfbetas(
+    design: np.ndarray,
+    weights: np.ndarray,
+    covariance: np.ndarray,
+    pearson_residuals: np.ndarray,
+    leverage: np.ndarray,
+) -> np.ndarray:
+    n_samples, n_params = design.shape
+    cov = np.asarray(covariance, dtype=np.float64)
+    diag_cov = np.clip(np.diag(cov), 1e-12, None)
+    std_params = np.sqrt(diag_cov)
+
+    dfbetas = np.zeros((n_samples, n_params), dtype=np.float64)
+    for i in range(n_samples):
+        xi = design[i]
+        wi = float(weights[i])
+        leverage_i = float(np.clip(leverage[i], 0.0, 1.0))
+        denom = np.sqrt(np.clip(1.0 - leverage_i, 1e-12, None))
+        pearson_i = float(pearson_residuals[i])
+        adjustment = pearson_i * wi / np.clip(denom, 1e-12, None)
+        influence = cov @ (xi * wi)
+        dfbetas[i] = influence * adjustment / std_params
+    return dfbetas
 
 
 __all__ = ["GLMDiagnosticResult", "glm_diagnostics"]
