@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from aurora.distributions.links import IdentityLink, InverseLink, LogLink, LogitLink
+from aurora.distributions.links import CLogLogLink, IdentityLink, InverseLink, LogLink, LogitLink
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -108,6 +108,33 @@ def test_inverse_link_behaviour(xp):
 def test_inverse_link_clips_small_mu(xp):
     link = InverseLink()
     mu = _as_array(xp, [0.0, 1e-9])
+    eta = link.link(mu)
+    if xp is np:
+        assert np.all(np.isfinite(eta))
+    else:
+        assert torch.all(torch.isfinite(eta))
+
+
+@pytest.mark.parametrize("xp", _namespaces())
+def test_cloglog_link_behaviour(xp):
+    link = CLogLogLink()
+    mu_values = [0.2, 0.6, 0.85]
+    mu = _as_array(xp, mu_values)
+    eta = link.link(mu)
+    expected_eta = np.log(-np.log(1.0 - np.asarray(mu_values)))
+    assert _allclose(eta, expected_eta, xp)
+    mu_back = link.inverse(eta)
+    assert _allclose(mu_back, mu_values, xp)
+    deriv = link.derivative(mu)
+    log_term = -np.log(1.0 - np.asarray(mu_values))
+    expected_deriv = 1.0 / (log_term * (1.0 - np.asarray(mu_values)))
+    assert _allclose(deriv, expected_deriv, xp)
+
+
+@pytest.mark.parametrize("xp", _namespaces())
+def test_cloglog_link_clips_extremes(xp):
+    link = CLogLogLink()
+    mu = _as_array(xp, [0.0, 1.0])
     eta = link.link(mu)
     if xp is np:
         assert np.all(np.isfinite(eta))

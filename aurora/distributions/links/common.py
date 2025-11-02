@@ -92,4 +92,28 @@ class InverseLink(LinkFunction):
         return -1.0 / (mu_arr**2)
 
 
-__all__ = ["IdentityLink", "LogLink", "LogitLink", "InverseLink"]
+class CLogLogLink(LinkFunction):
+    """Complementary log-log link ``g(mu) = log(-log(1 - mu))``."""
+
+    def link(self, mu):  # noqa: ANN001 - signature from base class
+        xp = namespace(mu)
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
+        one_minus = 1.0 - mu_arr
+        one_minus = _ensure_positive(one_minus, xp)
+        return xp.log(-xp.log(one_minus))
+
+    def inverse(self, eta):  # noqa: ANN001 - signature from base class
+        xp = namespace(eta)
+        eta_arr = as_namespace_array(eta, xp, like=eta)
+        return 1.0 - xp.exp(-xp.exp(eta_arr))
+
+    def derivative(self, mu):  # noqa: ANN001 - signature from base class
+        xp = namespace(mu)
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
+        one_minus = 1.0 - mu_arr
+        one_minus = _ensure_positive(one_minus, xp)
+        log_term = -xp.log(one_minus)
+        return 1.0 / (log_term * one_minus)
+
+
+__all__ = ["IdentityLink", "LogLink", "LogitLink", "InverseLink", "CLogLogLink"]
