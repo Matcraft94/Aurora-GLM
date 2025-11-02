@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import is_dataclass, replace
+from dataclasses import dataclass, is_dataclass, replace
 from typing import Any, Callable, Sequence
 
 import numpy as np
@@ -11,6 +11,15 @@ from .split import KFold, StratifiedKFold
 
 FitFunc = Callable[..., Any]
 ScoreFunc = Callable[[Any, Sequence[Any], Sequence[Any]], float]
+
+
+@dataclass(frozen=True)
+class CrossValResult:
+    """Aggregate statistics for a cross-validation run."""
+
+    scores: np.ndarray
+    mean: float
+    std: float
 
 
 def cross_val_score(
@@ -25,13 +34,17 @@ def cross_val_score(
     splitter: str | Any | None = None,
     fit_kwargs: dict[str, Any] | None = None,
     score_kwargs: dict[str, Any] | None = None,
-) -> np.ndarray:
+    return_result: bool = False,
+) -> np.ndarray | CrossValResult:
     """Evaluate a model using K-fold cross-validation.
 
     ``fit_func`` must accept the training design matrix and response as its first
     two positional arguments and return a fitted model object. ``score_func`` must
     accept the fitted model, validation design matrix, and response, returning a
     scalar score where larger values indicate better performance.
+
+    Set ``return_result`` to ``True`` to obtain a ``CrossValResult`` with summary
+    statistics in addition to the fold scores.
     """
 
     if fit_kwargs is None:
@@ -60,7 +73,13 @@ def cross_val_score(
         score = score_func(model, X_test, y_test, **score_kwargs)
         scores.append(float(score))
 
-    return np.asarray(scores, dtype=np.float64)
+    scores_arr = np.asarray(scores, dtype=np.float64)
+    if not return_result:
+        return scores_arr
+
+    mean = float(np.mean(scores_arr)) if scores_arr.size else float("nan")
+    std = float(np.std(scores_arr, ddof=1)) if scores_arr.size > 1 else 0.0
+    return CrossValResult(scores=scores_arr, mean=mean, std=std)
 
 
 def _to_numpy(value: Sequence[Any] | Any) -> np.ndarray:
@@ -106,4 +125,4 @@ def _clone_splitter(splitter: Any) -> Any:
         return splitter
 
 
-__all__ = ["cross_val_score"]
+__all__ = ["CrossValResult", "cross_val_score"]
