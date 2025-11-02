@@ -52,8 +52,20 @@ def test_poisson_log_fit_reduces_deviance_and_supports_prediction_modes():
     with pytest.raises(ValueError):
         result.predict(X[:5], type="unsupported")
 
+    resp_pred_ci = result.predict(X[:5], interval="confidence")
+    assert isinstance(resp_pred_ci, tuple) and len(resp_pred_ci) == 3
+    resp_mean, resp_lower, resp_upper = resp_pred_ci
+    np.testing.assert_allclose(resp_mean, resp_pred)
+    assert np.all(resp_lower <= resp_mean)
+    assert np.all(resp_upper >= resp_mean)
+
+    link_mean, link_lower, link_upper = result.predict(X[:5], type="link", interval="confidence")
+    np.testing.assert_allclose(link_mean, link_pred)
+    assert np.all(link_lower <= link_mean)
+    assert np.all(link_upper >= link_mean)
+
     with pytest.raises(NotImplementedError):
-        result.predict(X[:5], interval="confidence")
+        result.predict(X[:5], interval="prediction")
 
     std_errors = result.std_errors_
     assert std_errors.shape == coef.shape
