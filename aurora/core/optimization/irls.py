@@ -47,6 +47,9 @@ def irls(
     beta = backend.array(init_params)
     offset_arr = backend.array(offset) if offset is not None else y * 0
 
+    converted_args = tuple(_convert_to_backend(backend, value) for value in args)
+    converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
+
     nfev = 0
 
     def _to_backend(data):
@@ -93,7 +96,7 @@ def irls(
         beta = beta_new
 
         nfev += 1
-        loss_value = loss_fn(beta, *args, **kwargs)
+        loss_value = loss_fn(beta, *converted_args, **converted_kwargs)
 
         if callback is not None:
             callback(iteration, backend.as_numpy(beta), float(backend.as_numpy(loss_value)))
@@ -111,7 +114,7 @@ def irls(
                 nhev=0,
             )
 
-    loss_value = loss_fn(beta, *args, **kwargs)
+    loss_value = loss_fn(beta, *converted_args, **converted_kwargs)
     nfev += 1
     return OptimizationResult(
         x=backend.as_numpy(beta),
@@ -141,6 +144,18 @@ def _sqrt(backend, value):
         return value.sqrt()
     value_np = backend.as_numpy(value)
     return backend.array(np.sqrt(value_np))
+
+
+def _convert_to_backend(backend, value):
+    if isinstance(value, (tuple, list)):
+        converted = [_convert_to_backend(backend, item) for item in value]
+        return type(value)(converted)
+    if isinstance(value, dict):
+        return {key: _convert_to_backend(backend, item) for key, item in value.items()}
+    try:
+        return backend.array(value)
+    except Exception:  # pragma: no cover - fallback when conversion is not applicable
+        return value
 
 
 __all__ = ["irls"]
