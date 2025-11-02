@@ -2,7 +2,7 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ⚠️ **Development Status**: Phase 2 in progress. Core infrastructure is complete, GLM fitting functions are currently being implemented. Contributions and feedback are welcome!
+> ⚠️ **Development Status**: Phase 2 in progress (GLM stack ~80% complete: fitting, inference y diagnóstico en integración final). Contributions and feedback are welcome!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -15,7 +15,7 @@
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 - **Version**: 0.2.0-dev
-- **Status**: Phase 2 - GLM fitting implemented (~60% complete, inference pending)
+- **Status**: Phase 2 - GLM fitting implemented (~80% complete, inferencia/diagnósticos en integración)
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -65,23 +65,23 @@ Aurora-GLM aims to be:
 - ✅ Inverse: `g(μ) = 1/μ`
 - ✅ CLogLog: `g(μ) = log(-log(1-μ))`
 
-### Phase 2: Basic GLM - IN PROGRESS 🚧 (60%)
+### Phase 2: Basic GLM - IN PROGRESS 🚧 (80%)
 
 **Implemented**:
-- ✅ GLM model fitting with IRLS (317 lines)
-- ✅ `fit_glm()` function with multi-backend support
-- ✅ `GLMResult` class with `predict()` method
-- ✅ Evaluation metrics (deviance, AIC, BIC, null deviance)
-- ✅ Support for weights and offsets
+- ✅ IRLS-based `fit_glm()` con soporte multi-backend, weights y offsets
+- ✅ `GLMResult` con predicciones y métricas (deviance, AIC, BIC, null deviance)
+- ✅ Intervalos y pruebas de Wald preliminares (`aurora/inference`)
+- ✅ Diagnósticos básicos (residuales, leverage, Cook's distance)
+- ✅ Métricas de validación y `KFold` genérico
 
-**Still to implement**:
-- 🚧 Inference (std errors, p-values, confidence intervals)
-- 🚧 Model diagnostics (residuals, Cook's distance, leverage)
-- 🚧 Additional metrics (pseudo R², concordance index)
-- 🚧 Validation against statsmodels and R
-- 🚧 `summary()` and `plot_diagnostics()` methods
+**En curso**:
+- 🚧 Integrar intervalos/p-values directamente en `GLMResult`
+- 🚧 Diagnósticos avanzados (residuales studentizados, DFBETAs, reporting)
+- 🚧 Métricas adicionales (pseudo R² ampliado, concordance index)
+- 🚧 Validación cruzada contra statsmodels y R (`glm`)
+- 🚧 Métodos `summary()` y `plot_diagnostics()` con visualización básica
 
-**Timeline**: Expected completion in 2 weeks
+**Timeline**: Sprint de 3 semanas (Nov 2025) para cerrar backlog crítico
 
 ### Phase 3: GAM (Splines and Smoothing) - PLANNED 📋
 
@@ -92,6 +92,8 @@ Aurora-GLM aims to be:
 - 📋 Penalization and smoothing parameter selection (GCV, REML, AIC)
 - 📋 R-style formula parser (`y ~ s(x1, bs='tp') + s(x2)`)
 - 📋 Visualization of smooth terms
+
+> Diseño preliminar disponible en `aurora/smoothing/DESIGN.md` (plan incremental y riesgos identificados).
 
 ### Phase 4: GAMM (Random Effects) - PLANNED 📋
 
