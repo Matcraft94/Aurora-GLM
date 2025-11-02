@@ -21,13 +21,16 @@ def lbfgs(
     callback: OptimizationCallback | None = None,
 ) -> OptimizationResult:
     """L-BFGS (Limited-memory BFGS) optimization."""
-    if kwargs is None:
-        kwargs = {}
+
+    kwargs = kwargs or {}
 
     if backend is None:
         from ..backends import get_backend
 
         backend = get_backend("jax")
+
+    converted_args = tuple(_convert_to_backend(backend, value) for value in args)
+    converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
 
     grad_fn = backend.grad(loss_fn)
     x = backend.array(init_params)
@@ -35,7 +38,7 @@ def lbfgs(
     s_history: list[Any] = []
     y_history: list[Any] = []
 
-    g = grad_fn(x, *args, **kwargs)
+    g = grad_fn(x, *converted_args, **converted_kwargs)
 
     nfev = 1
     njev = 1
@@ -50,15 +53,16 @@ def lbfgs(
             d,
             g,
             backend,
-            args=args,
-            kwargs=kwargs,
+            args=converted_args,
+            kwargs=converted_kwargs,
             method=line_search,
         )
 
         if alpha <= 0:
+            failure_fun = loss_fn(x, *converted_args, **converted_kwargs)
             return OptimizationResult(
                 x=backend.as_numpy(x),
-                fun=float(loss_fn(x, *args, **kwargs)),
+                fun=float(failure_fun),
                 grad=backend.as_numpy(g),
                 success=False,
                 message="Line search failed to find a descent direction",
@@ -73,7 +77,6 @@ def lbfgs(
         x_new = x + alpha * d
         s = x_new - x
 
-        g_new = g_new
         y = g_new - g
 
         if hasattr(backend, "as_numpy"):
@@ -95,13 +98,13 @@ def lbfgs(
         g = g_new
 
         if callback is not None:
-            f_val = loss_fn(x, *args, **kwargs)
+            f_val = loss_fn(x, *converted_args, **converted_kwargs)
             callback(iteration, backend.as_numpy(x), float(backend.as_numpy(f_val)))
             nfev += 1
 
         grad_norm = backend.as_numpy((g * g).sum() ** 0.5)
         if grad_norm < tol:
-            f_final = loss_fn(x, *args, **kwargs)
+            f_final = loss_fn(x, *converted_args, **converted_kwargs)
             nfev += 1
             return OptimizationResult(
                 x=backend.as_numpy(x),
@@ -114,7 +117,7 @@ def lbfgs(
                 njev=njev,
             )
 
-    f_final = loss_fn(x, *args, **kwargs)
+    f_final = loss_fn(x, *converted_args, **converted_kwargs)
     nfev += 1
     return OptimizationResult(
         x=backend.as_numpy(x),
@@ -205,5 +208,16 @@ def _line_search(
     g_new = grad_fn(x_new, *args, **kwargs)
     return alpha, f_new, g_new, fev
 
+
+def _convert_to_backend(backend, value):
+    if isinstance(value, (tuple, list)):
+        converted = [_convert_to_backend(backend, item) for item in value]
+        return type(value)(converted)
+    if isinstance(value, dict):
+        return {key: _convert_to_backend(backend, item) for key, item in value.items()}
+    try:
+        return backend.array(value)
+    except Exception:  # pragma: no cover - fallback when conversion is not applicable
+        return value
 
 __all__ = ["lbfgs"]
