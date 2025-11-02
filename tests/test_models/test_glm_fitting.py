@@ -55,5 +55,15 @@ def test_poisson_log_fit_reduces_deviance_and_supports_prediction_modes():
     with pytest.raises(NotImplementedError):
         result.predict(X[:5], interval="confidence")
 
-    with pytest.raises(NotImplementedError):
-        _ = result.std_errors_
+    std_errors = result.std_errors_
+    assert std_errors.shape == coef.shape
+    assert np.all(np.isfinite(std_errors))
+
+    if result.intercept_ is not None:
+        assert result.intercept_std_error_ is not None
+        assert np.isfinite(result.intercept_std_error_)
+        assert result.intercept_p_value_ is not None
+
+    p_values = result.p_values_
+    assert p_values.shape == coef.shape
+    assert np.all((p_values >= 0.0) & (p_values <= 1.0))
