@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from aurora.validation.metrics import accuracy_score, brier_score_loss, log_loss
+from aurora.validation.metrics import accuracy_score, brier_score_loss, concordance_index, log_loss
 
 
 def test_accuracy_score_basic_and_weighted():
@@ -73,3 +73,21 @@ def test_brier_score_loss():
 
     with pytest.raises(ValueError):
         brier_score_loss(y_true, np.column_stack((y_prob, y_prob)))
+
+
+def test_concordance_index_behaviour():
+    y_true = np.array([0, 1, 1, 0])
+    y_score = np.array([0.1, 0.9, 0.8, 0.2])
+    assert concordance_index(y_true, y_score) == pytest.approx(1.0)
+
+    y_score_partial = np.array([0.1, 0.8, 0.6, 0.4])
+    assert concordance_index(np.array([0, 1, 0, 1]), y_score_partial) == pytest.approx(0.75)
+
+    y_score_equal = np.full(4, 0.5)
+    assert concordance_index(y_true, y_score_equal) == pytest.approx(0.5)
+
+    with pytest.raises(ValueError):
+        concordance_index(np.array([0, 0, 0]), np.array([0.1, 0.2, 0.3]))
+
+    with pytest.raises(ValueError):
+        concordance_index(y_true, np.array([0.1, 0.2]))

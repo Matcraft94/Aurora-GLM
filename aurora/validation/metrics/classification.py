@@ -87,9 +87,73 @@ def brier_score_loss(
     return float(_weighted_mean(losses, sample_weight))
 
 
+def concordance_index(y_true: Any, y_score: Any) -> float:
+    """Compute the concordance index (c-statistic) for binary outcomes."""
+
+    true = _to_numpy(y_true).reshape(-1)
+    score = _to_numpy(y_score).reshape(-1)
+
+    if true.shape[0] != score.shape[0]:
+        raise ValueError("y_true and y_score must have the same length")
+    if true.size == 0:
+        raise ValueError("Inputs must be non-empty")
+    if not np.all(np.isfinite(score)):
+        raise ValueError("Predicted scores must be finite")
+
+    binary = _to_binary_labels(true)
+    n_pos = float(binary.sum())
+    n_neg = float(binary.size - n_pos)
+    if n_pos == 0.0 or n_neg == 0.0:
+        raise ValueError("Concordance index requires both positive and negative examples")
+
+    order = np.argsort(-score, kind="mergesort")
+    y_sorted = binary[order]
+    score_sorted = score[order]
+
+    pos_seen = 0.0
+    neg_seen = 0.0
+    concordant = 0.0
+    ties = 0.0
+
+    n = score_sorted.size
+    i = 0
+    while i < n:
+        s_val = score_sorted[i]
+        j = i + 1
+        while j < n and np.isclose(score_sorted[j], s_val, rtol=1e-12, atol=1e-12):
+            j += 1
+
+        group = y_sorted[i:j]
+        pos_group = float(group.sum())
+        group_size = j - i
+        neg_group = float(group_size - pos_group)
+
+        concordant += neg_group * pos_seen
+        ties += pos_group * neg_group
+        # discordant count included implicitly via pos_group * neg_seen, but not required for index
+
+        pos_seen += pos_group
+        neg_seen += neg_group
+        i = j
+
+    total_pairs = n_pos * n_neg
+    if total_pairs <= 0.0:
+        raise ValueError("No comparable pairs available for concordance computation")
+
+    return (concordant + 0.5 * ties) / total_pairs
+
+
 def _is_binary_labels(labels: np.ndarray) -> bool:
     unique = np.unique(labels)
     return np.array_equal(unique, [0]) or np.array_equal(unique, [1]) or np.array_equal(unique, [0, 1])
+
+
+def _to_binary_labels(labels: np.ndarray) -> np.ndarray:
+    unique = np.unique(labels)
+    if unique.size != 2:
+        raise ValueError("Binary labels required for concordance index")
+    positive = unique.max()
+    return (labels == positive).astype(np.float64)
 
 
 def _weighted_sum(values: np.ndarray, sample_weight: Any | None) -> float:
@@ -129,4 +193,4 @@ def _to_numpy(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=np.float64)
 
 
-__all__ = ["accuracy_score", "log_loss", "brier_score_loss"]
+__all__ = ["accuracy_score", "log_loss", "brier_score_loss", "concordance_index"]
