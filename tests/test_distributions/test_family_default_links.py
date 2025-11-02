@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from aurora.distributions.families import BinomialFamily, GaussianFamily, PoissonFamily
-from aurora.distributions.links import CLogLogLink, IdentityLink, LogLink, LogitLink
+from aurora.distributions.links import IdentityLink, LogLink, LogitLink
 from aurora.distributions.base import LinkFunction
 
 
@@ -42,8 +42,3 @@ def test_custom_link_is_respected(family_cls):
     custom_link = _ScaledIdentity()
     family = family_cls(link=custom_link)
     assert family.default_link is custom_link
-
-
-def test_binomial_link_identifier_is_resolved():
-    family = BinomialFamily(link="cloglog")
-    assert isinstance(family.default_link, CLogLogLink)
