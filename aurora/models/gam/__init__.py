@@ -1,7 +1,16 @@
 """Generalized Additive Model routines."""
 from __future__ import annotations
 
+from aurora.models.gam.additive import AdditiveGAMResult, fit_additive_gam
 from aurora.models.gam.fitting import fit_gam
 from aurora.models.gam.result import GAMResult
+from aurora.models.gam.terms import ParametricTerm, SmoothTerm
 
-__all__ = ["fit_gam", "GAMResult"]
+__all__ = [
+    "fit_gam",
+    "GAMResult",
+    "fit_additive_gam",
+    "AdditiveGAMResult",
+    "SmoothTerm",
+    "ParametricTerm",
+]
