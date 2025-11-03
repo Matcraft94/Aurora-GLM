@@ -65,27 +65,32 @@ Aurora-GLM aims to be:
 - ✅ Inverse: `g(μ) = 1/μ`
 - ✅ CLogLog: `g(μ) = log(-log(1-μ))`
 
-### Phase 2: Basic GLM - IN PROGRESS 🚧 (80%)
+### Phase 2: Basic GLM - IN PROGRESS 🚧 (95%)
 
 **Implemented**:
-- ✅ IRLS-based `fit_glm()` con soporte multi-backend, weights y offsets
-- ✅ `GLMResult` con predicciones y métricas (deviance, AIC, BIC, null deviance)
-- ✅ Intervalos y pruebas de Wald preliminares (`aurora/inference`)
-- ✅ Diagnósticos básicos (residuales, leverage, Cook's distance)
-- ✅ Métricas de validación y `KFold` genérico
+- ✅ IRLS-based `fit_glm()` with multi-backend support (NumPy/PyTorch), weights, and offsets
+- ✅ `GLMResult` with predictions, metrics (deviance, AIC, BIC, null deviance), and lazy inference
+- ✅ Confidence intervals integrated in `predict(interval='confidence')` with delta method
+- ✅ P-values and standard errors via Wald approximation (lazy computation)
+- ✅ Wald hypothesis tests for single and multi-constraint hypotheses (chi-square)
+- ✅ Comprehensive diagnostics: response, Pearson, deviance, working, and studentized residuals
+- ✅ Influence measures: leverage, Cook's distance, DFBETAs
+- ✅ Validation metrics: MSE, MAE, RMSE, pseudo R², accuracy, log-loss, Brier score
+- ✅ Cross-validation: `KFold`, `StratifiedKFold`, and `cross_val_score` with aggregated results
+- ✅ Benchmarking against statsmodels (max |Δcoef| ≈ 4e-06)
+- ✅ 86 tests passing across inference, diagnostics, validation, and fitting
 
-**En curso**:
-- 🚧 Integrar intervalos/p-values directamente en `GLMResult`
-- 🚧 Diagnósticos avanzados (residuales studentizados, DFBETAs, reporting)
-- 🚧 Métricas adicionales (pseudo R² ampliado, concordance index)
-- 🚧 Validación cruzada contra statsmodels y R (`glm`)
-- 🚧 Métodos `summary()` y `plot_diagnostics()` con visualización básica
+**Remaining for Phase 2 completion**:
+- 🚧 `GLMResult.summary()` method with formatted coefficient table
+- 🚧 `GLMResult.plot_diagnostics()` with 4 standard diagnostic plots
+- 🚧 Concordance index (C-index) for binary classification
+- 🚧 Validation against R `glm()` (in addition to statsmodels)
+- 🚧 Documentation: 2 demo notebooks (Poisson and Logistic regression)
+- 🚧 Test coverage measurement (install pytest-cov, target ≥90%)
 
-**Timeline**: Sprint de 3 semanas (Nov 2025) para cerrar backlog crítico
 
 ### Phase 3: GAM (Splines and Smoothing) - PLANNED 📋
 
-**Timeline**: 6-8 weeks after Phase 2
 
 **Planned features**:
 - 📋 Spline basis functions (cubic, B-splines, P-splines, thin plate, tensor product)
@@ -96,8 +101,6 @@ Aurora-GLM aims to be:
 > Diseño preliminar disponible en `aurora/smoothing/DESIGN.md` (plan incremental y riesgos identificados).
 
 ### Phase 4: GAMM (Random Effects) - PLANNED 📋
-
-**Timeline**: 6-8 weeks after Phase 3
 
 **Planned features**:
 - 📋 Random effects (intercepts, slopes, crossed, nested)
@@ -405,8 +408,6 @@ Please ensure:
 - **Docstrings** in NumPy/Google format with examples
 - **Code formatting** with `ruff format`
 - **Multi-backend support** using the namespace pattern
-
-See [CLAUDE.md](CLAUDE.md) for detailed implementation patterns and architectural guidelines.
 
 ## Design Principles
 
