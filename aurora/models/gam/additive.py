@@ -411,6 +411,16 @@ def fit_additive_gam(
     fitted_values = gcv_result["fitted_values"]
     gcv_score = gcv_result["gcv_score"]
 
+    # Compute influence matrix for EDF calculation
+    XtWX = X_full.T @ W @ X_full
+    A = XtWX + lambda_opt * S_full
+    try:
+        A_inv = np.linalg.inv(A)
+        H = X_full @ A_inv @ X_full.T @ W
+    except np.linalg.LinAlgError:
+        # Fallback if singular
+        H = None
+
     # Split coefficients back into parametric and smooth components
     idx = 0
 
@@ -428,16 +438,24 @@ def fit_additive_gam(
         n_basis = smooth_design_matrices[term_name].shape[1]
 
         smooth_coef[term_name] = coefficients[idx:idx + n_basis]
-        idx += n_basis
 
         # For now, all smooths use same lambda (simplified)
         # TODO: Implement per-term lambda optimization
         lambda_values[term_name] = lambda_opt
 
         # Compute EDF for this smooth term
-        # EDF = trace(X_j (X'WX + λS)^(-1) X_j' W)
-        # Simplified: use fraction of total EDF
-        edf_values[term_name] = gcv_result["edf"] / len(smooth_terms)
+        # EDF_j = trace(X_j (X'WX + λS)^(-1) X_j' W)
+        if H is not None:
+            # Get columns corresponding to this smooth term
+            X_j = X_full[:, idx:idx + n_basis]
+            # EDF for this term is trace of its influence
+            H_j = X_j @ A_inv[idx:idx + n_basis, :] @ X_full.T @ W
+            edf_values[term_name] = float(np.trace(H_j))
+        else:
+            # Fallback: equal division (subtract parametric)
+            edf_values[term_name] = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
+
+        idx += n_basis
 
     # Compute residuals
     residuals = y_arr - fitted_values
