@@ -82,5 +82,8 @@ dmypy.json
 # Pytest cache
 .pytest_cache/
 
-# CLaude
+# Claude
 CLAUDE.md
+
+# Benchmark results
+benchmarks/results/
