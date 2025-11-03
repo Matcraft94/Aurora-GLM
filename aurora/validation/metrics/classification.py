@@ -87,8 +87,34 @@ def brier_score_loss(
     return float(_weighted_mean(losses, sample_weight))
 
 
-def concordance_index(y_true: Any, y_score: Any) -> float:
-    """Compute the concordance index (c-statistic) for binary outcomes."""
+def concordance_index(y_true: Any, y_score: Any, *, sample_weight: Any | None = None) -> float:
+    """Compute the concordance index (c-statistic) for binary outcomes.
+
+    The concordance index measures the probability that for a randomly selected
+    pair of positive and negative samples, the positive sample has a higher
+    predicted score than the negative sample.
+
+    Parameters
+    ----------
+    y_true : array-like
+        Binary labels (must contain exactly two unique values).
+    y_score : array-like
+        Predicted scores or probabilities.
+    sample_weight : array-like, optional
+        Sample weights. If provided, the concordance computation is weighted.
+
+    Returns
+    -------
+    float
+        The concordance index, ranging from 0.0 (perfect inverse discrimination)
+        to 1.0 (perfect discrimination). A value of 0.5 indicates random predictions.
+
+    Raises
+    ------
+    ValueError
+        If inputs have mismatched lengths, are empty, contain non-finite scores,
+        or lack both positive and negative examples.
+    """
 
     true = _to_numpy(y_true).reshape(-1)
     score = _to_numpy(y_score).reshape(-1)
@@ -101,17 +127,31 @@ def concordance_index(y_true: Any, y_score: Any) -> float:
         raise ValueError("Predicted scores must be finite")
 
     binary = _to_binary_labels(true)
-    n_pos = float(binary.sum())
-    n_neg = float(binary.size - n_pos)
-    if n_pos == 0.0 or n_neg == 0.0:
+
+    # Handle sample weights
+    if sample_weight is None:
+        weights = np.ones_like(binary)
+    else:
+        weights = _to_numpy(sample_weight).reshape(-1)
+        if weights.shape[0] != binary.shape[0]:
+            raise ValueError("sample_weight must have the same length as y_true")
+        if np.any(weights < 0):
+            raise ValueError("sample_weight must be non-negative")
+        if not np.all(np.isfinite(weights)):
+            raise ValueError("sample_weight must be finite")
+
+    n_pos = float(np.sum(binary * weights))
+    n_neg = float(np.sum((1.0 - binary) * weights))
+    if n_pos <= 0.0 or n_neg <= 0.0:
         raise ValueError("Concordance index requires both positive and negative examples")
 
     order = np.argsort(-score, kind="mergesort")
     y_sorted = binary[order]
     score_sorted = score[order]
+    weights_sorted = weights[order]
 
-    pos_seen = 0.0
-    neg_seen = 0.0
+    pos_weight_seen = 0.0
+    neg_weight_seen = 0.0
     concordant = 0.0
     ties = 0.0
 
@@ -123,17 +163,17 @@ def concordance_index(y_true: Any, y_score: Any) -> float:
         while j < n and np.isclose(score_sorted[j], s_val, rtol=1e-12, atol=1e-12):
             j += 1
 
-        group = y_sorted[i:j]
-        pos_group = float(group.sum())
-        group_size = j - i
-        neg_group = float(group_size - pos_group)
+        group_y = y_sorted[i:j]
+        group_w = weights_sorted[i:j]
+        pos_weight_group = float(np.sum(group_y * group_w))
+        neg_weight_group = float(np.sum((1.0 - group_y) * group_w))
 
-        concordant += neg_group * pos_seen
-        ties += pos_group * neg_group
-        # discordant count included implicitly via pos_group * neg_seen, but not required for index
+        concordant += neg_weight_group * pos_weight_seen
+        ties += pos_weight_group * neg_weight_group
+        # discordant count included implicitly via pos_weight_group * neg_weight_seen, but not required for index
 
-        pos_seen += pos_group
-        neg_seen += neg_group
+        pos_weight_seen += pos_weight_group
+        neg_weight_seen += neg_weight_group
         i = j
 
     total_pairs = n_pos * n_neg

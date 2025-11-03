@@ -91,3 +91,48 @@ def test_concordance_index_behaviour():
 
     with pytest.raises(ValueError):
         concordance_index(y_true, np.array([0.1, 0.2]))
+
+
+def test_concordance_index_with_sample_weights():
+    """Test that concordance index correctly handles sample weights."""
+    y_true = np.array([0, 1, 1, 0, 1, 0])
+    y_score = np.array([0.1, 0.9, 0.7, 0.3, 0.8, 0.2])
+
+    # Unweighted c-index should be 1.0 (all pairs concordant)
+    c_unweighted = concordance_index(y_true, y_score)
+    assert c_unweighted == pytest.approx(1.0)
+
+    # With uniform weights, should be identical
+    weights_uniform = np.ones(6)
+    c_uniform = concordance_index(y_true, y_score, sample_weight=weights_uniform)
+    assert c_uniform == pytest.approx(c_unweighted)
+
+    # With non-uniform weights, c-index should change
+    # Give higher weight to first negative (0.1) and first positive (0.9)
+    weights = np.array([2.0, 3.0, 1.0, 1.0, 1.0, 1.0])
+    c_weighted = concordance_index(y_true, y_score, sample_weight=weights)
+    # This should still be 1.0 since all pairs are concordant
+    assert c_weighted == pytest.approx(1.0)
+
+    # Test with a case that has discordant pairs
+    y_true_mixed = np.array([0, 1, 0, 1])
+    y_score_mixed = np.array([0.4, 0.6, 0.3, 0.7])
+    # Pairs: (0,1): 0.4 < 0.6 ✓, (0,3): 0.4 < 0.7 ✓, (2,1): 0.3 < 0.6 ✓, (2,3): 0.3 < 0.7 ✓
+    # C-index = 4/4 = 1.0
+    c_mixed = concordance_index(y_true_mixed, y_score_mixed)
+    assert c_mixed == pytest.approx(1.0)
+
+    # Weight the discordant example more heavily
+    weights_mixed = np.array([1.0, 1.0, 1.0, 1.0])
+    c_weighted_mixed = concordance_index(y_true_mixed, y_score_mixed, sample_weight=weights_mixed)
+    assert c_weighted_mixed == pytest.approx(c_mixed)
+
+    # Test error cases
+    with pytest.raises(ValueError, match="sample_weight must have the same length"):
+        concordance_index(y_true, y_score, sample_weight=np.array([1.0, 2.0]))
+
+    with pytest.raises(ValueError, match="sample_weight must be non-negative"):
+        concordance_index(y_true, y_score, sample_weight=np.array([1.0, -1.0, 1.0, 1.0, 1.0, 1.0]))
+
+    with pytest.raises(ValueError, match="sample_weight must be finite"):
+        concordance_index(y_true, y_score, sample_weight=np.array([1.0, np.inf, 1.0, 1.0, 1.0, 1.0]))
