@@ -5,9 +5,9 @@ All notable changes to Aurora-GLM will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2025-11-02
+## [0.2.0]
 
-### 🎉 Phase 2 Completion - Full GLM Implementation
+### Phase 2 Completion - Full GLM Implementation
 
 This release marks the completion of Phase 2, delivering a production-ready Generalized Linear Model implementation with comprehensive inference, diagnostics, and validation.
 
@@ -134,11 +134,10 @@ No migration needed - first production release.
 
 ### Contributors
 - Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- Claude Code (AI pair programmer)
 
 ---
 
-## [0.1.0] - 2025-10-15
+## [0.1.0]
 
 ### Added
 - Initial release with Phase 1 complete
