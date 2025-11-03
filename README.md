@@ -2,7 +2,7 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ✅ **Development Status**: Phase 2 COMPLETED! (GLM stack 100%: fitting, inference, diagnostics, and validation). Ready for Phase 3 (GAM). Contributions and feedback are welcome!
+> ✅ **Development Status**: Phase 3 IN PROGRESS (~50% complete). GAM core functionality implemented: spline bases (B-spline, cubic), penalties, GCV smoothing selection, and univariate fitting. Contributions and feedback welcome!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -14,8 +14,8 @@
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.2.0-dev
-- **Status**: Phase 2 COMPLETED ✅ - GLM fully implemented (100% complete with summary(), diagnostics, validation)
+- **Version**: 0.3.0-dev
+- **Status**: Phase 3 IN PROGRESS (~50%) - GAM splines, penalties, GCV selection, and univariate fitting implemented
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -84,16 +84,24 @@ Aurora-GLM aims to be:
 - ✅ Demo notebooks: Poisson regression and logistic regression with visualizations
 
 
-### Phase 3: GAM (Splines and Smoothing) - PLANNED 📋
+### Phase 3: GAM (Splines and Smoothing) - IN PROGRESS 🔨 (~50% complete)
 
+**Implemented** (87 new tests):
+- ✅ **B-spline basis functions**: Cox-de Boor recursion, local support, partition of unity (17 tests)
+- ✅ **Natural cubic spline basis**: Truncated power basis with analytical penalties (16 tests)
+- ✅ **Penalty matrices**: Difference penalties, weighted penalties, ridge penalties, combinations (20 tests)
+- ✅ **GCV smoothing selection**: Automatic λ selection via Generalized Cross-Validation (15 tests)
+- ✅ **Univariate GAM fitting**: `fit_gam()` with automatic smoothing, predictions, summaries (20 tests)
+- ✅ **GAMResult**: Comprehensive result object with predict(), summary(), EDF tracking
 
-**Planned features**:
-- 📋 Spline basis functions (cubic, B-splines, P-splines, thin plate, tensor product)
-- 📋 Penalization and smoothing parameter selection (GCV, REML, AIC)
+**Remaining features**:
+- 📋 Multivariate GAMs (additive models with multiple smooth terms)
+- 📋 REML/ML smoothing parameter selection (alternative to GCV)
+- 📋 Tensor product smooths for interactions
 - 📋 R-style formula parser (`y ~ s(x1, bs='tp') + s(x2)`)
 - 📋 Visualization of smooth terms
 
-> Diseño preliminar disponible en `aurora/smoothing/DESIGN.md` (plan incremental y riesgos identificados).
+> Full design available in `aurora/smoothing/DESIGN.md` (incremental plan with identified risks).
 
 ### Phase 4: GAMM (Random Effects) - PLANNED 📋
 
@@ -239,12 +247,83 @@ For complete examples with visualizations, see:
 - `examples/01_poisson_regression.ipynb` - Count data regression
 - `examples/02_logistic_regression.ipynb` - Binary classification with ROC curves
 
-### Planned GAM API (Phase 3)
+## GAM API (Phase 3 - AVAILABLE NOW!)
+
+### Basic Univariate GAM
 
 ```python
 from aurora.models.gam import fit_gam
+import numpy as np
 
-# R-style formula with smooth terms
+# Generate noisy data with non-linear relationship
+np.random.seed(42)
+x = np.linspace(0, 1, 100)
+y_true = np.sin(2 * np.pi * x)
+y = y_true + 0.1 * np.random.randn(100)
+
+# Fit GAM with automatic smoothing parameter selection (GCV)
+result = fit_gam(x, y, n_basis=12, basis_type='bspline')
+
+# Print model summary
+print(result.summary())
+# Shows: lambda, EDF, R², residual diagnostics
+
+# Make predictions at new points
+x_new = np.linspace(0, 1, 200)
+y_pred = result.predict(x_new)
+```
+
+**Output:**
+```
+============================================================
+Generalized Additive Model (GAM) - Fitted Summary
+============================================================
+
+Model Information:
+  Basis type:          BSplineBasis
+  Number of basis:     12
+  Observations:        100
+
+Smoothing:
+  Lambda:              8.806605e-02
+  Effective DoF:       9.69
+  GCV score:           3.662963e-02
+
+Fit Statistics:
+  Residual sum sq:     2.9872
+  R-squared:           0.9421
+  Residual std:        0.1727
+
+Residuals:
+  Min:                 -0.7174
+  Q1:                  -0.0823
+  Median:              0.0123
+  Q3:                  0.0957
+  Max:                 0.6197
+============================================================
+```
+
+### Advanced GAM Options
+
+```python
+# Specify smoothing parameter manually
+result = fit_gam(x, y, n_basis=15, lambda_=0.1)
+
+# Use cubic splines instead of B-splines
+result = fit_gam(x, y, n_basis=10, basis_type='cubic')
+
+# Weighted observations
+weights = np.random.uniform(0.5, 1.5, size=len(x))
+result = fit_gam(x, y, n_basis=12, weights=weights)
+
+# Different knot placement methods
+result = fit_gam(x, y, n_basis=12, knot_method='uniform')  # or 'quantile'
+```
+
+### Planned Multivariate GAM API (Coming Soon)
+
+```python
+# R-style formula with smooth terms (not yet implemented)
 result = fit_gam(
     formula="y ~ s(x1, bs='tp', k=10) + s(x2, bs='cr') + x3",
     data=df,
@@ -254,7 +333,6 @@ result = fit_gam(
 
 # Visualize smooth terms
 result.plot_smooth('s(x1)')
-result.summary()
 ```
 
 ### Planned GAMM API (Phase 4)
@@ -655,9 +733,10 @@ Special thanks to the open-source community for providing excellent tools and li
 
 ---
 
-**Status**: ✅ Phase 2 COMPLETED (GLM fully implemented with 119 tests, 84% coverage)
-**Version**: 0.2.0-dev
+**Status**: 🔨 Phase 3 IN PROGRESS (~50% complete): GAM splines, penalties, GCV, univariate fitting
+**Tests**: 206 passing, 2 skipped (88 new GAM tests added)
+**Version**: 0.3.0-dev
 **Python**: 3.10+
 **Maintained by**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 
-*Illuminating complex data with modern generalized linear modeling tools.*
+*Illuminating complex data with modern generalized linear and additive modeling tools.*
