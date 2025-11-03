@@ -256,6 +256,303 @@ class GLMResult:
         upper_vals = as_namespace_array(upper_mu, xp, like=mu)
         return predictions, lower_vals, upper_vals
 
+    def summary(self, *, detailed: bool = True) -> str:
+        """
+        Generate a formatted summary table of the GLM fit.
+
+        Parameters
+        ----------
+        detailed : bool, default=True
+            If True, includes full coefficient table with statistics. If False,
+            returns a condensed summary with key model metrics only.
+
+        Returns
+        -------
+        str
+            Multi-line formatted string containing:
+
+            - Model information (family, link, observations, parameters)
+            - Convergence status and iterations
+            - Coefficient table with estimates, std errors, z-values, p-values
+            - Goodness-of-fit statistics (deviance, AIC, BIC, pseudo R²)
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from aurora.models.glm import fit_glm
+        >>> X = np.random.randn(100, 2)
+        >>> y = np.random.poisson(np.exp(X[:, 0] * 0.5))
+        >>> result = fit_glm(X, y, family='poisson', link='log')
+        >>> print(result.summary())  # doctest: +SKIP
+        """
+        lines = []
+        sep = "=" * 78
+        lines.append(sep)
+        lines.append("Generalized Linear Model Results".center(78))
+        lines.append(sep)
+
+        # Model information
+        family_name = type(self.family).__name__.replace("Family", "")
+        link_name = type(self.link).__name__.replace("Link", "")
+
+        n_obs = int(self.mu_.shape[0]) if hasattr(self.mu_, "shape") else 0
+        n_params = int(self.coef_.shape[0]) if hasattr(self.coef_, "shape") else 0
+        if self._fit_intercept and self.intercept_ is not None:
+            n_params += 1
+        df_resid = max(n_obs - n_params, 0)
+        df_model = n_params - (1 if self._fit_intercept else 0)
+
+        # Two-column layout for header
+        lines.append(f"{'Family:':<25} {family_name:<26} {'Link function:':<15} {link_name}")
+        lines.append(f"{'No. Observations:':<25} {n_obs:<26} {'Df Residuals:':<15} {df_resid}")
+        lines.append(f"{'Df Model:':<25} {df_model:<26}")
+
+        converged_str = "Yes" if self.converged_ else "No"
+        lines.append(f"{'Converged:':<25} {converged_str:<26} {'No. Iterations:':<15} {self.n_iter_}")
+        lines.append(sep)
+
+        if detailed:
+            # Coefficient table
+            lines.append(f"{'':>12} {'coef':>10} {'std err':>10} {'z':>10} {'P>|z|':>10} {'[0.025':>10} {'0.975]':>10}")
+            lines.append("-" * 78)
+
+            # Trigger inference computation if needed
+            if self._std_errors is None or self._p_values is None:
+                try:
+                    _ = self.std_errors_  # Triggers _compute_inference()
+                except RuntimeError:
+                    # If inference fails (e.g., missing design matrix), show coefficients only
+                    coef_np = _to_numpy(self.coef_)
+                    if self._fit_intercept and self.intercept_ is not None:
+                        lines.append(f"{'intercept':>12} {self.intercept_:>10.4f} {'N/A':>10} {'N/A':>10} {'N/A':>10} {'N/A':>10} {'N/A':>10}")
+                    for i, coef_val in enumerate(coef_np):
+                        lines.append(f"{'X' + str(i):>12} {float(coef_val):>10.4f} {'N/A':>10} {'N/A':>10} {'N/A':>10} {'N/A':>10} {'N/A':>10}")
+                    lines.append(sep)
+                    lines.append("(Inference statistics unavailable: design matrix not stored)")
+                    return "\n".join(lines)
+
+            # Confidence interval quantile (95%)
+            from statistics import NormalDist
+            quantile = NormalDist().inv_cdf(0.975)
+
+            # Add intercept row if present
+            if self._fit_intercept and self.intercept_ is not None:
+                intercept_se = self.intercept_std_error_ or 0.0
+                intercept_pval = self.intercept_p_value_ or 1.0
+                z_val = self.intercept_ / intercept_se if intercept_se > 0 else 0.0
+
+                ci_lower = self.intercept_ - quantile * intercept_se
+                ci_upper = self.intercept_ + quantile * intercept_se
+
+                sig = _significance_stars(intercept_pval)
+                lines.append(
+                    f"{'intercept':>12} {self.intercept_:>10.4f} {intercept_se:>10.4f} "
+                    f"{z_val:>10.3f} {intercept_pval:>10.3f} {ci_lower:>10.4f} {ci_upper:>10.4f} {sig}"
+                )
+
+            # Add coefficient rows
+            coef_np = _to_numpy(self.coef_)
+            std_errors_np = _to_numpy(self.std_errors_)
+            p_values_np = _to_numpy(self.p_values_)
+
+            for i in range(len(coef_np)):
+                coef_val = float(coef_np[i])
+                se_val = float(std_errors_np[i]) if i < len(std_errors_np) else 0.0
+                p_val = float(p_values_np[i]) if i < len(p_values_np) else 1.0
+                z_val = coef_val / se_val if se_val > 0 else 0.0
+
+                # Confidence interval (95%)
+                ci_lower = coef_val - quantile * se_val
+                ci_upper = coef_val + quantile * se_val
+
+                sig = _significance_stars(p_val)
+                var_name = f"X{i}"
+                lines.append(
+                    f"{var_name:>12} {coef_val:>10.4f} {se_val:>10.4f} "
+                    f"{z_val:>10.3f} {p_val:>10.3f} {ci_lower:>10.4f} {ci_upper:>10.4f} {sig}"
+                )
+
+            lines.append(sep)
+            lines.append("Significance codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
+            lines.append(sep)
+
+        # Goodness of fit
+        pseudo_r2 = 1.0 - (self.deviance_ / self.null_deviance_) if self.null_deviance_ > 0 else 0.0
+
+        lines.append(f"{'Deviance:':<30} {self.deviance_:>15.2f} {'Null Deviance:':<20} {self.null_deviance_:>10.2f}")
+        lines.append(f"{'AIC:':<30} {self.aic_:>15.2f} {'BIC:':<20} {self.bic_:>10.2f}")
+        lines.append(f"{'Pseudo R-squared:':<30} {pseudo_r2:>15.4f}")
+        lines.append(sep)
+
+        return "\n".join(lines)
+
+    def plot_diagnostics(self, *, figsize: tuple[float, float] = (12, 10)) -> Any:
+        """
+        Generate standard diagnostic plots for the fitted GLM.
+
+        Creates a 2x2 grid of diagnostic plots:
+        1. Residuals vs Fitted: response residuals against fitted values
+        2. Q-Q Plot: theoretical normal quantiles vs studentized residuals
+        3. Scale-Location: sqrt(|studentized residuals|) vs fitted values
+        4. Residuals vs Leverage: studentized residuals vs leverage, with Cook's distance contours
+
+        Parameters
+        ----------
+        figsize : tuple of float, default=(12, 10)
+            Figure size in inches (width, height).
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The created figure object containing the 4 diagnostic plots.
+
+        Raises
+        ------
+        ImportError
+            If matplotlib is not installed.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from aurora.models.glm import fit_glm
+        >>> X = np.random.randn(100, 2)
+        >>> y = np.random.poisson(np.exp(X[:, 0] * 0.5))
+        >>> result = fit_glm(X, y, family='poisson')
+        >>> fig = result.plot_diagnostics()  # doctest: +SKIP
+        >>> fig.savefig('diagnostics.png')  # doctest: +SKIP
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as exc:
+            raise ImportError(
+                "matplotlib is required for plot_diagnostics(). "
+                "Install it with: pip install matplotlib"
+            ) from exc
+
+        # Get diagnostics (uses cached version if available)
+        diag = self.diagnostics_
+
+        # Get fitted values
+        mu = _to_numpy(self.mu_)
+
+        # Create figure with 2x2 subplots
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        fig.suptitle("GLM Diagnostic Plots", fontsize=14, fontweight="bold")
+
+        # Plot 1: Residuals vs Fitted
+        ax1 = axes[0, 0]
+        ax1.scatter(mu, diag.response_residuals, alpha=0.6, s=20, edgecolors="k", linewidths=0.5)
+        ax1.axhline(y=0, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
+        ax1.set_xlabel("Fitted values")
+        ax1.set_ylabel("Residuals")
+        ax1.set_title("Residuals vs Fitted")
+        ax1.grid(True, alpha=0.3)
+
+        # Add lowess smooth line if scipy available
+        try:
+            from scipy.signal import savgol_filter
+
+            # Sort by fitted values for smooth line
+            sorted_idx = np.argsort(mu)
+            mu_sorted = mu[sorted_idx]
+            resid_sorted = diag.response_residuals[sorted_idx]
+
+            # Apply Savitzky-Golay filter for smooth trend
+            window = min(51, len(mu) // 3)
+            if window % 2 == 0:
+                window += 1  # Must be odd
+            if window >= 5:
+                smooth = savgol_filter(resid_sorted, window_length=window, polyorder=3)
+                ax1.plot(mu_sorted, smooth, color="blue", linewidth=2, alpha=0.8)
+        except (ImportError, ValueError):
+            pass  # Skip smooth line if scipy unavailable or data too small
+
+        # Plot 2: Q-Q Plot
+        ax2 = axes[0, 1]
+        studentized = diag.studentized_residuals
+        studentized_sorted = np.sort(studentized)
+        n = len(studentized)
+        theoretical_quantiles = np.array([NormalDist().inv_cdf((i + 0.5) / n) for i in range(n)])
+
+        ax2.scatter(theoretical_quantiles, studentized_sorted, alpha=0.6, s=20, edgecolors="k", linewidths=0.5)
+        # Add reference line
+        min_val = min(theoretical_quantiles.min(), studentized_sorted.min())
+        max_val = max(theoretical_quantiles.max(), studentized_sorted.max())
+        ax2.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=1.5, alpha=0.7)
+        ax2.set_xlabel("Theoretical Quantiles")
+        ax2.set_ylabel("Studentized Residuals")
+        ax2.set_title("Normal Q-Q Plot")
+        ax2.grid(True, alpha=0.3)
+
+        # Plot 3: Scale-Location
+        ax3 = axes[1, 0]
+        sqrt_abs_studentized = np.sqrt(np.abs(studentized))
+        ax3.scatter(mu, sqrt_abs_studentized, alpha=0.6, s=20, edgecolors="k", linewidths=0.5)
+        ax3.set_xlabel("Fitted values")
+        ax3.set_ylabel(r"$\sqrt{|Studentized\ Residuals|}$")
+        ax3.set_title("Scale-Location")
+        ax3.grid(True, alpha=0.3)
+
+        # Add smooth trend line
+        try:
+            from scipy.signal import savgol_filter
+
+            sorted_idx = np.argsort(mu)
+            mu_sorted = mu[sorted_idx]
+            sqrt_resid_sorted = sqrt_abs_studentized[sorted_idx]
+
+            window = min(51, len(mu) // 3)
+            if window % 2 == 0:
+                window += 1
+            if window >= 5:
+                smooth = savgol_filter(sqrt_resid_sorted, window_length=window, polyorder=3)
+                ax3.plot(mu_sorted, smooth, color="red", linewidth=2, alpha=0.8)
+        except (ImportError, ValueError):
+            pass
+
+        # Plot 4: Residuals vs Leverage
+        ax4 = axes[1, 1]
+        leverage = diag.leverage
+        cooks_d = diag.cooks_distance
+
+        # Color points by Cook's distance
+        scatter = ax4.scatter(
+            leverage,
+            studentized,
+            c=cooks_d,
+            cmap="YlOrRd",
+            alpha=0.6,
+            s=20,
+            edgecolors="k",
+            linewidths=0.5,
+        )
+        ax4.axhline(y=0, color="gray", linestyle="--", linewidth=1, alpha=0.5)
+        ax4.set_xlabel("Leverage")
+        ax4.set_ylabel("Studentized Residuals")
+        ax4.set_title("Residuals vs Leverage")
+        ax4.grid(True, alpha=0.3)
+
+        # Add colorbar for Cook's distance
+        cbar = plt.colorbar(scatter, ax=ax4)
+        cbar.set_label("Cook's Distance", rotation=270, labelpad=15)
+
+        # Highlight high leverage or influential points
+        high_cooks = cooks_d > 4.0 / len(mu)  # Common threshold
+        if np.any(high_cooks):
+            ax4.scatter(
+                leverage[high_cooks],
+                studentized[high_cooks],
+                s=100,
+                facecolors="none",
+                edgecolors="red",
+                linewidths=2,
+                label="High Cook's D",
+            )
+            ax4.legend()
+
+        plt.tight_layout()
+        return fig
+
 
 def _to_numpy(value: Any | None) -> np.ndarray:
     if value is None:
@@ -361,6 +658,19 @@ def _prediction_standard_errors(design: np.ndarray, covariance: np.ndarray) -> n
     variances = np.einsum("ij,ij->i", projection, design)
     variances = np.clip(variances, 1e-12, None)
     return np.sqrt(variances)
+
+
+def _significance_stars(p_value: float) -> str:
+    """Return significance stars based on p-value thresholds."""
+    if p_value < 0.001:
+        return "***"
+    if p_value < 0.01:
+        return "**"
+    if p_value < 0.05:
+        return "*"
+    if p_value < 0.1:
+        return "."
+    return ""
 
 
 __all__.append("GLMResult")
