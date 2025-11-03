@@ -155,19 +155,19 @@ No migration needed - first production release.
 
 ## Roadmap
 
-### [0.2.1] - Planned (Q1 2026)
+### [0.2.1] - Planned
 - Increase test coverage to ≥90%
 - Additional edge case handling
 - Performance optimizations
 - Extended documentation
 
-### [0.3.0] - Planned (Q2 2026) - Phase 3: GAM
+### [0.3.0] - Planned - Phase 3: GAM
 - Spline basis functions
 - Smoothing parameter selection
 - R-style formula parser
 - Visualization of smooth terms
 
-### [0.4.0] - Planned (Q3 2026) - Phase 4: GAMM
+### [0.4.0] - Planned - Phase 4: GAMM
 - Random effects
 - REML/ML/Laplace estimation
 - Hierarchical models
