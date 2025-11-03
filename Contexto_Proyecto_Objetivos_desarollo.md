@@ -5,8 +5,8 @@
 **Proyecto**: Aurora-GLM  
 **Repositorio**: https://github.com/Matcraft94/Aurora-GLM  
 **Autor**: Lucy E. Arias (@matcraf94)  
-**Versión actual**: 0.2.0-dev  
-**Estado**: Fase 2 en progreso (GLM al 80%, preparativos GAM)  
+**Versión actual**: 0.3.0-dev
+**Estado**: Fase 3 en progreso (GAM ~50%, splines y selección de suavizado implementados)  
 **Python**: 3.10+  
 
 ---
@@ -482,48 +482,85 @@ pytest --cov=aurora --cov-report=html --cov-report=term-missing
 **Total estimado**: 5-7 días de desarrollo para cerrar Fase 2.
 
 
-## 📊 Fase 3: GAM - PLANEADO (No iniciado)
+## 📊 Fase 3: GAM - EN PROGRESO 🔨 (~50% completo)
 
 ### Objetivo
 
 Implementar Modelos Aditivos Generalizados con:
-- Bases de splines (cubic, B-splines, P-splines, thin plate)
-- Penalización y selección de smoothing parameter (GCV, REML)
-- Parser de fórmulas estilo R
-- Visualización de términos suaves
+- ✅ Bases de splines (cubic, B-splines) - COMPLETADO
+- ✅ Penalización y selección de smoothing parameter (GCV) - COMPLETADO
+- ✅ Fitting GAM univariado - COMPLETADO
+- 📋 Parser de fórmulas estilo R - PENDIENTE
+- 📋 GAMs multivariados - PENDIENTE
+- 📋 Visualización de términos suaves - PENDIENTE
+- 📋 REML/ML smoothing selection - PENDIENTE
 
-### Componentes principales
+### Componentes Implementados (88 tests nuevos)
 
 ```
 aurora/smoothing/
 ├── splines/
-│   ├── cubic.py              # Cubic splines
-│   ├── bsplines.py           # B-splines
-│   ├── psplines.py           # P-splines (penalized B-splines)
-│   ├── thinplate.py          # Thin plate splines
-│   └── tensor.py             # Tensor product splines
+│   ├── cubic.py              ✅ Natural cubic splines (16 tests)
+│   └── bspline.py            ✅ B-splines Cox-de Boor (17 tests)
 ├── penalties/
-│   ├── ridge.py              # Ridge penalty
-│   └── difference.py         # Difference penalty
+│   └── difference.py         ✅ Difference/ridge/combined penalties (20 tests)
 └── selection/
-    ├── gcv.py                # Generalized Cross-Validation
-    ├── reml.py               # Restricted Maximum Likelihood
-    └── aic.py                # AIC-based selection
+    └── gcv.py                ✅ GCV smoothing parameter selection (15 tests)
 
 aurora/models/gam/
-├── fitting.py                # fit_gam()
-├── formula.py                # Formula parser (patsy-like)
-└── result.py                 # GAMResult
+├── fitting.py                ✅ fit_gam() univariado (20 tests)
+└── result.py                 ✅ GAMResult con predicciones y summary
 ```
 
-> Referencia: ver `aurora/smoothing/DESIGN.md` para el borrador de arquitectura, entregables incrementales y riesgos identificados.
+### Estado Actual de Implementación
 
-### API objetivo
+**Completado (Fase 3.1-3.4)**:
+- ✅ B-splines con recursión Cox-de Boor, soporte local, partition of unity
+- ✅ Splines cúbicos naturales con base de potencias truncadas y penalties analíticos
+- ✅ Matrices de penalización: diferencias, ponderadas, ridge, combinadas
+- ✅ Selección automática de λ vía GCV (Generalized Cross-Validation)
+- ✅ Ajuste GAM univariado con `fit_gam(x, y, n_basis=10, basis_type='bspline')`
+- ✅ `GAMResult` con `predict()`, `summary()`, tracking de EDF y λ
+- ✅ Colocación de knots (cuantiles, uniforme)
+- ✅ Soporte para pesos de observaciones
+
+**Tests agregados**: 88 tests (total 206 pasando, 2 skipped)
+
+**Pendiente (Fase 3.5-3.7)**:
+- 📋 GAMs multivariados (modelos aditivos con múltiples términos suaves)
+- 📋 Selección REML/ML de parámetros de suavizado
+- 📋 Tensor product smooths para interacciones
+- 📋 Parser de fórmulas tipo R (`y ~ s(x1) + s(x2) + x3`)
+- 📋 Visualización de términos suaves (`plot_smooth()`)
+- 📋 P-splines (B-splines penalizados) como alternativa
+- 📋 Thin plate splines para múltiples variables
+
+> Diseño completo en `aurora/smoothing/DESIGN.md` con arquitectura incremental y riesgos.
+
+### API Actual (Univariado - Funcional)
 
 ```python
 from aurora.models.gam import fit_gam
+import numpy as np
 
-# Con fórmula tipo R
+# Datos con relación no-lineal
+x = np.linspace(0, 1, 100)
+y = np.sin(2 * np.pi * x) + 0.1 * np.random.randn(100)
+
+# Ajuste GAM con selección automática de λ (GCV)
+result = fit_gam(x, y, n_basis=12, basis_type='bspline')
+
+# Summary con λ, EDF, R², diagnósticos
+print(result.summary())
+
+# Predicciones
+y_pred = result.predict(np.linspace(0, 1, 200))
+```
+
+### API Objetivo (Multivariado - Planeado)
+
+```python
+# Con fórmula tipo R (no implementado aún)
 result = fit_gam(
     formula="y ~ s(x1, bs='tp', k=10) + s(x2, bs='cr') + x3 + x4",
     data=df,
@@ -533,10 +570,9 @@ result = fit_gam(
 
 # Visualizar términos suaves
 result.plot_smooth('s(x1)')
-result.summary()
 ```
 
-**Estimación**: 6-8 semanas de desarrollo
+**Estimación restante**: 3-4 semanas para completar Fase 3
 
 ---
 
