@@ -77,6 +77,10 @@ dmypy.json
 # Environments
 .env
 .venv
+.r-libs
 
 # Pytest cache
 .pytest_cache/
+
+# CLaude
+CLAUDE.md
