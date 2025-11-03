@@ -2,7 +2,7 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ✅ **Development Status**: Phase 3 IN PROGRESS (~50% complete). GAM core functionality implemented: spline bases (B-spline, cubic), penalties, GCV smoothing selection, and univariate fitting. Contributions and feedback welcome!
+> ✅ **Development Status**: Phase 3 IN PROGRESS (~75% complete). GAM functionality: spline bases (B-spline, cubic), penalties, GCV smoothing selection, univariate & multivariate fitting, and visualization. Contributions and feedback welcome!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -15,7 +15,7 @@
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 - **Version**: 0.3.0-dev
-- **Status**: Phase 3 IN PROGRESS (~50%) - GAM splines, penalties, GCV selection, and univariate fitting implemented
+- **Status**: Phase 3 IN PROGRESS (~75%) - GAM splines, penalties, GCV selection, univariate/multivariate fitting, and visualization
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -84,22 +84,25 @@ Aurora-GLM aims to be:
 - ✅ Demo notebooks: Poisson regression and logistic regression with visualizations
 
 
-### Phase 3: GAM (Splines and Smoothing) - IN PROGRESS 🔨 (~50% complete)
+### Phase 3: GAM (Splines and Smoothing) - IN PROGRESS 🔨 (~75% complete)
 
-**Implemented** (87 new tests):
+**Implemented** (120 new tests):
 - ✅ **B-spline basis functions**: Cox-de Boor recursion, local support, partition of unity (17 tests)
 - ✅ **Natural cubic spline basis**: Truncated power basis with analytical penalties (16 tests)
 - ✅ **Penalty matrices**: Difference penalties, weighted penalties, ridge penalties, combinations (20 tests)
 - ✅ **GCV smoothing selection**: Automatic λ selection via Generalized Cross-Validation (15 tests)
 - ✅ **Univariate GAM fitting**: `fit_gam()` with automatic smoothing, predictions, summaries (20 tests)
 - ✅ **GAMResult**: Comprehensive result object with predict(), summary(), EDF tracking
+- ✅ **Multivariate additive GAMs**: `fit_additive_gam()` with multiple smooth and parametric terms (15 tests)
+- ✅ **AdditiveGAMResult**: Block-diagonal penalties, per-term λ and EDF tracking
+- ✅ **Visualization**: `plot_smooth()` and `plot_all_smooths()` with confidence bands (18 tests)
 
 **Remaining features**:
-- 📋 Multivariate GAMs (additive models with multiple smooth terms)
-- 📋 REML/ML smoothing parameter selection (alternative to GCV)
-- 📋 Tensor product smooths for interactions
+- 📋 REML/ML smoothing parameter selection (alternative to GCV, better for multiple smooths)
+- 📋 Per-term λ optimization (currently uses single λ for all terms)
+- 📋 Tensor product smooths for interactions `te(x1, x2)`
 - 📋 R-style formula parser (`y ~ s(x1, bs='tp') + s(x2)`)
-- 📋 Visualization of smooth terms
+- 📋 Thin plate splines and other advanced basis types
 
 > Full design available in `aurora/smoothing/DESIGN.md` (incremental plan with identified risks).
 
@@ -320,7 +323,74 @@ result = fit_gam(x, y, n_basis=12, weights=weights)
 result = fit_gam(x, y, n_basis=12, knot_method='uniform')  # or 'quantile'
 ```
 
-### Planned Multivariate GAM API (Coming Soon)
+### Multivariate Additive GAM
+
+```python
+from aurora.models.gam import fit_additive_gam, SmoothTerm, ParametricTerm
+import numpy as np
+
+# Generate data with multiple nonlinear relationships
+np.random.seed(42)
+n = 200
+X = np.random.randn(n, 3)
+y = (np.sin(2 * X[:, 0]) +         # Nonlinear effect of x1
+     np.cos(X[:, 1]) +              # Nonlinear effect of x2
+     2 * X[:, 2] +                  # Linear effect of x3
+     0.1 * np.random.randn(n))
+
+# Fit additive GAM: y = intercept + f1(x1) + f2(x2) + β*x3
+result = fit_additive_gam(
+    X, y,
+    smooth_terms=[
+        SmoothTerm(variable=0, n_basis=12, basis_type='bspline'),
+        SmoothTerm(variable=1, n_basis=12, basis_type='cubic')
+    ],
+    parametric_terms=[
+        ParametricTerm(variable=2)  # Linear term
+    ]
+)
+
+# Print comprehensive summary
+print(result.summary())
+# Shows: parametric coefficients, smooth term details (λ, EDF), fit stats
+
+# Make predictions
+X_new = np.random.randn(50, 3)
+y_pred = result.predict(X_new)
+```
+
+### Visualizing Smooth Terms
+
+```python
+from aurora.models.gam import plot_smooth, plot_all_smooths
+
+# Plot single smooth term with confidence bands
+fig = plot_smooth(
+    result,
+    term='s(0)',                    # or term=0 for first variable
+    confidence_level=0.95,
+    partial_residuals=True
+)
+
+# Plot all smooth terms in a grid
+fig = plot_all_smooths(
+    result,
+    ncols=2,
+    confidence_level=0.95
+)
+
+# Customize plot
+fig = plot_smooth(
+    result,
+    term=0,
+    title="Effect of X1 on Response",
+    xlabel="X1",
+    ylabel="f(X1)",
+    n_points=200
+)
+```
+
+### Planned Formula API (Coming Soon)
 
 ```python
 # R-style formula with smooth terms (not yet implemented)
@@ -330,9 +400,6 @@ result = fit_gam(
     family='gaussian',
     method='REML'
 )
-
-# Visualize smooth terms
-result.plot_smooth('s(x1)')
 ```
 
 ### Planned GAMM API (Phase 4)
@@ -733,8 +800,8 @@ Special thanks to the open-source community for providing excellent tools and li
 
 ---
 
-**Status**: 🔨 Phase 3 IN PROGRESS (~50% complete): GAM splines, penalties, GCV, univariate fitting
-**Tests**: 206 passing, 2 skipped (88 new GAM tests added)
+**Status**: 🔨 Phase 3 IN PROGRESS (~75% complete): GAM splines, penalties, GCV, univariate/multivariate fitting, visualization
+**Tests**: 239 passing, 2 skipped (120 new GAM tests added)
 **Version**: 0.3.0-dev
 **Python**: 3.10+
 **Maintained by**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
