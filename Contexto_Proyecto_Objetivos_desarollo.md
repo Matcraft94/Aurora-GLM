@@ -162,14 +162,16 @@ Implementar modelos GLM funcionales con:
 
 **Componentes completados**:
 - `aurora/models/glm/fitting.py`: algoritmo IRLS estable con soporte para weights, offset y namespaces NumPy/PyTorch, incluyendo `_matvec` libre de BLAS.
-- `aurora/models/base/result.py`: `GLMResult` con inferencia diferida (covarianza, errores estándar, p-values) y caché de diagnósticos.
+- `aurora/models/base/result.py`: `GLMResult` con inferencia diferida (covarianza, errores estándar, p-values), caché de diagnósticos e intervalos de confianza en `predict()`.
 - `aurora/inference/intervals/confidence.py`: intervalos de confianza tipo Wald empaquetados en `ConfidenceIntervalResult`.
-- `aurora/inference/hypothesis/wald.py`: pruebas de Wald para contrastes lineales univariados.
-- `aurora/inference/diagnostics/glm.py`: residuales (response, Pearson, deviance, working), leverage y distancia de Cook agrupados en `GLMDiagnosticResult`.
+- `aurora/inference/hypothesis/wald.py`: pruebas de Wald para contrastes lineales univariados **y multivariados** (chi-cuadrado).
+- `aurora/inference/diagnostics/glm.py`: residuales (response, Pearson, deviance, working, **studentized**), leverage, distancia de Cook y **DFBETAs** agrupados en `GLMDiagnosticResult`.
 - `aurora/inference/__init__.py`: API pública consolidada (`confidence_intervals`, `wald_test`, `glm_diagnostics`).
 - `aurora/validation/metrics`: métricas de regresión (MSE/MAE/RMSE), pseudo R² y métricas de clasificación (accuracy, log-loss, Brier).
-- `aurora/validation/cross_val`: `KFold` y `cross_val_score` con barajado reproducible.
-- Suites de pruebas en `tests/test_inference/*` y `tests/test_validation/*` cubriendo inferencia, diagnósticos, métricas y validación cruzada.
+- `aurora/validation/cross_val`: `KFold`, `StratifiedKFold` y `cross_val_score` con barajado reproducible y agregados (`CrossValResult`).
+- `benchmarks/run_glm_checks.py`: comparativa automatizada contra statsmodels (Gaussian, Poisson, Binomial, Gamma-log) con reporte JSON.
+- `pyproject.toml`: metadatos de empaquetado y soporte para instalación editable vía `pip install -e .`.
+- Suites de pruebas en `tests/test_inference/*`, `tests/test_validation/*` y `tests/test_models/*` cubriendo inferencia, diagnósticos, métricas, validación cruzada y fitting GLM (86 tests pasando).
 
 **Cobertura de pruebas representativa**:
 - `pytest tests/test_inference/test_confidence_intervals.py`
@@ -180,45 +182,62 @@ Implementar modelos GLM funcionales con:
 - `pytest tests/test_validation/test_cross_val.py`
 - `pytest tests/test_validation`
 
-**Pendientes inmediatos**:
-- Soporte para contrastes multivariados y pruebas chi-cuadrado en `wald_test`.
-- Diagnósticos adicionales (DFBETAs, residuos estudentizados, gráficos integrados).
-- Métricas avanzadas: deviance generalizada, índices de concordancia y reporting integrado.
-- Validación cruzada estratificada y scoring específico para clasificación.
-- Documentación end-to-end y comparativas con statsmodels/R.
+**Pendientes inmediatos** (para cerrar Fase 2):
+- Método `summary()` en `GLMResult` con tabla formateada de coeficientes, estadísticos, y métricas del modelo.
+- Método `plot_diagnostics()` con visualizaciones estándar (residuals vs fitted, Q-Q, scale-location, leverage).
+- Métricas avanzadas opcionales: concordance index (C-index) para clasificación binaria.
+- Validación cruzada con R `glm()` (complementar validación contra statsmodels).
+- Documentación end-to-end: notebooks demostrativos con datasets reales.
+- Medir y reportar coverage (instalar `pytest-cov`, objetivo ≥90%).
 
 ### Checklist de Avance
 
+**Completados:**
 - [x] `fit_glm()` con IRLS robusto y pruebas sintéticas.
-- [x] `GLMResult` con inferencia diferida y método `predict` operativo.
+- [x] `GLMResult` con inferencia diferida, método `predict` con intervalos de confianza.
 - [x] Intervalos de confianza y p-values vía aproximación Wald.
-- [x] Residuales principales, leverage y distancia de Cook en `glm_diagnostics`.
+- [x] Residuales completos (response, Pearson, deviance, working, studentized) en `glm_diagnostics`.
+- [x] Leverage, distancia de Cook y DFBETAs implementados.
 - [x] Métricas de regresión y clasificación con soporte para pesos de muestra.
 - [x] Implementación de `pseudo_r2` para GLM.
-- [x] `KFold` y `cross_val_score` con semilla reproducible.
-- [ ] Extender `wald_test` a contrastes múltiples y pruebas LRT.
-- [ ] Incorporar residuales/influencias adicionales (DFBETAs, leverage bayesiano).
-- [ ] Añadir métricas específicas (concordancia, deviance generalizada) y reporting integrado.
-- [ ] Documentar ejemplos end-to-end y notebooks.
+- [x] `KFold`, `StratifiedKFold` y `cross_val_score` con semilla reproducible y resumen estadístico (`CrossValResult`).
+- [x] Benchmark automatizado contra statsmodels (`benchmarks/run_glm_checks.py`).
+- [x] `wald_test` extendido a contrastes múltiples con estadístico chi-cuadrado.
+
+**En curso (Sprint actual):**
+- [ ] Implementar `GLMResult.summary()` con tabla formateada.
+- [ ] Implementar `GLMResult.plot_diagnostics()` con matplotlib.
+- [ ] Añadir concordance index (C-index) a métricas de clasificación.
+- [ ] Script de validación contra R `glm()` (complementar statsmodels).
+- [ ] Medir coverage con pytest-cov (instalar en entorno).
+- [ ] Crear 2 notebooks demostrativos (uno Poisson, uno Binomial).
+- [ ] Actualizar README con ejemplos de uso avanzado.
 
 ### Plan de Implementación Ajustado
 
-**Semana 1 (completada)**
+**Semana 1 (✅ completada)**
 - [x] Implementar `fit_glm()` y pruebas de convergencia.
 - [x] Completar `GLMResult` con propiedades lazy y predicción.
 - [x] Calcular covariance, errores estándar y p-values.
 
-**Semana 2 (en curso)**
-- [x] Residuales básicos y medidas de influencia iniciales.
+**Semana 2 (✅ completada)**
+- [x] Residuales completos (response, Pearson, deviance, working, studentized).
+- [x] Medidas de influencia (leverage, Cook's distance, DFBETAs).
 - [x] Métricas de evaluación (regresión, clasificación, pseudo R²).
-- [x] Cross-validation genérico (`KFold`, `cross_val_score`).
-- [ ] Métricas avanzadas (deviance específica, concordance index).
-- [ ] Integración con benchmarks y validación externa.
+- [x] Cross-validation genérico (`KFold`, `StratifiedKFold`, `cross_val_score`).
+- [x] Wald tests multivariados con estadístico chi-cuadrado.
+- [x] Integración con benchmarks y validación externa (`benchmarks/run_glm_checks.py`).
 
-**Semana 3 (pendiente)**
-- [ ] Ejemplos documentados y notebooks.
-- [ ] Visualizaciones y diagnósticos gráficos.
-- [ ] Documentación y preparación de release 0.2.0.
+**Semana 3 (🚧 en curso - para cerrar Fase 2)**
+- [ ] `GLMResult.summary()`: tabla formateada con coeficientes, std errors, z-scores, p-values.
+- [ ] `GLMResult.plot_diagnostics()`: 4 gráficos estándar (residuals vs fitted, Q-Q, scale-location, leverage plot).
+- [ ] Concordance index (C-index) en `aurora/validation/metrics/classification.py`.
+- [ ] Script de validación contra R `glm()` en `benchmarks/run_r_checks.R` + wrapper Python.
+- [ ] Instalar pytest-cov y medir coverage (objetivo ≥90%).
+- [ ] Notebook demostrativo: Poisson regression con dataset de conteos.
+- [ ] Notebook demostrativo: Binomial logistic regression con clasificación.
+- [ ] Actualizar README con ejemplos de `summary()` y `plot_diagnostics()`.
+- [ ] Preparar CHANGELOG para release 0.2.0.
 
 ### Criterios de Éxito para Fase 2 (estado)
 
@@ -228,11 +247,11 @@ Implementar modelos GLM funcionales con:
 - [x] Intervalos de confianza y p-values por aproximación Wald.
 - [x] Residuales principales (response, Pearson, deviance, working) implementados.
 
-**Validación (Debe)**
-- [ ] Resultados validados contra statsmodels.
-- [ ] Resultados validados contra R `glm()`.
-- [x] Tests automatizados cubren rutas NumPy y (parcialmente) PyTorch.
-- [ ] Coverage >90% (medición pendiente).
+-**Validación (Debe)**
+- [x] Resultados validados contra statsmodels (`benchmarks/run_glm_checks.py`): max |delta_coef| ≈ 4e-06.
+- [ ] Resultados validados contra R `glm()` (pendiente script R).
+- [x] Tests automatizados cubren rutas NumPy y PyTorch (86 tests pasando).
+- [ ] Coverage >90% (pendiente instalación pytest-cov y medición).
 
 **Performance (Debería)**
 - [ ] Benchmarks frente a statsmodels.
@@ -245,39 +264,222 @@ Implementar modelos GLM funcionales con:
 
 ---
 
-## 🗂️ Backlog Operativo Prioritario (Nov 2025)
+## 🗂️ Backlog Detallado para Cerrar Fase 2
 
-| Categoría | Objetivo | Definición de terminado |
-| --- | --- | --- |
-| **Inferencia** | Integrar intervalos y p-values en `GLMResult`, ampliar `wald_test` a contrastes multivariados y LRT. | `predict(interval="confidence")` funcional, rutas nuevas cubiertas en `tests/test_models/test_glm_fitting.py` y `tests/test_inference/test_hypothesis.py`. |
-| **Diagnósticos** | Añadir residuales studentizados, DFBETAs y resumen tabular reutilizable. | API `glm_diagnostics` extendida, fixtures sintéticos actualizados, documentación básica en docstrings. |
-| **Métricas & Validación** | Incorporar concordance index, deviance específica, pseudo R² avanzados y `StratifiedKFold`. | Funciones disponibles en `aurora/validation`, pruebas en `tests/test_validation`, ejemplos en notebooks. |
-| **Documentación & UX** | Actualizar README/guías y preparar notebooks demostrativos. | README sincronizado, guía rápida GLM publicada, dos notebooks revisados. |
-| **Validación Externa** | Automatizar comparativas con statsmodels/R y registrar benchmarks. | Scripts en `benchmarks/` con resultados versionados y reporte semanal.
+### 1. Reporting y Visualización (Prioridad ALTA)
 
-### Tablero y seguimiento
+#### 1.1. Implementar `GLMResult.summary()`
+**Archivo**: `aurora/models/base/result.py`
 
-- GitHub Projects en modo Kanban (`Todo → In progress → Review → Done`).
-- Issues etiquetados por categoría, tamaño (`S/M/L`) y responsable claro.
-- Revisión de backlog los lunes; retro semanal de riesgos y ajustes.
+**Especificación**:
+- Método `summary(self, *, detailed: bool = True) -> str`
+- Retorna string multilínea con formato tabular
+- Secciones:
+  1. **Modelo**: familia, link, observaciones, parámetros, deviance, AIC, BIC
+  2. **Convergencia**: iteraciones, estado (converged/failed)
+  3. **Tabla de coeficientes**: nombre (X0, X1, ..., intercept), coef, std_error, z_score, p_value, significancia (*, **, ***)
+  4. **Bondad de ajuste**: null deviance, model deviance, pseudo R²
 
-### Ciclo QA semanal
+**Pruebas unitarias** (`tests/test_models/test_glm_summary.py`):
+- `test_summary_includes_coefficient_table_with_all_columns()`
+- `test_summary_shows_convergence_status()`
+- `test_summary_includes_model_metrics_aic_bic_deviance()`
+- `test_summary_works_without_intercept()`
+- `test_summary_handles_non_converged_models()`
 
-- Pipeline: `pytest`, suites específicas por módulo, comparación automática vs statsmodels/R (`benchmarks/run_glm_checks.py`).
-- Indicadores mínimos: cobertura ≥85%, error relativo en coeficientes <1e-6, tiempo de ajuste registrado (NumPy y PyTorch).
-- Entrega de hallazgos en `docs/reports/QA_SEMANA.md` con acciones correctivas.
+**Criterio de éxito**: ejecutar `result.summary()` y obtener tabla legible similar a R/statsmodels.
 
-### Hitos Sprint (3 semanas)
+---
 
-1. **Semana 1**: Backlog de inferencia cerrado + script de validación externa operativo.
-2. **Semana 2**: Diagnósticos y métricas avanzadas listos; primera versión de `GLMResult.summary()`.
-3. **Semana 3**: Documentación y notebooks publicados; prototipo de `plot_diagnostics` con hooks a visualización.
+#### 1.2. Implementar `GLMResult.plot_diagnostics()`
+**Archivo**: `aurora/models/base/result.py`
 
-### Preparativos Release 0.2.0
+**Especificación**:
+- Método `plot_diagnostics(self, *, figsize: tuple = (12, 10)) -> Figure`
+- Requiere matplotlib (importación lazy, error claro si no disponible)
+- 4 subplots (2x2):
+  1. **Residuals vs Fitted**: residuales de respuesta vs valores ajustados
+  2. **Q-Q Plot**: cuantiles teóricos normales vs residuales studentizados
+  3. **Scale-Location**: √|residuales studentizados| vs valores ajustados
+  4. **Residuals vs Leverage**: residuales studentizados vs leverage, resaltar Cook's distance
 
-- Checklist funcional (inferencias, diagnósticos, métricas, documentación) completado.
-- Changelog redactado y versiones sincronizadas.
-- Validaciones cruzadas firmadas (NumPy, PyTorch); publicar resultados comparativos.
+**Pruebas unitarias** (`tests/test_models/test_glm_plotting.py`):
+- `test_plot_diagnostics_creates_figure_with_four_subplots()`
+- `test_plot_diagnostics_raises_without_matplotlib()`
+- `test_plot_diagnostics_uses_cached_diagnostics()`
+- `test_plot_can_be_saved_to_file()`
+
+**Criterio de éxito**: generar visualización sin errores, verificar que usa caché de diagnósticos.
+
+---
+
+### 2. Métricas Avanzadas (Prioridad MEDIA)
+
+#### 2.1. Concordance Index (C-index)
+**Archivo**: `aurora/validation/metrics/classification.py`
+
+**Especificación**:
+- Función `concordance_index(y_true, y_proba, *, weights=None) -> float`
+- Mide discriminación en clasificación binaria (AUC-like)
+- C = P(score_pos > score_neg) para pares concordantes
+- Soporte para pesos de muestra
+
+**Pruebas unitarias** (`tests/test_validation/test_classification_metrics.py`):
+- `test_concordance_index_perfect_separation_returns_one()`
+- `test_concordance_index_random_predictions_returns_half()`
+- `test_concordance_index_with_sample_weights()`
+- `test_concordance_index_handles_ties()`
+
+**Criterio de éxito**: C-index = 1.0 para separación perfecta, ≈0.5 para predicciones aleatorias.
+
+---
+
+### 3. Validación Externa (Prioridad ALTA)
+
+#### 3.1. Validación contra R `glm()`
+**Archivo**: `benchmarks/run_r_checks.R` + `benchmarks/compare_with_r.py`
+
+**Especificación R script**:
+```r
+# run_r_checks.R
+# Ajustar GLMs con R y exportar resultados a JSON
+# Familias: gaussian, poisson, binomial, gamma
+# Exportar: coef, std.error, deviance, aic, fitted.values
+```
+
+**Especificación Python wrapper**:
+- Lee datos sintéticos, ejecuta R via `subprocess`, compara resultados
+- Tolerancias: coef ≤1e-5, deviance ≤1e-4
+
+**Pruebas de integración**:
+- Ejecutar script manualmente y verificar que coinciden resultados
+- Registrar máximas diferencias en `benchmarks/results/r_comparison.json`
+
+**Criterio de éxito**: diferencias ≤ tolerancias especificadas para 4 familias.
+
+---
+
+### 4. Coverage y QA (Prioridad ALTA)
+
+#### 4.1. Instalar pytest-cov y medir coverage
+**Comandos**:
+```bash
+pip install pytest-cov
+pytest --cov=aurora --cov-report=html --cov-report=term-missing
+```
+
+**Objetivo**: Coverage ≥90%
+
+**Identificar gaps**:
+- Revisar reporte HTML en `htmlcov/index.html`
+- Añadir tests para líneas no cubiertas (edge cases, error handling)
+
+**Pruebas adicionales sugeridas**:
+- `tests/test_models/test_glm_edge_cases.py`:
+  - `test_fit_glm_with_single_feature()`
+  - `test_fit_glm_with_collinear_features()`
+  - `test_fit_glm_with_all_zero_response()`
+  - `test_fit_glm_without_intercept_flag()`
+  - `test_predict_with_mismatched_dimensions_raises_error()`
+
+**Criterio de éxito**: cobertura ≥90%, todos los módulos principales cubiertos.
+
+---
+
+### 5. Documentación (Prioridad ALTA)
+
+#### 5.1. Notebook: Poisson Regression
+**Archivo**: `examples/notebooks/01_poisson_regression.ipynb`
+
+**Contenido**:
+1. Dataset: conteos simulados o reales (ej. número de eventos por unidad de tiempo)
+2. Exploración: histograma de y, estadísticas descriptivas
+3. Fitting: `fit_glm(X, y, family='poisson', link='log')`
+4. Diagnósticos: `result.diagnostics_`, `result.plot_diagnostics()`
+5. Inferencia: `result.summary()`, interpretación de coeficientes
+6. Predicción: `result.predict()` con intervalos de confianza
+7. Cross-validation: `cross_val_score()` con scoring=-deviance
+
+**Criterio de éxito**: notebook ejecutable sin errores, resultados interpretables.
+
+---
+
+#### 5.2. Notebook: Logistic Regression
+**Archivo**: `examples/notebooks/02_logistic_regression.ipynb`
+
+**Contenido**:
+1. Dataset: clasificación binaria simulada o real
+2. Exploración: distribución de clases, correlación features
+3. Fitting: `fit_glm(X, y, family='binomial', link='logit')`
+4. Diagnósticos: leverage, Cook's distance, DFBETAs
+5. Métricas: accuracy, log-loss, Brier score, concordance index
+6. ROC curve: usar sklearn para comparación
+7. Wald tests: contrastes multivariados para hipótesis específicas
+
+**Criterio de éxito**: notebook ejecutable, métricas comparables con sklearn.
+
+---
+
+#### 5.3. Actualizar README
+**Archivo**: `README.md`
+
+**Cambios**:
+- Sección "Current Usage" → añadir ejemplo de `result.summary()`
+- Sección "Current Usage" → añadir ejemplo de `result.plot_diagnostics()`
+- Actualizar estado de Fase 2 a "~95% completo"
+- Añadir badges de coverage si se configura CI
+
+**Criterio de éxito**: README sincronizado con capacidades actuales.
+
+---
+
+### 6. Preparación Release 0.2.0
+
+#### 6.1. Crear CHANGELOG.md
+**Archivo**: `CHANGELOG.md`
+
+**Formato**:
+```markdown
+# Changelog
+
+## [0.2.0] - 2025-11-XX
+
+### Added
+- GLM fitting with IRLS for Gaussian, Poisson, Binomial, Gamma families
+- Confidence intervals and p-values via Wald approximation
+- Comprehensive diagnostics: residuals (response, Pearson, deviance, studentized), leverage, Cook's distance, DFBETAs
+- `GLMResult.summary()` method with formatted coefficient table
+- `GLMResult.plot_diagnostics()` with 4 standard plots
+- Cross-validation utilities: KFold, StratifiedKFold, cross_val_score
+- Validation metrics: MSE, MAE, RMSE, pseudo R², accuracy, log-loss, Brier, concordance index
+- Benchmarking against statsmodels and R glm()
+
+### Fixed
+- Numerical stability in IRLS with custom Gaussian elimination
+- Multi-backend support for NumPy and PyTorch
+
+### Documentation
+- Two demo notebooks (Poisson and Logistic regression)
+- CLAUDE.md for AI assistant guidance
+```
+
+---
+
+### Resumen de Entregables
+
+| # | Entregable | Tipo | Tests | Archivos |
+|---|------------|------|-------|----------|
+| 1 | `GLMResult.summary()` | Implementación | 5 unitarios | `result.py`, `test_glm_summary.py` |
+| 2 | `GLMResult.plot_diagnostics()` | Implementación | 4 unitarios | `result.py`, `test_glm_plotting.py` |
+| 3 | Concordance index | Implementación | 4 unitarios | `classification.py`, test existente |
+| 4 | Validación R | Script + tests | 1 integración | `run_r_checks.R`, `compare_with_r.py` |
+| 5 | Coverage ≥90% | QA | Tests edge cases | `test_glm_edge_cases.py` |
+| 6 | Notebook Poisson | Documentación | - | `01_poisson_regression.ipynb` |
+| 7 | Notebook Logistic | Documentación | - | `02_logistic_regression.ipynb` |
+| 8 | README actualizado | Documentación | - | `README.md` |
+| 9 | CHANGELOG | Documentación | - | `CHANGELOG.md` |
+
+**Total estimado**: 5-7 días de desarrollo para cerrar Fase 2.
 
 
 ## 📊 Fase 3: GAM - PLANEADO (No iniciado)
