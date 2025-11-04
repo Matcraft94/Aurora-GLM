@@ -89,6 +89,22 @@ class AdditiveGAMResult:
         self.n_parametric_terms_ = len(parametric_terms)
         self.total_edf_ = sum(edf_values.values()) + len(parametric_coef)
 
+    @property
+    def r_squared(self) -> float:
+        """Coefficient of determination (R²).
+
+        Returns
+        -------
+        r_squared : float
+            R² value, proportion of variance explained by the model.
+        """
+        rss = np.sum(self.residuals**2)
+        if self.weights is not None:
+            rss = np.sum(self.weights * self.residuals**2)
+        
+        tss = np.sum((self.y - np.mean(self.y)) ** 2)
+        return 1 - rss / tss
+
     def predict(self, X_new: np.ndarray) -> np.ndarray:
         """Predict at new data points.
 

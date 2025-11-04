@@ -65,6 +65,33 @@ class GAMResult:
 
         self.n_obs_ = len(x)
 
+    @property
+    def r_squared(self) -> float:
+        """Coefficient of determination (R²).
+
+        Returns
+        -------
+        r_squared : float
+            R² value, proportion of variance explained by the model.
+        """
+        rss = np.sum(self.residuals**2)
+        if self.weights is not None:
+            rss = np.sum(self.weights * self.residuals**2)
+        
+        tss = np.sum((self.y - np.mean(self.y)) ** 2)
+        return 1 - rss / tss
+
+    @property
+    def lambda_opt(self) -> float:
+        """Alias for lambda_ (optimal smoothing parameter).
+
+        Returns
+        -------
+        lambda_opt : float
+            The smoothing parameter used in the fit.
+        """
+        return self.lambda_
+
     def predict(self, x_new: np.ndarray) -> np.ndarray:
         """Predict at new x values.
 
