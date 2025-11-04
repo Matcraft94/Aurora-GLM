@@ -9,6 +9,15 @@ from aurora.models.gamm.covariance import (
     get_covariance_structure,
 )
 from aurora.models.gamm.design import construct_Z_matrix, extract_random_effects
+from aurora.models.gamm.estimation import (
+    REMLResult,
+    compute_P_matrix,
+    compute_V_matrix,
+    estimate_fixed_effects,
+    estimate_random_effects,
+    estimate_variance_components,
+    reml_log_likelihood,
+)
 from aurora.models.gamm.random_effects import (
     RandomEffect,
     count_random_effects,
@@ -31,4 +40,12 @@ __all__ = [
     # Design matrices
     "construct_Z_matrix",
     "extract_random_effects",
+    # REML estimation
+    "REMLResult",
+    "estimate_variance_components",
+    "estimate_fixed_effects",
+    "estimate_random_effects",
+    "compute_V_matrix",
+    "compute_P_matrix",
+    "reml_log_likelihood",
 ]
