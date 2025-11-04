@@ -29,6 +29,15 @@ from aurora.models.gamm.interface import (
     fit_gamm_with_smooth,
     predict_from_gamm,
 )
+from aurora.models.gamm.laplace import LaplaceResult, fit_laplace
+from aurora.models.gamm.plotting import (
+    plot_caterpillar,
+    plot_diagnostics,
+    plot_random_effects_density,
+    plot_random_effects_qq,
+    plot_random_effects_summary,
+)
+from aurora.models.gamm.pql import PQLResult, fit_pql
 from aurora.models.gamm.random_effects import (
     RandomEffect,
     count_random_effects,
@@ -68,4 +77,15 @@ __all__ = [
     "fit_gamm",
     "fit_gamm_with_smooth",
     "predict_from_gamm",
+    # PQL/Laplace for non-Gaussian GLMMs
+    "PQLResult",
+    "fit_pql",
+    "LaplaceResult",
+    "fit_laplace",
+    # Visualization
+    "plot_caterpillar",
+    "plot_random_effects_qq",
+    "plot_random_effects_density",
+    "plot_diagnostics",
+    "plot_random_effects_summary",
 ]
