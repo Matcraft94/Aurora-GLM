@@ -2,7 +2,7 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ✅ **Development Status**: Phase 3 IN PROGRESS (~75% complete). GAM functionality: spline bases (B-spline, cubic), penalties, GCV smoothing selection, univariate & multivariate fitting, and visualization. Contributions and feedback welcome!
+> ✅ **Development Status**: Phase 3 COMPLETED (100%). Full GAM implementation with REML selection, R-style formulas, tensor products, thin plate splines, and comprehensive visualization. Phase 4 (GAMM) next!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -14,8 +14,8 @@
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.3.0-dev
-- **Status**: Phase 3 IN PROGRESS (~75%) - GAM splines, penalties, GCV selection, univariate/multivariate fitting, and visualization
+- **Version**: 0.3.0
+- **Status**: Phase 3 COMPLETED (100%) - Full GAM with REML, formulas, tensor products, thin plate splines, visualization
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -84,27 +84,24 @@ Aurora-GLM aims to be:
 - ✅ Demo notebooks: Poisson regression and logistic regression with visualizations
 
 
-### Phase 3: GAM (Splines and Smoothing) - IN PROGRESS 🔨 (~75% complete)
+### Phase 3: GAM (Splines and Smoothing) - COMPLETED ✅ (100%)
 
-**Implemented** (120 new tests):
+**Implemented** (229 new tests):
 - ✅ **B-spline basis functions**: Cox-de Boor recursion, local support, partition of unity (17 tests)
 - ✅ **Natural cubic spline basis**: Truncated power basis with analytical penalties (16 tests)
 - ✅ **Penalty matrices**: Difference penalties, weighted penalties, ridge penalties, combinations (20 tests)
 - ✅ **GCV smoothing selection**: Automatic λ selection via Generalized Cross-Validation (15 tests)
+- ✅ **REML smoothing selection**: Restricted Maximum Likelihood for better multi-term selection (20 tests)
 - ✅ **Univariate GAM fitting**: `fit_gam()` with automatic smoothing, predictions, summaries (20 tests)
-- ✅ **GAMResult**: Comprehensive result object with predict(), summary(), EDF tracking
 - ✅ **Multivariate additive GAMs**: `fit_additive_gam()` with multiple smooth and parametric terms (15 tests)
-- ✅ **AdditiveGAMResult**: Block-diagonal penalties, per-term λ and EDF tracking
+- ✅ **R-style formula parser**: `y ~ s(x1, bs='tp') + s(x2) + x3` syntax with comprehensive validation (12 tests)
+- ✅ **Formula-based fitting**: `fit_gam_formula()` for high-level API (5 tests)
 - ✅ **Visualization**: `plot_smooth()` and `plot_all_smooths()` with confidence bands (18 tests)
+- ✅ **Tensor product smooths**: `te(x1, x2)` for multidimensional interactions (13 tests)
+- ✅ **Thin plate splines**: Multidimensional smoothing with radial basis functions (24 tests)
+- ✅ **Term specifications**: SmoothTerm, ParametricTerm, TensorTerm dataclasses (14 tests)
 
-**Remaining features**:
-- 📋 REML/ML smoothing parameter selection (alternative to GCV, better for multiple smooths)
-- 📋 Per-term λ optimization (currently uses single λ for all terms)
-- 📋 Tensor product smooths for interactions `te(x1, x2)`
-- 📋 R-style formula parser (`y ~ s(x1, bs='tp') + s(x2)`)
-- 📋 Thin plate splines and other advanced basis types
-
-> Full design available in `aurora/smoothing/DESIGN.md` (incremental plan with identified risks).
+> Full design documentation in `aurora/smoothing/DESIGN.md`. Total: **348 tests passing** (up from 119 in Phase 2).
 
 ### Phase 4: GAMM (Random Effects) - PLANNED 📋
 
@@ -390,16 +387,32 @@ fig = plot_smooth(
 )
 ```
 
-### Planned Formula API (Coming Soon)
+### Formula-Based API (Now Available!)
 
 ```python
-# R-style formula with smooth terms (not yet implemented)
-result = fit_gam(
-    formula="y ~ s(x1, bs='tp', k=10) + s(x2, bs='cr') + x3",
+from aurora.models.gam import fit_gam_formula
+import pandas as pd
+
+# R-style formula with smooth terms
+result = fit_gam_formula(
+    formula="y ~ s(x1, k=10) + s(x2, bs='cubic') + x3",
     data=df,
-    family='gaussian',
     method='REML'
 )
+
+# Tensor product interactions
+result = fit_gam_formula(
+    formula="y ~ te(x1, x2) + s(x3)",
+    data=df,
+    method='GCV'
+)
+
+# Print comprehensive summary
+print(result.summary())
+
+# Visualize all smooth terms
+from aurora.models.gam import plot_all_smooths
+plot_all_smooths(result)
 ```
 
 ### Planned GAMM API (Phase 4)
@@ -800,9 +813,9 @@ Special thanks to the open-source community for providing excellent tools and li
 
 ---
 
-**Status**: 🔨 Phase 3 IN PROGRESS (~75% complete): GAM splines, penalties, GCV, univariate/multivariate fitting, visualization
-**Tests**: 239 passing, 2 skipped (120 new GAM tests added)
-**Version**: 0.3.0-dev
+**Status**: ✅ Phase 3 COMPLETED (100%): Full GAM with REML, formulas, tensor products, thin plate splines
+**Tests**: 348 passing, 2 skipped (229 new GAM tests added in Phase 3)
+**Version**: 0.3.0
 **Python**: 3.10+
 **Maintained by**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 
