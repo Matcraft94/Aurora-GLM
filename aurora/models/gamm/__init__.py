@@ -18,6 +18,12 @@ from aurora.models.gamm.estimation import (
     estimate_variance_components,
     reml_log_likelihood,
 )
+from aurora.models.gamm.fitting import (
+    GAMMResult,
+    fit_gamm_gaussian,
+    predict_gamm,
+    solve_mixed_model_equations,
+)
 from aurora.models.gamm.random_effects import (
     RandomEffect,
     count_random_effects,
@@ -48,4 +54,9 @@ __all__ = [
     "compute_V_matrix",
     "compute_P_matrix",
     "reml_log_likelihood",
+    # GAMM fitting
+    "GAMMResult",
+    "fit_gamm_gaussian",
+    "predict_gamm",
+    "solve_mixed_model_equations",
 ]
