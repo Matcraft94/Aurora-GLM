@@ -235,6 +235,7 @@ def fit_additive_gam(
     smooth_terms: list[SmoothTerm],
     parametric_terms: list[ParametricTerm] | None = None,
     weights: np.ndarray | None = None,
+    method: str = "GCV",
 ) -> AdditiveGAMResult:
     """Fit additive GAM with multiple smooth and parametric terms.
 
@@ -257,6 +258,11 @@ def fit_additive_gam(
         Specifications for parametric (linear) terms.
     weights : ndarray, shape (n,), optional
         Observation weights for weighted least squares.
+    method : {'GCV', 'REML'}, default='GCV'
+        Method for smoothing parameter selection:
+        - 'GCV': Generalized Cross-Validation
+        - 'REML': Restricted Maximum Likelihood
+        Note: Currently both methods use a single λ for all smooth terms.
 
     Returns
     -------
@@ -320,6 +326,10 @@ def fit_additive_gam(
     else:
         weights_arr = None
         W = np.eye(n)
+
+    # Validate method
+    if method.upper() not in ("GCV", "REML"):
+        raise ValueError(f"method must be 'GCV' or 'REML', got '{method}'")
 
     # Build design matrix and penalty matrix for each smooth term
     smooth_bases = {}
@@ -393,33 +403,39 @@ def fit_additive_gam(
     from scipy.linalg import block_diag
     S_full = block_diag(*penalty_blocks)
 
-    # For now, use a simple approach: fit all terms jointly with a single λ
-    # (More sophisticated: optimize λ for each term separately)
+    # Select smoothing parameters
+    # For now, use single lambda for all terms (both GCV and REML)
+    # Per-term lambda optimization with REML is complex and requires more sophisticated
+    # optimization than alternating optimization provides
+    if method.upper() == "REML":
+        from aurora.smoothing.selection.reml import select_smoothing_parameter_reml
+        selection_result = select_smoothing_parameter_reml(
+            y_arr,
+            X_full,
+            S_full,
+            weights=weights_arr,
+            lambda_min=1e-6,
+            lambda_max=1e6,
+        )
+        gcv_score = selection_result.get("reml_score")
+    else:
+        # GCV selection
+        selection_result = select_smoothing_parameter(
+            y_arr,
+            X_full,
+            S_full,
+            weights=weights_arr,
+            lambda_min=1e-6,
+            lambda_max=1e6,
+        )
+        gcv_score = selection_result["gcv_score"]
 
-    # Select smoothing parameter via GCV for the combined model
-    gcv_result = select_smoothing_parameter(
-        y_arr,
-        X_full,
-        S_full,
-        weights=weights_arr,
-        lambda_min=1e-6,
-        lambda_max=1e6,
-    )
+    lambda_opt = selection_result["lambda_opt"]
+    coefficients = selection_result["coefficients"]
+    fitted_values = selection_result["fitted_values"]
 
-    lambda_opt = gcv_result["lambda_opt"]
-    coefficients = gcv_result["coefficients"]
-    fitted_values = gcv_result["fitted_values"]
-    gcv_score = gcv_result["gcv_score"]
-
-    # Compute influence matrix for EDF calculation
-    XtWX = X_full.T @ W @ X_full
-    A = XtWX + lambda_opt * S_full
-    try:
-        A_inv = np.linalg.inv(A)
-        H = X_full @ A_inv @ X_full.T @ W
-    except np.linalg.LinAlgError:
-        # Fallback if singular
-        H = None
+    # All terms use same lambda (no per-term optimization yet)
+    use_per_term_lambda = False
 
     # Split coefficients back into parametric and smooth components
     idx = 0
@@ -430,8 +446,22 @@ def fit_additive_gam(
 
     # Smooth coefficients
     smooth_coef = {}
+
+    # Compute EDF for each term with single lambda
+    # Compute influence matrix for EDF calculation
+    XtWX = X_full.T @ W @ X_full
+    A = XtWX + lambda_opt * S_full
+
+    try:
+        A_inv = np.linalg.inv(A)
+        H = X_full @ A_inv @ X_full.T @ W
+    except np.linalg.LinAlgError:
+        # Fallback if singular
+        H = None
+
     lambda_values = {}
     edf_values = {}
+    idx = n_parametric  # Reset to start of smooth terms
 
     for term in smooth_terms:
         term_name = f"s({term.variable})"
@@ -439,8 +469,7 @@ def fit_additive_gam(
 
         smooth_coef[term_name] = coefficients[idx:idx + n_basis]
 
-        # For now, all smooths use same lambda (simplified)
-        # TODO: Implement per-term lambda optimization
+        # All smooths use same lambda
         lambda_values[term_name] = lambda_opt
 
         # Compute EDF for this smooth term
@@ -456,15 +485,15 @@ def fit_additive_gam(
                 # Sanity check: EDF should be between 0 and n_basis
                 if not (0 <= edf_j <= n_basis + 1):
                     # Fall back to simple division
-                    edf_j = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
+                    edf_j = max(0.0, (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms))
 
                 edf_values[term_name] = edf_j
             else:
                 # Fallback: equal division (subtract parametric)
-                edf_values[term_name] = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
+                edf_values[term_name] = max(0.0, (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms))
         except (np.linalg.LinAlgError, ValueError):
             # Numerical issues - use fallback
-            edf_values[term_name] = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
+            edf_values[term_name] = max(0.0, (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms))
 
         idx += n_basis
 
@@ -492,4 +521,189 @@ def fit_additive_gam(
     return result
 
 
-__all__ = ["fit_additive_gam", "AdditiveGAMResult"]
+def fit_gam_formula(
+    formula: str,
+    data: dict[str, np.ndarray] | np.ndarray,
+    weights: np.ndarray | None = None,
+    method: str = "GCV",
+) -> AdditiveGAMResult:
+    """Fit additive GAM using R-style formula syntax.
+
+    Convenience function that parses a formula string and fits a GAM.
+
+    Parameters
+    ----------
+    formula : str
+        Formula string in R-style syntax, e.g.:
+        - "y ~ s(x1) + s(x2)"
+        - "y ~ s(x1, n_basis=15) + s(x2, basis='cubic') + x3"
+    data : dict or ndarray
+        If dict: mapping from variable names to arrays
+        If ndarray: shape (n, p) array where formula uses column indices
+    weights : ndarray, shape (n,), optional
+        Observation weights.
+    method : {'GCV', 'REML'}, default='GCV'
+        Method for smoothing parameter selection.
+
+    Returns
+    -------
+    result : AdditiveGAMResult
+        Fitted additive GAM result.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from aurora.models.gam import fit_gam_formula
+    >>> # Using column indices with array
+    >>> n = 200
+    >>> X = np.random.randn(n, 3)
+    >>> y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + 0.5 * X[:, 2] + 0.1 * np.random.randn(n)
+    >>> result = fit_gam_formula("0 ~ s(1) + s(2) + 3", np.column_stack([y, X]))
+    >>> print(result.summary())
+
+    >>> # Using dict with named variables
+    >>> data = {
+    ...     'response': y,
+    ...     'temp': X[:, 0],
+    ...     'pressure': X[:, 1],
+    ...     'humidity': X[:, 2]
+    ... }
+    >>> result = fit_gam_formula("response ~ s(temp) + s(pressure) + humidity", data)
+
+    Notes
+    -----
+    When using column indices (integers), the data should be a 2D array where
+    the first column can be the response variable.
+
+    When using variable names (strings), data should be a dict mapping names
+    to 1D arrays.
+    """
+    from aurora.models.gam.formula import parse_formula
+
+    # Parse formula
+    spec = parse_formula(formula)
+
+    # Extract data based on type
+    if isinstance(data, dict):
+        # Dict mode: extract by variable name
+        y = data[spec.response]
+
+        # Collect all unique variable names
+        variable_names = set()
+        for term in spec.smooth_terms:
+            if isinstance(term.variable, str):
+                variable_names.add(term.variable)
+        for term in spec.parametric_terms:
+            if isinstance(term.variable, str):
+                variable_names.add(term.variable)
+
+        # Build mapping from name to column index
+        var_to_idx = {name: i for i, name in enumerate(sorted(variable_names))}
+
+        # Build X matrix
+        X_columns = [data[name] for name in sorted(variable_names)]
+        X = np.column_stack(X_columns)
+
+        # Update term variables to use indices
+        updated_smooth_terms = []
+        for term in spec.smooth_terms:
+            if isinstance(term.variable, str):
+                new_var = var_to_idx[term.variable]
+                updated_smooth_terms.append(
+                    SmoothTerm(
+                        variable=new_var,
+                        basis_type=term.basis_type,
+                        n_basis=term.n_basis,
+                        penalty_order=term.penalty_order,
+                        lambda_=term.lambda_,
+                        knot_method=term.knot_method,
+                    )
+                )
+            else:
+                updated_smooth_terms.append(term)
+
+        updated_parametric_terms = []
+        for term in spec.parametric_terms:
+            if isinstance(term.variable, str):
+                new_var = var_to_idx[term.variable]
+                updated_parametric_terms.append(ParametricTerm(variable=new_var))
+            else:
+                updated_parametric_terms.append(term)
+
+        smooth_terms = updated_smooth_terms
+        parametric_terms = updated_parametric_terms
+
+    else:
+        # Array mode: use column indices directly
+        data_arr = np.asarray(data)
+        if data_arr.ndim != 2:
+            raise ValueError("data array must be 2-dimensional")
+
+        # Extract response
+        try:
+            response_idx = int(spec.response)
+        except ValueError:
+            raise ValueError(
+                f"When using array data, response must be a column index, got '{spec.response}'"
+            )
+
+        y = data_arr[:, response_idx]
+
+        # Build X from remaining columns
+        all_indices = set(range(data_arr.shape[1]))
+        all_indices.discard(response_idx)
+
+        # Get predictor indices from terms
+        predictor_indices = set()
+        for term in spec.smooth_terms:
+            if not isinstance(term.variable, int):
+                raise ValueError(
+                    f"When using array data, all variables must be column indices, "
+                    f"got '{term.variable}'"
+                )
+            predictor_indices.add(term.variable)
+
+        for term in spec.parametric_terms:
+            if not isinstance(term.variable, int):
+                raise ValueError(
+                    f"When using array data, all variables must be column indices, "
+                    f"got '{term.variable}'"
+                )
+            predictor_indices.add(term.variable)
+
+        # Extract predictor columns
+        predictor_indices_sorted = sorted(predictor_indices)
+        X = data_arr[:, predictor_indices_sorted]
+
+        # Remap variable indices in terms to new X matrix
+        idx_map = {old_idx: new_idx for new_idx, old_idx in enumerate(predictor_indices_sorted)}
+
+        smooth_terms = [
+            SmoothTerm(
+                variable=idx_map[term.variable],
+                basis_type=term.basis_type,
+                n_basis=term.n_basis,
+                penalty_order=term.penalty_order,
+                lambda_=term.lambda_,
+                knot_method=term.knot_method,
+            )
+            for term in spec.smooth_terms
+        ]
+
+        parametric_terms = [
+            ParametricTerm(variable=idx_map[term.variable])
+            for term in spec.parametric_terms
+        ]
+
+    # Fit GAM
+    return fit_additive_gam(
+        X=X,
+        y=y,
+        smooth_terms=smooth_terms,
+        parametric_terms=parametric_terms if parametric_terms else None,
+        weights=weights,
+        method=method,
+    )
+
+
+__all__ = ["fit_additive_gam", "fit_gam_formula", "AdditiveGAMResult"]
