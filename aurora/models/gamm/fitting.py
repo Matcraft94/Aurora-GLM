@@ -546,16 +546,18 @@ def predict_gamm(
     # Add random effects if requested
     if include_random and Z_new is not None:
         # Flatten random effects coefficients
+        # extract_random_effects returns {'grouping_var': {group_id: array, ...}}
         b_flat = []
-        for group_id in sorted(result.random_effects.keys()):
-            # Handle both single random effect terms and multiple
-            if isinstance(result.random_effects[group_id], dict):
-                # Multiple terms (not yet implemented in extract_random_effects)
-                for term_name, b_term in result.random_effects[group_id].items():
-                    b_flat.extend(b_term)
-            else:
-                # Single term
-                b_flat.extend(result.random_effects[group_id])
+        for grouping_var in sorted(result.random_effects.keys()):
+            group_effects = result.random_effects[grouping_var]
+            # group_effects is a dict: {group_id: array of effects}
+            for group_id in sorted(group_effects.keys()):
+                b_group = group_effects[group_id]
+                # Extend with all effects for this group
+                if isinstance(b_group, np.ndarray):
+                    b_flat.extend(b_group.ravel())
+                else:
+                    b_flat.append(b_group)
 
         b_array = np.array(b_flat)
         pred += Z_new @ b_array
