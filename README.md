@@ -2,7 +2,7 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ✅ **Development Status**: Phase 3 COMPLETED (100%). Full GAM implementation with REML selection, R-style formulas, tensor products, thin plate splines, and comprehensive visualization. Phase 4 (GAMM) next!
+> ✅ **Development Status**: Phase 4 IN PROGRESS (50%). Full GAM implementation complete. GAMM with random effects (Gaussian family) now available with REML estimation!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -14,8 +14,8 @@
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.3.0
-- **Status**: Phase 3 COMPLETED (100%) - Full GAM with REML, formulas, tensor products, thin plate splines, visualization
+- **Version**: 0.4.0-dev
+- **Status**: Phase 4 IN PROGRESS (50%) - GAMM with random effects (Gaussian family), REML estimation, mixed model equations
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -103,13 +103,25 @@ Aurora-GLM aims to be:
 
 > Full design documentation in `aurora/smoothing/DESIGN.md`. Total: **348 tests passing** (up from 119 in Phase 2).
 
-### Phase 4: GAMM (Random Effects) - PLANNED 📋
+### Phase 4: GAMM (Random Effects) - IN PROGRESS 🚧 (50%)
 
-**Planned features**:
-- 📋 Random effects (intercepts, slopes, crossed, nested)
-- 📋 REML/ML/Laplace estimation
-- 📋 Covariance structures (AR, compound symmetry, custom)
-- 📋 Hierarchical multilevel models
+**Implemented** (109 new tests):
+- ✅ **Random effects infrastructure**: RandomEffect specification with intercepts and slopes (11 tests)
+- ✅ **Design matrix construction**: Z matrix builder with block-diagonal structure (12 tests)
+- ✅ **REML estimation**: Variance component estimation via restricted maximum likelihood (19 tests)
+- ✅ **Mixed model equations solver**: Augmented system solver for β and random effects b (16 tests)
+- ✅ **Gaussian GAMM fitting**: `fit_gamm_gaussian()` with smooth terms and random effects (16 tests)
+- ✅ **High-level interface**: `fit_gamm()` and `fit_gamm_with_smooth()` with pandas support (14 tests)
+- ✅ **Predictions**: Population-level and conditional predictions with `predict_from_gamm()` (9 tests)
+- ✅ **Covariance structures**: Unstructured, diagonal, and identity parameterizations with Cholesky (12 tests)
+- ✅ **Comprehensive example**: Longitudinal data analysis (sleep study) with visualizations
+
+**Remaining for Phase 4**:
+- 📋 Non-Gaussian families (Poisson, Binomial) with PQL/Laplace approximation
+- 📋 Formula parser extensions for lme4-style syntax: `(1 + x | group)`
+- 📋 Crossed and nested random effects
+- 📋 Additional covariance structures (AR1, compound symmetry)
+- 📋 Visualization (caterpillar plots, Q-Q plots for random effects)
 
 ### Phase 5: Extended Features - PLANNED 📋
 
@@ -415,23 +427,137 @@ from aurora.models.gam import plot_all_smooths
 plot_all_smooths(result)
 ```
 
-### Planned GAMM API (Phase 4)
+## GAMM API (Phase 4 - AVAILABLE NOW for Gaussian!)
+
+### Basic Random Intercept Model
 
 ```python
-from aurora.models.gamm import fit_gamm
+from aurora.models import fit_gamm
+from aurora.models.gamm import RandomEffect
+import numpy as np
 
-# Mixed model with random effects
+# Generate longitudinal data
+np.random.seed(42)
+n_subjects, n_per_subject = 10, 15
+n = n_subjects * n_per_subject
+subject_id = np.repeat(np.arange(n_subjects), n_per_subject)
+time = np.tile(np.arange(n_per_subject), n_subjects)
+
+# Design matrix
+X = np.column_stack([np.ones(n), time])
+
+# Random intercepts (subject-specific baseline)
+b_subj = np.random.randn(n_subjects) * 0.8
+y = 2.0 + 0.5 * time + b_subj[subject_id] + np.random.randn(n) * 0.3
+
+# Fit GAMM with random intercept
+re = RandomEffect(grouping='subject')
 result = fit_gamm(
-    formula="""
-        y ~ s(time, by=treatment, k=10) +
-            s(age, bs='cr') +
-            (1 + time | subject) +
-            (1 | clinic)
-    """,
-    data=df,
-    family='gamma',
-    link='log',
-    method='REML'
+    y=y,
+    X=X,
+    random_effects=[re],
+    groups_data={'subject': subject_id},
+    covariance='identity'
+)
+
+# View results
+print(f"Fixed effects (β): {result.beta_parametric}")
+print(f"Variance components (Ψ): {result.variance_components}")
+print(f"Residual variance (σ²): {result.residual_variance}")
+print(f"AIC: {result.aic:.2f}, BIC: {result.bic:.2f}")
+```
+
+### Random Intercept + Slope Model
+
+```python
+# Random intercept + slope on 'time' (variable index 1)
+re_slope = RandomEffect(
+    grouping='subject',
+    variables=(1,),  # Random slope for 'time'
+    include_intercept=True
+)
+
+# Fit model with unstructured covariance (allows correlation)
+result = fit_gamm(
+    y=y,
+    X=X,
+    random_effects=[re_slope],
+    groups_data={'subject': subject_id},
+    covariance='unstructured'
+)
+
+# Extract variance-covariance matrix
+psi = result.variance_components
+print(f"Var(intercept): {psi[0, 0]:.3f}")
+print(f"Cov(intercept, slope): {psi[0, 1]:.3f}")
+print(f"Var(slope): {psi[1, 1]:.3f}")
+
+# Correlation between random intercept and slope
+corr = psi[0, 1] / np.sqrt(psi[0, 0] * psi[1, 1])
+print(f"Correlation: {corr:.3f}")
+```
+
+### Making Predictions
+
+```python
+from aurora.models import predict_from_gamm
+
+# Population-level predictions (for new, unobserved subjects)
+X_new = np.column_stack([np.ones(20), np.arange(20)])
+pred_pop = predict_from_gamm(result, X_new, include_random=False)
+
+# Conditional predictions (for existing subject 0)
+groups_new = np.zeros(20, dtype=int)  # All for subject 0
+pred_cond = predict_from_gamm(
+    result,
+    X_new,
+    groups_new=groups_new,
+    include_random=True
+)
+
+print(f"Population prediction at time=10: {pred_pop[10]:.2f}")
+print(f"Conditional prediction (subject 0) at time=10: {pred_cond[10]:.2f}")
+```
+
+### Pandas Support
+
+```python
+import pandas as pd
+
+# Work with DataFrames
+df = pd.DataFrame({
+    'y': y,
+    'time': time,
+    'subject': subject_id,
+    'treatment': np.random.choice(['A', 'B'], n)
+})
+
+# Fit model with DataFrame inputs
+re = RandomEffect(grouping='subject')
+result = fit_gamm(
+    y=df['y'],
+    X=df[['time']],
+    random_effects=[re],
+    groups_data=df[['subject']],
+    covariance='identity'
+)
+```
+
+### Complete Longitudinal Example
+
+For a complete example with model comparison, diagnostics, and visualization, see:
+- `examples/gamm_example.py` - Simulated sleep study with random intercepts and slopes
+
+**Coming soon** (Non-Gaussian families with PQL/Laplace):
+```python
+# Future: Poisson GAMM for count data
+result = fit_gamm(
+    y=counts,
+    X=X,
+    random_effects=[re],
+    groups_data={'subject': subject_id},
+    family='poisson',  # Not yet implemented
+    link='log'
 )
 ```
 
@@ -813,9 +939,9 @@ Special thanks to the open-source community for providing excellent tools and li
 
 ---
 
-**Status**: ✅ Phase 3 COMPLETED (100%): Full GAM with REML, formulas, tensor products, thin plate splines
-**Tests**: 348 passing, 2 skipped (229 new GAM tests added in Phase 3)
-**Version**: 0.3.0
+**Status**: 🚧 Phase 4 IN PROGRESS (50%): GAMM with random effects (Gaussian family), REML estimation, mixed model equations
+**Tests**: 457 passing, 2 skipped (109 new GAMM tests added in Phase 4, 229 GAM tests from Phase 3)
+**Version**: 0.4.0-dev
 **Python**: 3.10+
 **Maintained by**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 
