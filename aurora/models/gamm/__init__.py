@@ -24,6 +24,11 @@ from aurora.models.gamm.fitting import (
     predict_gamm,
     solve_mixed_model_equations,
 )
+from aurora.models.gamm.interface import (
+    fit_gamm,
+    fit_gamm_with_smooth,
+    predict_from_gamm,
+)
 from aurora.models.gamm.random_effects import (
     RandomEffect,
     count_random_effects,
@@ -54,9 +59,13 @@ __all__ = [
     "compute_V_matrix",
     "compute_P_matrix",
     "reml_log_likelihood",
-    # GAMM fitting
+    # GAMM fitting (low-level)
     "GAMMResult",
     "fit_gamm_gaussian",
     "predict_gamm",
     "solve_mixed_model_equations",
+    # GAMM interface (high-level)
+    "fit_gamm",
+    "fit_gamm_with_smooth",
+    "predict_from_gamm",
 ]
