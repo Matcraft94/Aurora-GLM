@@ -445,14 +445,25 @@ def fit_additive_gam(
 
         # Compute EDF for this smooth term
         # EDF_j = trace(X_j (X'WX + λS)^(-1) X_j' W)
-        if H is not None:
-            # Get columns corresponding to this smooth term
-            X_j = X_full[:, idx:idx + n_basis]
-            # EDF for this term is trace of its influence
-            H_j = X_j @ A_inv[idx:idx + n_basis, :] @ X_full.T @ W
-            edf_values[term_name] = float(np.trace(H_j))
-        else:
-            # Fallback: equal division (subtract parametric)
+        try:
+            if H is not None:
+                # Get columns corresponding to this smooth term
+                X_j = X_full[:, idx:idx + n_basis]
+                # EDF for this term is trace of its influence
+                H_j = X_j @ A_inv[idx:idx + n_basis, :] @ X_full.T @ W
+                edf_j = float(np.trace(H_j))
+
+                # Sanity check: EDF should be between 0 and n_basis
+                if not (0 <= edf_j <= n_basis + 1):
+                    # Fall back to simple division
+                    edf_j = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
+
+                edf_values[term_name] = edf_j
+            else:
+                # Fallback: equal division (subtract parametric)
+                edf_values[term_name] = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
+        except (np.linalg.LinAlgError, ValueError):
+            # Numerical issues - use fallback
             edf_values[term_name] = max(0.0, (gcv_result["edf"] - n_parametric) / len(smooth_terms))
 
         idx += n_basis
