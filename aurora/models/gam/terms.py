@@ -108,4 +108,101 @@ class ParametricTerm:
     variable: str | int
 
 
-__all__ = ["SmoothTerm", "ParametricTerm"]
+@dataclass
+class TensorTerm:
+    """Specification of a tensor product smooth te(x1, x2, ...).
+
+    Tensor product smooths model interactions between variables using
+    the tensor product of marginal basis functions.
+
+    Parameters
+    ----------
+    variables : tuple of (str or int)
+        Tuple of variable names or column indices (length 2 or more).
+    basis_types : tuple of str, optional
+        Basis type for each variable. If None, uses 'bspline' for all.
+    n_basis : tuple of int, optional
+        Number of basis functions for each variable. If None, uses 10 for all.
+    lambdas : tuple of float, optional
+        Fixed smoothing parameters for each direction. If None, selected automatically.
+
+    Examples
+    --------
+    >>> # 2D tensor product with defaults
+    >>> te1 = TensorTerm(variables=(0, 1))
+
+    >>> # Custom basis sizes
+    >>> te2 = TensorTerm(variables=('x1', 'x2'), n_basis=(12, 12))
+
+    >>> # Different basis types
+    >>> te3 = TensorTerm(
+    ...     variables=(0, 1),
+    ...     basis_types=('bspline', 'cubic'),
+    ...     n_basis=(10, 8)
+    ... )
+
+    Notes
+    -----
+    Tensor products are useful for modeling interactions. They are more
+    flexible than additive models but require more data and computation.
+
+    The tensor product te(x1, x2) creates a surface f(x1, x2) rather than
+    the sum f1(x1) + f2(x2).
+    """
+
+    variables: tuple[str | int, ...]
+    basis_types: tuple[str, ...] | None = None
+    n_basis: tuple[int, ...] | None = None
+    lambdas: tuple[float, ...] | None = None
+
+    def __post_init__(self):
+        """Validate parameters after initialization."""
+        if len(self.variables) < 2:
+            raise ValueError("TensorTerm requires at least 2 variables")
+
+        # Set defaults
+        n_vars = len(self.variables)
+
+        if self.basis_types is None:
+            self.basis_types = ('bspline',) * n_vars
+        elif len(self.basis_types) != n_vars:
+            raise ValueError(
+                f"basis_types must have same length as variables, "
+                f"got {len(self.basis_types)} vs {n_vars}"
+            )
+
+        if self.n_basis is None:
+            self.n_basis = (10,) * n_vars
+        elif len(self.n_basis) != n_vars:
+            raise ValueError(
+                f"n_basis must have same length as variables, "
+                f"got {len(self.n_basis)} vs {n_vars}"
+            )
+
+        if self.lambdas is not None and len(self.lambdas) != n_vars:
+            raise ValueError(
+                f"lambdas must have same length as variables, "
+                f"got {len(self.lambdas)} vs {n_vars}"
+            )
+
+        # Validate basis types
+        for bt in self.basis_types:
+            if bt not in ['bspline', 'cubic']:
+                raise NotImplementedError(
+                    f"basis_type='{bt}' not supported in tensor products yet. "
+                    f"Use 'bspline' or 'cubic'."
+                )
+
+        # Validate n_basis
+        for nb in self.n_basis:
+            if nb < 3:
+                raise ValueError(f"Each n_basis must be at least 3, got {nb}")
+
+        # Validate lambdas
+        if self.lambdas is not None:
+            for lam in self.lambdas:
+                if lam < 0:
+                    raise ValueError(f"All lambdas must be non-negative, got {lam}")
+
+
+__all__ = ["SmoothTerm", "ParametricTerm", "TensorTerm"]
