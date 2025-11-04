@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 
 
 def fit_gamm(
-    y: np.ndarray | pd.Series,
+    formula: str | None = None,
+    data: pd.DataFrame | dict | None = None,
+    y: np.ndarray | pd.Series | None = None,
     X: np.ndarray | pd.DataFrame | None = None,
     random_effects: list[RandomEffect] | None = None,
     groups_data: dict[str, np.ndarray] | pd.DataFrame | None = None,
@@ -32,17 +34,26 @@ def fit_gamm(
 ) -> GAMMResult:
     """Fit a Generalized Additive Mixed Model.
 
+    Can be called in two modes:
+    1. **Formula mode**: Pass `formula` and `data`
+    2. **Matrix mode**: Pass `y`, `X`, `random_effects`, and `groups_data`
+
     Parameters
     ----------
-    y : array-like, shape (n,)
-        Response variable.
+    formula : str, optional
+        R-style formula string (formula mode).
+        Example: "y ~ x1 + (1 | subject)" or "y ~ x1 + (1 + time | subject)"
+    data : DataFrame or dict, optional
+        Data containing all variables referenced in formula (formula mode).
+    y : array-like, shape (n,), optional
+        Response variable (matrix mode).
     X : array-like, shape (n, p), optional
-        Design matrix for parametric fixed effects.
+        Design matrix for parametric fixed effects (matrix mode).
         If None, uses intercept-only model.
     random_effects : list of RandomEffect, optional
-        Random effect specifications.
+        Random effect specifications (matrix mode).
     groups_data : dict or DataFrame, optional
-        Grouping variables for random effects.
+        Grouping variables for random effects (matrix mode).
         Keys should match RandomEffect.grouping names.
     family : str, default='gaussian'
         Distribution family. Currently only 'gaussian' supported.
@@ -71,22 +82,52 @@ def fit_gamm(
 
     Examples
     --------
+    **Formula mode (recommended):**
+
     >>> # Random intercept model
+    >>> import pandas as pd
     >>> import numpy as np
-    >>> from aurora.models.gamm import fit_gamm, RandomEffect
+    >>> from aurora.models.gamm import fit_gamm
     >>>
     >>> # Generate data
     >>> n_groups, n_per_group = 10, 20
     >>> n = n_groups * n_per_group
-    >>> groups = np.repeat(np.arange(n_groups), n_per_group)
-    >>> x = np.random.randn(n)
+    >>> data = pd.DataFrame({
+    ...     'y': np.random.randn(n),
+    ...     'x1': np.random.randn(n),
+    ...     'subject': np.repeat(np.arange(n_groups), n_per_group)
+    ... })
+    >>>
+    >>> # Fit model with formula
+    >>> result = fit_gamm(
+    ...     formula="y ~ x1 + (1 | subject)",
+    ...     data=data,
+    ...     covariance='identity'
+    ... )
+    >>>
+    >>> # Access results
+    >>> print(result.beta_parametric)  # Fixed effects
+    >>> print(result.variance_components)  # Random effect variance
+
+    >>> # Random intercept + slope
+    >>> result = fit_gamm(
+    ...     formula="y ~ x1 + (1 + x1 | subject)",
+    ...     data=data,
+    ...     covariance='unstructured'
+    ... )
+    >>> print(result.variance_components)  # 2x2 covariance matrix
+
+    **Matrix mode (advanced):**
+
+    >>> from aurora.models.gamm import RandomEffect
+    >>>
+    >>> # Manually construct matrices
+    >>> groups = data['subject'].values
+    >>> x = data['x1'].values
+    >>> y = data['y'].values
     >>> X = np.column_stack([np.ones(n), x])
     >>>
-    >>> # Random intercepts
-    >>> b = np.random.randn(n_groups)
-    >>> y = 2.0 + 0.5*x + b[groups] + np.random.randn(n)*0.5
-    >>>
-    >>> # Fit model
+    >>> # Specify random effects manually
     >>> re = RandomEffect(grouping='subject')
     >>> result = fit_gamm(
     ...     y=y,
@@ -95,22 +136,7 @@ def fit_gamm(
     ...     groups_data={'subject': groups},
     ...     covariance='identity'
     ... )
-    >>>
-    >>> # Access results
-    >>> print(result.beta_parametric)  # Fixed effects
-    >>> print(result.variance_components)  # Random effect variance
-    >>> print(result.residual_variance)  # Residual variance
-
-    >>> # Random intercept + slope
-    >>> re_slope = RandomEffect(grouping='subject', variables=(1,))
-    >>> result = fit_gamm(
-    ...     y=y,
-    ...     X=X,
-    ...     random_effects=[re_slope],
-    ...     groups_data={'subject': groups},
-    ...     covariance='unstructured'
-    ... )
-    >>> print(result.variance_components)  # 2x2 covariance matrix
+    >>> print(result.beta_parametric)
 
     Notes
     -----
@@ -121,11 +147,125 @@ def fit_gamm(
     For Gaussian family, uses exact REML estimation.
     For other families (future implementation), will use PQL or Laplace.
 
-    Currently supports:
-    - Single random effect term
-    - Gaussian family only
-    - No smooth terms (use fit_gamm_gaussian directly for smooth terms)
+    Formula mode supports:
+    - R-style formula syntax with lme4-style random effects
+    - Automatic design matrix construction from DataFrames
+    - Random intercepts: (1 | group)
+    - Random slopes: (1 + x | group)
+    - Nested effects: (1 | a/b)
+    - Crossed effects: (1 | a) + (1 | b)
     """
+    # Mode detection
+    if formula is not None:
+        # Formula mode
+        if data is None:
+            raise ValueError("data must be provided when using formula mode")
+        if y is not None or X is not None or random_effects is not None:
+            raise ValueError(
+                "Cannot mix formula mode (formula, data) with matrix mode "
+                "(y, X, random_effects). Use one or the other."
+            )
+
+        # Parse formula
+        from aurora.models.gam.formula import parse_formula
+
+        spec = parse_formula(formula)
+
+        # Convert data to DataFrame if dict
+        if isinstance(data, dict):
+            data = pd.DataFrame(data)
+
+        # Extract response
+        if spec.response not in data.columns:
+            raise ValueError(f"Response variable '{spec.response}' not found in data")
+        y = data[spec.response].values
+
+        # Build design matrix from parametric terms
+        # Always include intercept
+        X_cols = [np.ones(len(y))]
+        var_to_col_idx = {'intercept': 0}  # Map variable names to X column indices
+
+        for term in spec.parametric_terms:
+            var_name = term.variable
+            if isinstance(var_name, int):
+                # Column index in data
+                if var_name >= len(data.columns):
+                    raise ValueError(f"Column index {var_name} out of range")
+                col_name = data.columns[var_name]
+                X_cols.append(data.iloc[:, var_name].values)
+                var_to_col_idx[col_name] = len(X_cols) - 1
+                var_to_col_idx[var_name] = len(X_cols) - 1  # Also map integer index
+            elif var_name in data.columns:
+                X_cols.append(data[var_name].values)
+                var_to_col_idx[var_name] = len(X_cols) - 1
+            else:
+                raise ValueError(f"Variable '{var_name}' not found in data")
+
+        # Add variables referenced in random slopes to X if not already there
+        for re in spec.random_effects:
+            for var_name in re.variables:
+                if var_name not in var_to_col_idx:
+                    # Add this variable to X
+                    if isinstance(var_name, int):
+                        if var_name >= len(data.columns):
+                            raise ValueError(f"Variable index {var_name} out of range")
+                        X_cols.append(data.iloc[:, var_name].values)
+                        var_to_col_idx[var_name] = len(X_cols) - 1
+                        var_to_col_idx[data.columns[var_name]] = len(X_cols) - 1
+                    elif var_name in data.columns:
+                        X_cols.append(data[var_name].values)
+                        var_to_col_idx[var_name] = len(X_cols) - 1
+                    else:
+                        raise ValueError(f"Variable '{var_name}' not found in data")
+
+        X = np.column_stack(X_cols) if X_cols else np.ones((len(y), 1))
+
+        # Convert random effects variable names to column indices in X
+        random_effects_converted = []
+        for re in spec.random_effects:
+            # Map variable names/indices to X column indices
+            var_indices = tuple(var_to_col_idx[v] for v in re.variables)
+
+            # Create new RandomEffect with column indices
+            re_converted = RandomEffect(
+                grouping=re.grouping,
+                variables=var_indices,
+                include_intercept=re.include_intercept,
+                covariance=re.covariance,
+            )
+            random_effects_converted.append(re_converted)
+
+        random_effects = random_effects_converted
+
+        # Build groups_data dict
+        groups_data = {}
+        for re in spec.random_effects:  # Use original spec for grouping names
+            group_var = re.grouping
+            if isinstance(group_var, int):
+                # Column index
+                if group_var >= len(data.columns):
+                    raise ValueError(f"Grouping column index {group_var} out of range")
+                groups_data[group_var] = data.iloc[:, group_var].values
+            elif group_var in data.columns:
+                groups_data[group_var] = data[group_var].values
+            else:
+                raise ValueError(f"Grouping variable '{group_var}' not found in data")
+
+        # TODO: Handle smooth terms from spec.smooth_terms
+        # For now, smooth terms in formula mode are not supported
+        if len(spec.smooth_terms) > 0:
+            raise NotImplementedError(
+                "Smooth terms in formula mode not yet implemented. "
+                "Use matrix mode with fit_gamm_with_smooth() for smooth terms."
+            )
+
+    else:
+        # Matrix mode - require y
+        if y is None:
+            raise ValueError(
+                "Either formula+data (formula mode) or y (matrix mode) must be provided"
+            )
+
     # Input validation
     if family != "gaussian":
         raise ValueError(
