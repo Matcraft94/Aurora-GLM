@@ -409,15 +409,40 @@ def predict_from_gamm(
         if result._Z_info is None or len(result._Z_info) == 0:
             raise ValueError("Result does not contain random effects information")
 
-        # Reconstruct Z for new data
-        n_new = len(X_new)
-        n_groups = result.n_groups
-        Z_new = np.zeros((n_new, n_groups))
+        # Need to reconstruct Z with proper structure for random slopes
+        # We need the random_effects specification from the original fit
+        # For now, reconstruct based on Z_info
+        Z_info = result._Z_info[0]  # Assuming single random effect term
+        n_effects = Z_info['n_effects']
+        grouping_var = Z_info['grouping']
 
-        for i, group_id in enumerate(groups_new):
-            if 0 <= group_id < n_groups:
-                Z_new[i, group_id] = 1
-            # If group_id not in training data, leave as 0 (population prediction)
+        # Reconstruct Z for new data using construct_Z_matrix
+        # But we need the original random_effects specification...
+        # Simplification: build Z manually based on Z_info
+        n_new = len(X_new)
+        q = Z_info['end_col'] - Z_info['start_col']
+        Z_new = np.zeros((n_new, q))
+
+        # If n_effects == 1, it's just indicator matrix
+        # If n_effects > 1, we need variables from X_new
+        if n_effects == 1:
+            # Random intercept only
+            for i, group_id in enumerate(groups_new):
+                if 0 <= group_id < result.n_groups:
+                    Z_new[i, group_id] = 1
+        else:
+            # Random intercept + slopes
+            # Columns of Z are organized as: [intercept_g0, slope1_g0, ..., intercept_g1, slope1_g1, ...]
+            n_groups = result.n_groups
+            for i, group_id in enumerate(groups_new):
+                if 0 <= group_id < n_groups:
+                    # Set intercept
+                    col_base = group_id * n_effects
+                    Z_new[i, col_base] = 1
+                    # Set slopes (use variables from X_new)
+                    for effect_idx in range(1, n_effects):
+                        # Assume variables are columns 1, 2, ... in X_new
+                        Z_new[i, col_base + effect_idx] = X_new[i, effect_idx]
 
     # Call predict_gamm
     predictions = predict_gamm(
