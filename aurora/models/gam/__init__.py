@@ -6,7 +6,7 @@ from aurora.models.gam.fitting import fit_gam
 from aurora.models.gam.formula import FormulaSpec, parse_formula
 from aurora.models.gam.plotting import plot_all_smooths, plot_smooth
 from aurora.models.gam.result import GAMResult
-from aurora.models.gam.terms import ParametricTerm, SmoothTerm
+from aurora.models.gam.terms import ParametricTerm, SmoothTerm, TensorTerm
 
 __all__ = [
     "fit_gam",
@@ -16,6 +16,7 @@ __all__ = [
     "AdditiveGAMResult",
     "SmoothTerm",
     "ParametricTerm",
+    "TensorTerm",
     "plot_smooth",
     "plot_all_smooths",
     "parse_formula",
