@@ -55,6 +55,55 @@ def root_mean_squared_error(
     return mean_squared_error(y_true, y_pred, sample_weight=sample_weight, squared=False)
 
 
+def r_squared(
+    y_true: Any,
+    y_pred: Any,
+    *,
+    sample_weight: Any | None = None,
+) -> float:
+    """Calculate R-squared (coefficient of determination).
+    
+    Parameters
+    ----------
+    y_true : array-like
+        True target values.
+    y_pred : array-like
+        Predicted values.
+    sample_weight : array-like, optional
+        Sample weights.
+        
+    Returns
+    -------
+    float
+        R-squared value. Best possible score is 1.0, can be negative
+        (indicating the model performs worse than a horizontal line).
+    """
+    y_true_np = _to_numpy(y_true)
+    y_pred_np = _to_numpy(y_pred)
+    _validate_shape(y_true_np, y_pred_np)
+    
+    if sample_weight is None:
+        y_mean = np.mean(y_true_np)
+        ss_tot = np.sum((y_true_np - y_mean) ** 2)
+        ss_res = np.sum((y_true_np - y_pred_np) ** 2)
+    else:
+        weights = _to_numpy(sample_weight)
+        if weights.shape != y_true_np.shape:
+            weights = np.broadcast_to(weights, y_true_np.shape)
+        total_weight = np.sum(weights)
+        if total_weight <= 0:
+            raise ValueError("sample weights must have positive sum")
+        y_mean = np.sum(weights * y_true_np) / total_weight
+        ss_tot = np.sum(weights * (y_true_np - y_mean) ** 2)
+        ss_res = np.sum(weights * (y_true_np - y_pred_np) ** 2)
+    
+    if ss_tot == 0:
+        # Constant model, R² is undefined, return 0
+        return 0.0
+    
+    return float(1.0 - (ss_res / ss_tot))
+
+
 def _weighted_mean(values: np.ndarray, sample_weight: Any | None) -> float:
     if sample_weight is None:
         return float(np.mean(values))
@@ -87,4 +136,5 @@ __all__ = [
     "mean_squared_error",
     "mean_absolute_error",
     "root_mean_squared_error",
+    "r_squared",
 ]
