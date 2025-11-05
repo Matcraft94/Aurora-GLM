@@ -233,4 +233,173 @@ def _to_numpy(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=np.float64)
 
 
-__all__ = ["accuracy_score", "log_loss", "brier_score_loss", "concordance_index"]
+def confusion_matrix(y_true: Any, y_pred: Any) -> np.ndarray:
+    """Compute confusion matrix for binary classification.
+    
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels (0 or 1).
+    y_pred : array-like
+        Predicted binary labels (0 or 1).
+    
+    Returns
+    -------
+    cm : ndarray, shape (2, 2)
+        Confusion matrix where cm[i, j] is the count of samples
+        with true label i and predicted label j.
+        [[TN, FP],
+         [FN, TP]]
+    """
+    true = _to_numpy(y_true).astype(int)
+    pred = _to_numpy(y_pred).astype(int)
+    _validate_shape(true, pred)
+    
+    if not _is_binary_labels(true) or not _is_binary_labels(pred):
+        raise ValueError("confusion_matrix requires binary labels (0 and 1)")
+    
+    # Compute confusion matrix
+    tn = np.sum((true == 0) & (pred == 0))
+    fp = np.sum((true == 0) & (pred == 1))
+    fn = np.sum((true == 1) & (pred == 0))
+    tp = np.sum((true == 1) & (pred == 1))
+    
+    return np.array([[tn, fp], [fn, tp]], dtype=int)
+
+
+def precision(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> float:
+    """Compute precision (positive predictive value).
+    
+    Precision = TP / (TP + FP)
+    
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels.
+    y_pred : array-like
+        Predicted binary labels.
+    sample_weight : array-like, optional
+        Sample weights.
+    
+    Returns
+    -------
+    precision : float
+        Precision score. Returns 0.0 if no positive predictions.
+    """
+    true = _to_numpy(y_true)
+    pred = _to_numpy(y_pred)
+    _validate_shape(true, pred)
+    
+    if sample_weight is None:
+        tp = np.sum((true == 1) & (pred == 1))
+        fp = np.sum((true == 0) & (pred == 1))
+    else:
+        weights = _to_numpy(sample_weight)
+        tp = np.sum(weights * (true == 1) * (pred == 1))
+        fp = np.sum(weights * (true == 0) * (pred == 1))
+    
+    denominator = tp + fp
+    if denominator == 0:
+        return 0.0
+    return float(tp / denominator)
+
+
+def recall(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> float:
+    """Compute recall (sensitivity, true positive rate).
+    
+    Recall = TP / (TP + FN)
+    
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels.
+    y_pred : array-like
+        Predicted binary labels.
+    sample_weight : array-like, optional
+        Sample weights.
+    
+    Returns
+    -------
+    recall : float
+        Recall score. Returns 0.0 if no positive samples.
+    """
+    true = _to_numpy(y_true)
+    pred = _to_numpy(y_pred)
+    _validate_shape(true, pred)
+    
+    if sample_weight is None:
+        tp = np.sum((true == 1) & (pred == 1))
+        fn = np.sum((true == 1) & (pred == 0))
+    else:
+        weights = _to_numpy(sample_weight)
+        tp = np.sum(weights * (true == 1) * (pred == 1))
+        fn = np.sum(weights * (true == 1) * (pred == 0))
+    
+    denominator = tp + fn
+    if denominator == 0:
+        return 0.0
+    return float(tp / denominator)
+
+
+def f1_score(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> float:
+    """Compute F1 score (harmonic mean of precision and recall).
+    
+    F1 = 2 * (precision * recall) / (precision + recall)
+    
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels.
+    y_pred : array-like
+        Predicted binary labels.
+    sample_weight : array-like, optional
+        Sample weights.
+    
+    Returns
+    -------
+    f1 : float
+        F1 score. Returns 0.0 if both precision and recall are 0.
+    """
+    prec = precision(y_true, y_pred, sample_weight=sample_weight)
+    rec = recall(y_true, y_pred, sample_weight=sample_weight)
+    
+    denominator = prec + rec
+    if denominator == 0:
+        return 0.0
+    return float(2 * prec * rec / denominator)
+
+
+def roc_auc(y_true: Any, y_score: Any, *, sample_weight: Any | None = None) -> float:
+    """Compute Area Under the Receiver Operating Characteristic Curve (ROC-AUC).
+    
+    This is equivalent to the concordance index for binary classification.
+    
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels.
+    y_score : array-like
+        Predicted scores or probabilities.
+    sample_weight : array-like, optional
+        Sample weights.
+    
+    Returns
+    -------
+    auc : float
+        ROC-AUC score, ranging from 0.0 to 1.0.
+        A value of 0.5 indicates random predictions.
+    """
+    return concordance_index(y_true, y_score, sample_weight=sample_weight)
+
+
+__all__ = [
+    "accuracy_score",
+    "log_loss",
+    "brier_score_loss",
+    "concordance_index",
+    "confusion_matrix",
+    "precision",
+    "recall",
+    "f1_score",
+    "roc_auc",
+]
