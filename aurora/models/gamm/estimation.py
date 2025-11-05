@@ -218,46 +218,87 @@ def reml_objective(
     y: np.ndarray,
     X: np.ndarray,
     Z: np.ndarray,
-    cov_structure: CovarianceStructure,
-    n_effects: int,
+    cov_structure: CovarianceStructure | list[CovarianceStructure],
+    n_effects: int | list[int],
+    Z_info: list[dict] | None = None,
 ) -> float:
     """REML objective function (negative log-likelihood).
 
     Parameters
     ----------
     theta : ndarray
-        Covariance parameters [psi_params..., log(sigma2)].
+        Covariance parameters [psi_params_1..., psi_params_2..., log(sigma2)].
     y : ndarray, shape (n,)
         Response vector.
     X : ndarray, shape (n, p)
         Fixed effects design matrix.
     Z : ndarray, shape (n, q)
         Random effects design matrix.
-    cov_structure : CovarianceStructure
-        Covariance structure for Ψ.
-    n_effects : int
-        Number of random effects per group.
+    cov_structure : CovarianceStructure or list of CovarianceStructure
+        Covariance structure(s) for Ψ. If list, one per random effect term.
+    n_effects : int or list of int
+        Number of random effects per group. If list, one per random effect term.
+    Z_info : list of dict, optional
+        Information about Z structure (required for multiple terms).
 
     Returns
     -------
     neg_log_lik : float
         Negative REML log-likelihood.
     """
-    # Extract parameters
-    n_psi_params = cov_structure.n_parameters(n_effects)
-    psi_params = theta[:n_psi_params]
-    log_sigma2 = theta[n_psi_params]
-    sigma2 = np.exp(log_sigma2)
-
     try:
-        # Construct Ψ
-        psi = cov_structure.construct_psi(psi_params, n_effects)
+        # Handle single vs multiple random effects
+        if isinstance(cov_structure, list):
+            # Multiple random effects
+            if Z_info is None:
+                raise ValueError("Z_info required for multiple random effects")
+            
+            n_terms = len(Z_info)
+            psi_blocks = []
+            param_idx = 0
+            
+            for i in range(n_terms):
+                n_eff = n_effects[i] if isinstance(n_effects, list) else n_effects
+                cov = cov_structure[i] if isinstance(cov_structure, list) else cov_structure
+                
+                # Extract parameters for this term
+                n_params = cov.n_parameters(n_eff)
+                psi_params = theta[param_idx:param_idx + n_params]
+                param_idx += n_params
+                
+                # Construct Ψ for this term
+                psi_i = cov.construct_psi(psi_params, n_eff)
+                
+                # Expand to block diagonal for all groups in this term
+                n_groups = Z_info[i]['n_groups']
+                psi_block = linalg.block_diag(*([psi_i] * n_groups))
+                psi_blocks.append(psi_block)
+            
+            # Combine into full block-diagonal Ψ
+            psi_full = linalg.block_diag(*psi_blocks)
+            
+            # Extract sigma2
+            log_sigma2 = theta[param_idx]
+            sigma2 = np.exp(log_sigma2)
+            
+            # Compute V = ZΨZ' + σ²I
+            V = Z @ psi_full @ Z.T + sigma2 * np.eye(len(y))
+            
+        else:
+            # Single random effect (backward compatibility)
+            n_psi_params = cov_structure.n_parameters(n_effects)
+            psi_params = theta[:n_psi_params]
+            log_sigma2 = theta[n_psi_params]
+            sigma2 = np.exp(log_sigma2)
 
-        # Compute V and P
-        V = compute_V_matrix(Z, psi, sigma2, n_effects=n_effects)
+            # Construct Ψ
+            psi = cov_structure.construct_psi(psi_params, n_effects)
+
+            # Compute V
+            V = compute_V_matrix(Z, psi, sigma2, n_effects=n_effects)
+
+        # Compute P and log-likelihood
         P = compute_P_matrix(V, X)
-
-        # Compute log-likelihood
         log_lik = reml_log_likelihood(y, X, V, P)
 
         return -log_lik
@@ -276,7 +317,7 @@ def estimate_variance_components(
     method: str = "L-BFGS-B",
     maxiter: int = 1000,
     tol: float = 1e-6,
-    initial_psi: np.ndarray | None = None,
+    initial_psi: np.ndarray | list[np.ndarray] | None = None,
     initial_sigma2: float | None = None,
     store_matrices: bool = False,
 ) -> REMLResult:
@@ -292,16 +333,19 @@ def estimate_variance_components(
         Random effects design matrix.
     Z_info : list of dict
         Metadata about Z structure (from construct_Z_matrix).
+        Each dict contains: 'n_effects', 'n_groups', 'grouping', 'start_col', 'end_col'.
     covariance : str, default='unstructured'
         Covariance structure: 'unstructured', 'diagonal', or 'identity'.
+        Applied to all random effect terms.
     method : str, default='L-BFGS-B'
         Optimization method for scipy.optimize.minimize.
     maxiter : int, default=1000
         Maximum number of iterations.
     tol : float, default=1e-6
         Convergence tolerance.
-    initial_psi : ndarray or None, optional
-        Initial value for Ψ. If None, uses identity.
+    initial_psi : ndarray or list of ndarray or None, optional
+        Initial value(s) for Ψ. If None, uses identity for each term.
+        If list, one per random effect term. If single array, used for all terms.
     initial_sigma2 : float or None, optional
         Initial value for σ². If None, uses variance of residuals.
     store_matrices : bool, default=False
@@ -310,44 +354,52 @@ def estimate_variance_components(
     Returns
     -------
     result : REMLResult
-        REML estimation result.
-
-    Notes
-    -----
-    This function currently assumes a single random effect term with one
-    covariance structure. Extension to multiple terms with different
-    structures will be implemented in future milestones.
+        REML estimation result. For multiple random effects, psi is block-diagonal
+        containing all variance-covariance matrices.
 
     Examples
     --------
-    >>> # Random intercept model
+    >>> # Single random intercept model
     >>> n = 100
     >>> y = np.random.randn(n)
     >>> X = np.ones((n, 1))
     >>> groups = np.repeat(np.arange(20), 5)
     >>> Z = np.zeros((n, 20))
     >>> Z[np.arange(n), groups] = 1
-    >>> Z_info = [{'n_effects': 1, 'n_groups': 20}]
+    >>> Z_info = [{'n_effects': 1, 'n_groups': 20, 'grouping': 'subject',
+    ...            'start_col': 0, 'end_col': 20}]
     >>> result = estimate_variance_components(y, X, Z, Z_info)
+    
+    >>> # Multiple random effects (crossed): (1 | school) + (1 | class)
+    >>> # Z_info = [
+    >>> #     {'n_effects': 1, 'n_groups': 10, 'grouping': 'school', 'start_col': 0, 'end_col': 10},
+    >>> #     {'n_effects': 1, 'n_groups': 30, 'grouping': 'class', 'start_col': 10, 'end_col': 40}
+    >>> # ]
+    >>> # result = estimate_variance_components(y, X, Z, Z_info)
     """
     n, p = X.shape
     _, q = Z.shape
 
-    # Get covariance structure
-    cov_structure = get_covariance_structure(covariance)
+    # Number of random effect terms
+    n_terms = len(Z_info)
+    
+    if n_terms == 0:
+        raise ValueError("No random effects specified in Z_info")
 
-    # For now, assume single random effect term
-    if len(Z_info) != 1:
-        raise NotImplementedError(
-            "Multiple random effect terms not yet supported. "
-            "This will be implemented in Milestone 3."
-        )
-
-    n_effects = Z_info[0]["n_effects"]
+    # Get covariance structure(s)
+    # For now, use same structure for all terms
+    # Future: could support different structures per term
+    cov_structures = [get_covariance_structure(covariance) for _ in range(n_terms)]
+    n_effects_list = [info["n_effects"] for info in Z_info]
 
     # Initialize parameters
     if initial_psi is None:
-        initial_psi = np.eye(n_effects)
+        initial_psi_list = [np.eye(n_eff) for n_eff in n_effects_list]
+    elif isinstance(initial_psi, list):
+        initial_psi_list = initial_psi
+    else:
+        # Single array provided, use for all terms
+        initial_psi_list = [initial_psi for _ in range(n_terms)]
 
     if initial_sigma2 is None:
         # Use variance of OLS residuals as initial guess
@@ -355,34 +407,57 @@ def estimate_variance_components(
         residuals = y - X @ beta_ols
         initial_sigma2 = np.var(residuals)
 
-    # Extract initial covariance parameters
-    psi_params_init = cov_structure.extract_params(initial_psi)
+    # Extract initial covariance parameters for all terms
+    theta_init_parts = []
+    for i in range(n_terms):
+        psi_params_init = cov_structures[i].extract_params(initial_psi_list[i])
+        theta_init_parts.append(psi_params_init)
+    
+    # Add log(sigma2) at the end
     log_sigma2_init = np.log(initial_sigma2)
-    theta_init = np.concatenate([psi_params_init, [log_sigma2_init]])
+    theta_init = np.concatenate(theta_init_parts + [np.array([log_sigma2_init])])
 
     # Optimize
     result = optimize.minimize(
         reml_objective,
         theta_init,
-        args=(y, X, Z, cov_structure, n_effects),
+        args=(y, X, Z, cov_structures, n_effects_list, Z_info),
         method=method,
         options={"maxiter": maxiter, "ftol": tol},
     )
 
     # Extract optimized parameters
-    n_psi_params = cov_structure.n_parameters(n_effects)
-    psi_params_opt = result.x[:n_psi_params]
-    log_sigma2_opt = result.x[n_psi_params]
+    psi_blocks = []
+    param_idx = 0
+    
+    for i in range(n_terms):
+        n_params = cov_structures[i].n_parameters(n_effects_list[i])
+        psi_params_opt = result.x[param_idx:param_idx + n_params]
+        param_idx += n_params
+        
+        # Construct Ψ for this term
+        psi_i = cov_structures[i].construct_psi(psi_params_opt, n_effects_list[i])
+        
+        # Expand to block diagonal for all groups in this term
+        n_groups = Z_info[i]['n_groups']
+        psi_block = linalg.block_diag(*([psi_i] * n_groups))
+        psi_blocks.append(psi_block)
+    
+    # Extract sigma2
+    log_sigma2_opt = result.x[param_idx]
     sigma2_opt = np.exp(log_sigma2_opt)
-
-    # Construct final Ψ
-    psi_opt = cov_structure.construct_psi(psi_params_opt, n_effects)
+    
+    # Combine into full block-diagonal Ψ
+    if len(psi_blocks) == 1:
+        psi_opt = psi_blocks[0]
+    else:
+        psi_opt = linalg.block_diag(*psi_blocks)
 
     # Compute final V and P if requested
     V_opt = None
     P_opt = None
     if store_matrices:
-        V_opt = compute_V_matrix(Z, psi_opt, sigma2_opt, n_effects=n_effects)
+        V_opt = Z @ psi_opt @ Z.T + sigma2_opt * np.eye(n)
         P_opt = compute_P_matrix(V_opt, X)
 
     return REMLResult(
@@ -443,7 +518,7 @@ def estimate_random_effects(
     beta: np.ndarray,
     psi: np.ndarray,
     sigma2: float,
-    n_effects: int | None = None,
+    Z_info: list[dict] | None = None,
 ) -> np.ndarray:
     """Estimate random effects b (BLUPs) via conditional expectation.
 
@@ -457,12 +532,15 @@ def estimate_random_effects(
         Random effects design matrix.
     beta : ndarray, shape (p,)
         Fixed effects estimates.
-    psi : ndarray, shape (q_effects, q_effects)
-        Random effects covariance matrix (per group).
+    psi : ndarray
+        Random effects covariance matrix. Can be:
+        - shape (q_effects, q_effects): per-group covariance (single term)
+        - shape (q, q): full block-diagonal for multiple terms
     sigma2 : float
         Residual variance.
-    n_effects : int or None, optional
-        Number of random effects per group.
+    Z_info : list of dict or None, optional
+        Information about Z structure. If provided and psi is per-group,
+        will expand psi to block-diagonal.
 
     Returns
     -------
@@ -473,24 +551,34 @@ def estimate_random_effects(
     -----
     b = Ψ_full Z'V⁻¹(y - Xβ)
     where V = ZΨ_full Z' + σ²I
+    
+    For multiple random effects, psi should already be block-diagonal.
     """
     # Compute residuals
     residuals = y - X @ beta
-
-    # Compute V
-    V = compute_V_matrix(Z, psi, sigma2, n_effects=n_effects)
-
-    # Expand psi to full dimension if needed
+    
     q = Z.shape[1]
-    if n_effects is not None and psi.shape[0] == n_effects < q:
-        n_groups = q // n_effects
-        psi_full = linalg.block_diag(*([psi] * n_groups))
+    n = len(y)
+    
+    # Check if psi needs expansion (backward compatibility)
+    if Z_info is not None and len(Z_info) == 1 and psi.shape[0] < q:
+        # Single term with per-group covariance
+        n_effects = Z_info[0]["n_effects"]
+        n_groups = Z_info[0]["n_groups"]
+        if psi.shape[0] == n_effects:
+            psi_full = linalg.block_diag(*([psi] * n_groups))
+        else:
+            psi_full = psi
     else:
+        # Already in correct form (single group or already block-diagonal)
         psi_full = psi
+
+    # Compute V = ZΨZ' + σ²I
+    V = Z @ psi_full @ Z.T + sigma2 * np.eye(n)
 
     # Compute V⁻¹
     L = linalg.cholesky(V, lower=True)
-    V_inv = linalg.cho_solve((L, True), np.eye(V.shape[0]))
+    V_inv = linalg.cho_solve((L, True), np.eye(n))
 
     # b = Ψ_full Z'V⁻¹(y - Xβ)
     b = psi_full @ Z.T @ V_inv @ residuals
