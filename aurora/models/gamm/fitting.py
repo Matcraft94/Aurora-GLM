@@ -383,16 +383,11 @@ def fit_gamm_gaussian(
 
     psi = reml_result.psi
     sigma2 = reml_result.sigma2
-    n_effects = Z_info[0]["n_effects"]
 
-    # Compute Ψ⁻¹ with proper expansion
-    if psi.shape[0] == n_effects < Z.shape[1]:
-        # Expand to block diagonal for all groups
-        n_groups = Z.shape[1] // n_effects
-        psi_inv_block = linalg.inv(psi)
-        psi_inv = linalg.block_diag(*([psi_inv_block] * n_groups))
-    else:
-        psi_inv = linalg.inv(psi)
+    # Compute Ψ⁻¹
+    # For multiple random effects, psi is already block-diagonal
+    # Just invert it directly
+    psi_inv = linalg.inv(psi)
 
     # Step 2: Solve mixed model equations
     beta_combined, b = solve_mixed_model_equations(
@@ -468,8 +463,8 @@ def fit_gamm_gaussian(
     # Store smoothing parameters
     smoothing_params = lambda_smooth if lambda_smooth is not None else None
 
-    # Count groups
-    n_groups = Z_info[0]["n_groups"]
+    # Count total groups across all random effect terms
+    n_groups = sum(info["n_groups"] for info in Z_info)
 
     return GAMMResult(
         coefficients=beta_combined,
