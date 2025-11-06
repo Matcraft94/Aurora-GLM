@@ -1,0 +1,11 @@
+# Ignore all downloaded data files
+*.csv
+*.zip
+*.json
+*.parquet
+*.xlsx
+*.txt
+
+# Keep structure files
+!.gitignore
+!README.md
