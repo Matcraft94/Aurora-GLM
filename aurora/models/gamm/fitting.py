@@ -48,8 +48,9 @@ class GAMMResult:
         Smooth term coefficients by term name.
     random_effects : dict[str, ndarray]
         Random effect coefficients by grouping variable.
-    variance_components : ndarray
-        Variance-covariance matrix Ψ for random effects.
+    variance_components : list[ndarray]
+        List of variance-covariance matrices Ψ, one per random effect term.
+        For single term models, this is a list with one element.
     residual_variance : float
         Residual variance σ².
     smoothing_parameters : dict[str, float] | None
@@ -86,7 +87,7 @@ class GAMMResult:
     beta_parametric: NDArray[np.floating]
     beta_smooth: dict[str, NDArray[np.floating]]
     random_effects: dict[str, NDArray[np.floating]]
-    variance_components: NDArray[np.floating]
+    variance_components: list[NDArray[np.floating]]
     residual_variance: float
     smoothing_parameters: dict[str, float] | None
     edf_total: float
@@ -384,10 +385,32 @@ def fit_gamm_gaussian(
     psi = reml_result.psi
     sigma2 = reml_result.sigma2
 
+    # Expand psi to full block-diagonal form before inverting
+    # psi from REML is per-group covariance structure
+    if len(Z_info) == 1 and psi.shape[0] == Z_info[0]['n_effects']:
+        # Single random effect term, expand to block-diagonal
+        n_groups = Z_info[0]['n_groups']
+        psi_full = linalg.block_diag(*([psi] * n_groups))
+    elif len(Z_info) > 1:
+        # Multiple terms, psi is block-diagonal of per-term structures
+        # Need to expand each term
+        psi_blocks = []
+        term_offset = 0
+        for info in Z_info:
+            n_effects = info['n_effects']
+            n_groups = info['n_groups']
+            # Extract this term's per-group structure
+            psi_term = psi[term_offset:term_offset+n_effects, term_offset:term_offset+n_effects]
+            # Expand to block-diagonal for all groups
+            psi_blocks.append(linalg.block_diag(*([psi_term] * n_groups)))
+            term_offset += n_effects
+        psi_full = linalg.block_diag(*psi_blocks)
+    else:
+        # Already in correct form
+        psi_full = psi
+
     # Compute Ψ⁻¹
-    # For multiple random effects, psi is already block-diagonal
-    # Just invert it directly
-    psi_inv = linalg.inv(psi)
+    psi_inv = linalg.inv(psi_full)
 
     # Step 2: Solve mixed model equations
     beta_combined, b = solve_mixed_model_equations(
@@ -412,6 +435,23 @@ def fit_gamm_gaussian(
     from aurora.models.gamm.design import extract_random_effects
 
     random_effects = extract_random_effects(b, Z_info)
+
+    # Step 4b: Convert variance_components to list format
+    # psi from REML is per-group structure (or block-diagonal of per-group structures)
+    # Convert to list of per-term covariance matrices
+    if len(Z_info) == 1:
+        # Single random effect term
+        variance_components_list = [psi]
+    else:
+        # Multiple terms: psi is block-diagonal of per-term structures
+        # Extract each term's structure
+        variance_components_list = []
+        offset = 0
+        for info in Z_info:
+            n_effects = info['n_effects']
+            psi_term = psi[offset:offset+n_effects, offset:offset+n_effects]
+            variance_components_list.append(psi_term)
+            offset += n_effects
 
     # Step 5: Compute fitted values and residuals
     fitted_values = X_combined @ beta_combined + Z @ b
@@ -471,7 +511,7 @@ def fit_gamm_gaussian(
         beta_parametric=beta_parametric,
         beta_smooth=beta_smooth,
         random_effects=random_effects,
-        variance_components=psi,
+        variance_components=variance_components_list,
         residual_variance=sigma2,
         smoothing_parameters=smoothing_params,
         edf_total=edf_total,
