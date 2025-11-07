@@ -342,17 +342,25 @@ def test_estimate_variance_components_store_matrices():
 
 
 def test_estimate_variance_components_multiple_terms_raises():
-    """estimate_variance_components should raise for multiple random effects."""
+    """estimate_variance_components should handle multiple random effect terms."""
     y, X, Z, Z_info, _ = generate_random_intercept_data(n_groups=5, n_per_group=4)
 
-    # Create fake Z_info with multiple terms
+    # Create Z_info with multiple terms
+    # Note: Z needs to have enough columns for both terms
+    n_per_term = 5
+    Z_combined = np.column_stack([Z, Z])  # Duplicate for two terms
+
     Z_info_multiple = [
-        {'n_effects': 1, 'n_groups': 5},
-        {'n_effects': 1, 'n_groups': 5},
+        {'n_effects': 1, 'n_groups': 5, 'grouping': 'term1', 'start_col': 0, 'end_col': 5},
+        {'n_effects': 1, 'n_groups': 5, 'grouping': 'term2', 'start_col': 5, 'end_col': 10},
     ]
 
-    with pytest.raises(NotImplementedError, match="Multiple random effect terms"):
-        estimate_variance_components(y, X, Z, Z_info_multiple, covariance='identity')
+    # Should work with multiple terms (no longer raises)
+    result = estimate_variance_components(y, X, Z_combined, Z_info_multiple, covariance='identity')
+
+    # Result should have variance structure for each term
+    assert result.converged
+    assert result.psi.shape[0] >= 2  # At least 2x2 for two terms
 
 
 def test_estimate_variance_components_convergence():
@@ -434,9 +442,8 @@ def test_estimate_random_effects():
     psi = np.array([[1.0]])
     sigma2 = 0.5
     beta = np.array([2.0])
-    n_effects = 1
 
-    b = estimate_random_effects(y, X, Z, beta, psi, sigma2, n_effects=n_effects)
+    b = estimate_random_effects(y, X, Z, beta, psi, sigma2, Z_info=Z_info)
 
     assert b.shape == (5,)  # 5 groups
 
@@ -458,9 +465,8 @@ def test_estimate_random_effects_high_correlation():
     psi = np.array([[1.0, 0.5], [0.5, 0.8]])
     sigma2 = 0.5
     beta = np.array([2.0, 0.5])
-    n_effects = 2
 
-    b = estimate_random_effects(y, X, Z, beta, psi, sigma2, n_effects=n_effects)
+    b = estimate_random_effects(y, X, Z, beta, psi, sigma2, Z_info=Z_info)
 
     # Should have 5 groups * 2 effects = 10 coefficients
     assert b.shape == (10,)
@@ -497,9 +503,8 @@ def test_full_estimation_pipeline():
     assert 2.0 < beta[0] < 4.0
 
     # Step 3: Estimate random effects
-    n_effects = Z_info[0]['n_effects']
     b = estimate_random_effects(
-        y, X, Z, beta, reml_result.psi, reml_result.sigma2, n_effects=n_effects
+        y, X, Z, beta, reml_result.psi, reml_result.sigma2, Z_info=Z_info
     )
 
     assert b.shape == (10,)  # 10 groups

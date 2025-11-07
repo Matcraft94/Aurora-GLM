@@ -114,10 +114,10 @@ def test_fit_gamm_random_slope():
     )
 
     assert result.converged
-    assert result.variance_components.shape == (2, 2)
+    assert result.variance_components[0].shape == (2, 2)
 
     # Check positive definite
-    eigvals = np.linalg.eigvalsh(result.variance_components)
+    eigvals = np.linalg.eigvalsh(result.variance_components[0])
     assert np.all(eigvals > 0)
 
 
@@ -361,7 +361,7 @@ def test_end_to_end_workflow():
     assert -0.5 < result.beta_parametric[2] < -0.1  # x2 slope
 
     # Check variance components
-    assert 0.5 < result.variance_components[0, 0] < 2.0  # True: 1.0
+    assert 0.5 < result.variance_components[0][0, 0] < 2.0  # True: 1.0
     assert 0.3 < result.residual_variance < 1.0  # True: 0.6
 
     # Check random effects extracted
