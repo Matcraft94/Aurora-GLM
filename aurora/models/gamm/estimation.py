@@ -427,37 +427,50 @@ def estimate_variance_components(
     )
 
     # Extract optimized parameters
-    psi_blocks = []
+    psi_per_term = []
     param_idx = 0
-    
+
     for i in range(n_terms):
         n_params = cov_structures[i].n_parameters(n_effects_list[i])
         psi_params_opt = result.x[param_idx:param_idx + n_params]
         param_idx += n_params
-        
-        # Construct Ψ for this term
+
+        # Construct Ψ for this term (per-group covariance structure)
         psi_i = cov_structures[i].construct_psi(psi_params_opt, n_effects_list[i])
-        
-        # Expand to block diagonal for all groups in this term
-        n_groups = Z_info[i]['n_groups']
-        psi_block = linalg.block_diag(*([psi_i] * n_groups))
-        psi_blocks.append(psi_block)
-    
+        psi_per_term.append(psi_i)
+
     # Extract sigma2
     log_sigma2_opt = result.x[param_idx]
     sigma2_opt = np.exp(log_sigma2_opt)
-    
-    # Combine into full block-diagonal Ψ
-    if len(psi_blocks) == 1:
-        psi_opt = psi_blocks[0]
+
+    # Return per-group covariance structure, not expanded block-diagonal
+    # For single random effect term, return the per-group structure
+    # For multiple terms, return block-diagonal of per-group structures
+    if len(psi_per_term) == 1:
+        psi_opt = psi_per_term[0]
     else:
-        psi_opt = linalg.block_diag(*psi_blocks)
+        # For multiple random effect terms, combine their per-group structures
+        psi_opt = linalg.block_diag(*psi_per_term)
 
     # Compute final V and P if requested
     V_opt = None
     P_opt = None
     if store_matrices:
-        V_opt = Z @ psi_opt @ Z.T + sigma2_opt * np.eye(n)
+        # Need to expand psi to block-diagonal for V computation
+        if len(psi_per_term) == 1 and psi_opt.shape[0] == n_effects_list[0]:
+            # Single term, expand per-group to full block-diagonal
+            n_groups = Z_info[0]['n_groups']
+            psi_full = linalg.block_diag(*([psi_opt] * n_groups))
+        else:
+            # Multiple terms or already correct size
+            # For multiple terms, need to expand each and combine
+            psi_blocks = []
+            for i, psi_i in enumerate(psi_per_term):
+                n_groups = Z_info[i]['n_groups']
+                psi_blocks.append(linalg.block_diag(*([psi_i] * n_groups)))
+            psi_full = linalg.block_diag(*psi_blocks) if len(psi_blocks) > 1 else psi_blocks[0]
+
+        V_opt = Z @ psi_full @ Z.T + sigma2_opt * np.eye(n)
         P_opt = compute_P_matrix(V_opt, X)
 
     return REMLResult(

@@ -139,8 +139,8 @@ def plot_caterpillar(
         )
 
     # Extract random effects for this grouping
-    re_dict = extract_random_effects(result.b_random, result._Z_info)
-    random_effects = re_dict[grouping_to_plot]
+    # GAMMResult already has random_effects in the correct format
+    random_effects = result.random_effects[grouping_to_plot]
 
     # Get groups and effects
     groups = info['groups']
@@ -299,8 +299,8 @@ def plot_random_effects_qq(
         )
 
     # Extract random effects
-    re_dict = extract_random_effects(result.b_random, result._Z_info)
-    random_effects = re_dict[grouping_to_plot]
+    # GAMMResult already has random_effects in the correct format
+    random_effects = result.random_effects[grouping_to_plot]
 
     # Get effects for this index
     groups = info['groups']
@@ -410,8 +410,8 @@ def plot_random_effects_density(
         )
 
     # Extract random effects
-    re_dict = extract_random_effects(result.b_random, result._Z_info)
-    random_effects = re_dict[grouping_to_plot]
+    # GAMMResult already has random_effects in the correct format
+    random_effects = result.random_effects[grouping_to_plot]
 
     groups = info['groups']
     effects = np.array([random_effects[g][effect_index] for g in groups])

@@ -200,7 +200,7 @@ def fit_pql(
 
     # Initial linear predictor
     eta = X @ beta + Z @ b
-    mu = family.link.inverse(eta)
+    mu = family.default_link.inverse(eta)
 
     # Track convergence
     converged = False
@@ -216,7 +216,7 @@ def fit_pql(
             b_old = b.copy()
 
             # Compute working response and weights
-            dmu_deta = family.link.derivative_inv(eta)  # g'(μ)⁻¹ = dμ/dη
+            dmu_deta = family.default_link.derivative(eta)  # dμ/dη
             var_mu = family.variance(mu)
 
             # Working response: z = η + (y - μ) / (dμ/dη)
@@ -231,7 +231,7 @@ def fit_pql(
 
             # Update linear predictor and mean
             eta = X @ beta + Z @ b
-            mu = family.link.inverse(eta)
+            mu = family.default_link.inverse(eta)
 
             # Check inner convergence
             delta_beta = np.max(np.abs(beta - beta_old))
@@ -359,8 +359,9 @@ def _solve_pql_equations(
         coef = linalg.cho_solve((L, True), rhs)
     except linalg.LinAlgError:
         # Fallback to ridge-regularized solution
-        A_ridge = A + 1e-6 * np.eye(p + q)
-        coef = linalg.solve(A_ridge, rhs, assume_a='pos')
+        # Use larger ridge for numerical stability
+        A_ridge = A + 1e-4 * np.eye(p + q)
+        coef = linalg.solve(A_ridge, rhs, assume_a='gen')
 
     beta = coef[:p]
     b = coef[p:]
