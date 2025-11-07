@@ -88,3 +88,4 @@ CLAUDE.md
 
 # Benchmark results
 benchmarks/results/
+*.json
