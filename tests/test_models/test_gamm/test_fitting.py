@@ -239,7 +239,7 @@ def test_fit_gamm_gaussian_random_intercept():
     assert result.n_obs == 50
 
     # Check variance components
-    assert result.variance_components.shape == (1, 1)
+    assert result.variance_components[0].shape == (1, 1)
     assert result.residual_variance > 0
 
     # Check fitted values
@@ -431,10 +431,10 @@ def test_fit_gamm_gaussian_unstructured_covariance():
     )
 
     assert result.converged
-    assert result.variance_components.shape == (2, 2)
+    assert result.variance_components[0].shape == (2, 2)
 
     # Check positive definite
-    eigvals = np.linalg.eigvalsh(result.variance_components)
+    eigvals = np.linalg.eigvalsh(result.variance_components[0])
     assert np.all(eigvals > 0)
 
 
@@ -576,7 +576,9 @@ def test_gamm_result_attributes():
     assert isinstance(result.beta_parametric, np.ndarray)
     assert isinstance(result.beta_smooth, dict)
     assert isinstance(result.random_effects, dict)
-    assert isinstance(result.variance_components, np.ndarray)
+    assert isinstance(result.variance_components, list)
+    assert len(result.variance_components) > 0
+    assert isinstance(result.variance_components[0], np.ndarray)
     assert isinstance(result.residual_variance, (float, np.floating))
     assert isinstance(result.fitted_values, np.ndarray)
     assert isinstance(result.residuals, np.ndarray)
@@ -608,7 +610,7 @@ def test_gamm_fit_quality():
     assert 0.5 < result.beta_parametric[1] < 1.1  # True: 0.8
 
     # Variance components should be reasonable
-    assert 0.5 < result.variance_components[0, 0] < 2.5  # True: 1.2
+    assert 0.5 < result.variance_components[0][0, 0] < 2.5  # True: 1.2
     assert 0.3 < result.residual_variance < 1.2  # True: 0.6
 
     # Residuals should have reasonable properties
