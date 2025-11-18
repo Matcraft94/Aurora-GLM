@@ -9,6 +9,12 @@ from aurora.models.gamm.covariance import (
     get_covariance_structure,
 )
 from aurora.models.gamm.design import construct_Z_matrix, extract_random_effects
+from aurora.models.gamm.diagnostics import (
+    compute_r2_conditional_marginal,
+    interpret_variance_components,
+    plot_diagnostics as plot_gamm_diagnostics,
+    plot_random_effects as plot_gamm_random_effects,
+)
 from aurora.models.gamm.estimation import (
     REMLResult,
     compute_P_matrix,
@@ -88,4 +94,9 @@ __all__ = [
     "plot_random_effects_density",
     "plot_diagnostics",
     "plot_random_effects_summary",
+    # Diagnostics (new)
+    "plot_gamm_diagnostics",
+    "plot_gamm_random_effects",
+    "interpret_variance_components",
+    "compute_r2_conditional_marginal",
 ]

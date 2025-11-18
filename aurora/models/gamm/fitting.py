@@ -111,6 +111,124 @@ class GAMMResult:
     _Z_info: list[dict] | None = None
     _y: NDArray[np.floating] | None = None
 
+    def predict(self, include_random: bool = True) -> NDArray[np.floating]:
+        """Make predictions using the fitted model.
+
+        Parameters
+        ----------
+        include_random : bool, default=True
+            Whether to include random effects in predictions.
+            If True, returns fitted values (fixed + random effects).
+            If False, returns only fixed effects (population-level predictions).
+
+        Returns
+        -------
+        predictions : ndarray
+            Model predictions.
+
+        Examples
+        --------
+        >>> # Population-level predictions (fixed effects only)
+        >>> pred_fixed = result.predict(include_random=False)
+        >>>
+        >>> # Individual predictions (fixed + random effects)
+        >>> pred_full = result.predict(include_random=True)
+        """
+        if include_random:
+            return self.fitted_values
+        else:
+            # Only fixed effects
+            if self._X_parametric is not None:
+                return self._X_parametric @ self.beta_parametric
+            else:
+                raise ValueError(
+                    "Cannot compute fixed-only predictions: "
+                    "_X_parametric not stored in result"
+                )
+
+    def summary(self) -> str:
+        """Generate a formatted summary of the model fit.
+
+        Returns
+        -------
+        summary_str : str
+            Formatted summary string with fixed effects, random effects,
+            and model fit statistics.
+
+        Examples
+        --------
+        >>> result = fit_gamm(formula='y ~ x + (1|subject)', data=df)
+        >>> print(result.summary())
+        """
+        lines = []
+        lines.append("=" * 75)
+        lines.append("Generalized Additive Mixed Model (GAMM)")
+        lines.append("=" * 75)
+        lines.append(f"Family: {self.family}")
+        lines.append(f"Number of observations: {self.n_obs}")
+        lines.append(f"Number of groups: {self.n_groups}")
+        lines.append("")
+
+        # Fixed Effects
+        lines.append("Fixed Effects (Parametric):")
+        lines.append("-" * 75)
+        lines.append(f"{'Parameter':<25} {'Estimate':>12}")
+        lines.append("-" * 75)
+        param_names = [f"β{i}" for i in range(len(self.beta_parametric))]
+        for name, coef in zip(param_names, self.beta_parametric):
+            lines.append(f"{name:<25} {coef:>12.4f}")
+        lines.append("")
+
+        # Random Effects
+        lines.append("Random Effects:")
+        lines.append("-" * 75)
+        for i, (group_name, vc) in enumerate(
+            zip(self.random_effects.keys(), self.variance_components)
+        ):
+            lines.append(f"Group: {group_name}")
+            if vc.shape[0] == 1:
+                # Single variance component
+                lines.append(f"  Variance: {vc[0, 0]:.4f}")
+                lines.append(f"  Std.Dev.: {np.sqrt(vc[0, 0]):.4f}")
+            else:
+                # Multiple components (e.g., random intercept + slope)
+                lines.append(f"  Variance-Covariance Matrix:")
+                for row in vc:
+                    row_str = "    " + "  ".join([f"{val:>10.4f}" for val in row])
+                    lines.append(row_str)
+                lines.append(f"  Standard Deviations:")
+                for j in range(vc.shape[0]):
+                    lines.append(f"    Component {j}: {np.sqrt(vc[j, j]):.4f}")
+                # Correlation matrix if multivariate
+                if vc.shape[0] > 1:
+                    corr = np.zeros_like(vc)
+                    for ii in range(vc.shape[0]):
+                        for jj in range(vc.shape[1]):
+                            corr[ii, jj] = vc[ii, jj] / (
+                                np.sqrt(vc[ii, ii]) * np.sqrt(vc[jj, jj])
+                            )
+                    lines.append(f"  Correlation Matrix:")
+                    for row in corr:
+                        row_str = "    " + "  ".join([f"{val:>10.4f}" for val in row])
+                        lines.append(row_str)
+            lines.append("")
+
+        lines.append(f"Residual Standard Deviation: {np.sqrt(self.residual_variance):.4f}")
+        lines.append("")
+
+        # Model Fit
+        lines.append("Model Fit Statistics:")
+        lines.append("-" * 75)
+        lines.append(f"  Log-likelihood:      {self.log_likelihood:>12.2f}")
+        lines.append(f"  AIC:                 {self.aic:>12.2f}")
+        lines.append(f"  BIC:                 {self.bic:>12.2f}")
+        lines.append(f"  Effective df (total): {self.edf_total:>11.2f}")
+        lines.append(f"  Converged:           {str(self.converged):>12}")
+        lines.append(f"  Iterations:          {self.n_iterations:>12}")
+        lines.append("=" * 75)
+
+        return "\n".join(lines)
+
 
 def solve_mixed_model_equations(
     X: np.ndarray,
