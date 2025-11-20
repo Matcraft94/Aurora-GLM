@@ -181,9 +181,12 @@ def test_gamm_variance_components_positive():
     # Check residual variance is positive
     assert result.residual_variance > 0
 
-    # Fix: variance_components is a numpy array (covariance matrix), not a dictionary
+    # variance_components is a list of covariance matrices (one per random effect term)
+    assert isinstance(result.variance_components, list)
+    assert len(result.variance_components) == 1  # Single random effect term
+
     # Check that variance components (diagonal elements) are positive
-    psi_arr = np.atleast_2d(result.variance_components)
+    psi_arr = np.atleast_2d(result.variance_components[0])
     # Check diagonal (variances) are positive
     assert np.all(np.diag(psi_arr) >= -1e-10)  # Allow small numerical errors
     # Check matrix is positive semi-definite
@@ -247,8 +250,10 @@ def test_gamm_multiple_variance_components():
         family='gaussian'
     )
 
-    # Fix: variance_components is a numpy array, not a dictionary
-    # Just verify it exists and has reasonable structure
+    # variance_components is a list of covariance matrices (one per random effect term)
     assert result.variance_components is not None
-    assert isinstance(result.variance_components, np.ndarray)
+    assert isinstance(result.variance_components, list)
+    assert len(result.variance_components) == 2  # Two random effect terms
+    for psi in result.variance_components:
+        assert isinstance(psi, np.ndarray)
     assert result.converged
