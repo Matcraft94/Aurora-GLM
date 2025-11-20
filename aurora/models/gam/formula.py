@@ -142,6 +142,9 @@ def parse_formula(formula: str) -> FormulaSpec:
             smooth_terms.append(smooth_term)
         else:
             # Parametric term (just variable name)
+            # Skip '1' as it represents the intercept which is added automatically
+            if term_str.strip() == '1':
+                continue
             parametric_term = _parse_parametric_term(term_str)
             parametric_terms.append(parametric_term)
 
