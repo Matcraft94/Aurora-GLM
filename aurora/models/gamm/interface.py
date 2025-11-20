@@ -31,6 +31,8 @@ def fit_gamm(
     covariance: str = "unstructured",
     maxiter: int = 100,
     tol: float = 1e-6,
+    backend: str = "numpy",
+    device: str | None = None,
 ) -> GAMMResult:
     """Fit a Generalized Additive Mixed Model.
 
@@ -66,6 +68,11 @@ def fit_gamm(
         Maximum iterations for optimization.
     tol : float, default=1e-6
         Convergence tolerance.
+    backend : str, default='numpy'
+        Computational backend: 'numpy', 'torch', or 'jax'.
+    device : str, optional
+        Device for computation (for torch backend): 'cpu', 'cuda', 'cuda:0', etc.
+        If None, uses CUDA if available, else CPU.
 
     Returns
     -------
@@ -339,6 +346,8 @@ def fit_gamm(
             covariance=covariance,
             maxiter=maxiter,
             tol=tol,
+            backend=backend,
+            device=device,
         )
 
         return result

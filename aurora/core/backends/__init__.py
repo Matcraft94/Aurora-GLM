@@ -73,4 +73,53 @@ def available_backends() -> tuple[str, ...]:
     return tuple(sorted(set(_BACKENDS) | set(builtins)))
 
 
-__all__ = ["Backend", "available_backends", "get_backend", "register_backend"]
+from .operations import (
+    get_namespace,
+    to_backend_array,
+    to_numpy,
+    solve,
+    cholesky,
+    inv,
+    det,
+    slogdet,
+    eigh,
+    qr,
+    lstsq,
+    eye,
+    zeros,
+    ones,
+    concatenate,
+    stack,
+    diag,
+    trace,
+    matmul,
+    transpose,
+)
+
+__all__ = [
+    "Backend",
+    "available_backends",
+    "get_backend",
+    "register_backend",
+    # Operations
+    "get_namespace",
+    "to_backend_array",
+    "to_numpy",
+    "solve",
+    "cholesky",
+    "inv",
+    "det",
+    "slogdet",
+    "eigh",
+    "qr",
+    "lstsq",
+    "eye",
+    "zeros",
+    "ones",
+    "concatenate",
+    "stack",
+    "diag",
+    "trace",
+    "matmul",
+    "transpose",
+]

@@ -9,26 +9,84 @@ try:  # pragma: no cover - optional dependency
 except ImportError:  # pragma: no cover - optional dependency
     torch = None  # type: ignore[assignment]
 
+try:  # pragma: no cover - optional dependency
+    import jax
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jax = None  # type: ignore[assignment]
+    jnp = None  # type: ignore[assignment]
+
 
 def is_torch(value) -> bool:
     """Return ``True`` when *value* is a torch tensor."""
     return torch is not None and isinstance(value, torch.Tensor)
 
 
+def is_jax(value) -> bool:
+    """Return ``True`` when *value* is a JAX array."""
+    if jax is None:
+        return False
+    # Check for JAX array types
+    return hasattr(value, 'device_buffer') or (
+        hasattr(jax, 'Array') and isinstance(value, jax.Array)
+    )
+
+
 def namespace(*values):
-    """Return the numerical namespace (``torch`` or ``numpy``) for *values*."""
+    """Return the numerical namespace (``torch``, ``jax.numpy``, or ``numpy``) for *values*."""
     for value in values:
         if is_torch(value):
             return torch  # type: ignore[return-value]
+        if is_jax(value):
+            return jnp  # type: ignore[return-value]
     return np
 
 
-def as_namespace_array(value, xp, *, like=None):
+def namespace_from_backend(backend: str = "numpy", device: str | None = None):
+    """Get the numerical namespace for a specified backend.
+
+    Parameters
+    ----------
+    backend : str
+        Backend name: 'numpy', 'torch'/'pytorch', or 'jax'
+    device : str, optional
+        Device for torch backend
+
+    Returns
+    -------
+    xp : module
+        Numerical namespace
+    device_info : torch.device or None
+        Device for tensor creation (only for torch)
+    """
+    backend = backend.lower()
+
+    if backend == "numpy":
+        return np, None
+    elif backend in ("torch", "pytorch"):
+        if torch is None:
+            raise ImportError("PyTorch is not installed. Install with: pip install torch")
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        return torch, torch.device(device)
+    elif backend == "jax":
+        if jnp is None:
+            raise ImportError("JAX is not installed. Install with: pip install jax jaxlib")
+        return jnp, None
+    else:
+        raise ValueError(f"Unknown backend: {backend}. Choose from: numpy, torch, jax")
+
+
+def as_namespace_array(value, xp, *, like=None, device=None):
     """Convert *value* to an array in the same namespace as *xp*."""
     if xp is torch:  # type: ignore[comparison-overlap]
         dtype = getattr(like, "dtype", torch.get_default_dtype())
-        device = getattr(like, "device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        if device is None:
+            device = getattr(like, "device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         return torch.as_tensor(value, dtype=dtype, device=device)
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        dtype = getattr(like, "dtype", jnp.float64 if jnp is not None else None)
+        return jnp.array(value, dtype=dtype)
     dtype = getattr(like, "dtype", None)
     return np.asarray(value, dtype=dtype)
 
@@ -61,9 +119,11 @@ def log_gamma(value, xp):
 __all__ = [
     "as_namespace_array",
     "clip_probability",
+    "is_jax",
     "is_torch",
     "log_factorial",
     "log_gamma",
     "namespace",
+    "namespace_from_backend",
     "ones_like",
 ]
