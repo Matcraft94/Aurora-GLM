@@ -7,7 +7,7 @@ from typing import Any, Callable
 import numpy as np
 
 from ...core.types import Array
-from ...distributions._utils import as_namespace_array, namespace
+from ...distributions._utils import as_namespace_array, namespace, namespace_from_backend
 from ...distributions.base import Family, LinkFunction
 from ...distributions.families import BinomialFamily, GammaFamily, GaussianFamily, PoissonFamily
 from ...distributions.links import (
@@ -45,40 +45,93 @@ def fit_glm(
     weights: Array | None = None,
     offset: Array | None = None,
     backend: str | None = None,
+    device: str | None = None,
     max_iter: int = 25,
     tol: float = 1e-8,
     fit_intercept: bool = True,
 ) -> GLMResult:
-    """Fit a Generalized Linear Model using IRLS."""
+    """Fit a Generalized Linear Model using IRLS.
 
-    del backend  # Multi-backend optimization hooks will be introduced later
+    Parameters
+    ----------
+    X : array-like
+        Design matrix of shape (n_samples, n_features).
+    y : array-like
+        Target values of shape (n_samples,).
+    family : str or Family
+        Distribution family ('gaussian', 'poisson', 'binomial', 'gamma').
+    link : str or LinkFunction, optional
+        Link function. If None, uses family default.
+    weights : array-like, optional
+        Sample weights.
+    offset : array-like, optional
+        Offset term.
+    backend : str, optional
+        Computational backend: 'numpy', 'torch', or 'jax'.
+        If None, infers from input data type.
+    device : str, optional
+        Device for computation (for torch backend): 'cpu', 'cuda', 'cuda:0', etc.
+    max_iter : int
+        Maximum number of IRLS iterations.
+    tol : float
+        Convergence tolerance.
+    fit_intercept : bool
+        Whether to fit an intercept term.
 
-    xp = namespace(X, y, weights, offset)
-    X_arr = as_namespace_array(X, xp)
+    Returns
+    -------
+    GLMResult
+        Fitted model results.
+    """
+    # Determine backend and convert data
+    if backend is not None:
+        xp, device_obj = namespace_from_backend(backend, device)
+        X_arr = as_namespace_array(X, xp, device=device_obj)
+        y_arr = as_namespace_array(y, xp, device=device_obj)
+        if weights is not None:
+            weights = as_namespace_array(weights, xp, device=device_obj)
+        if offset is not None:
+            offset = as_namespace_array(offset, xp, device=device_obj)
+    else:
+        xp = namespace(X, y, weights, offset)
+        X_arr = as_namespace_array(X, xp)
+        y_arr = as_namespace_array(y, xp, like=X_arr)
 
+        weights_arr = None
+        if weights is not None:
+            weights_arr = as_namespace_array(weights, xp, like=y_arr)
+
+        offset_arr = None
+        if offset is not None:
+            offset_arr = as_namespace_array(offset, xp, like=y_arr)
+
+    # Handle 1D input for X
     if getattr(X_arr, "ndim", 1) == 1:
         if xp is np:
             X_arr = X_arr.reshape(-1, 1)
         else:
             X_arr = X_arr.unsqueeze(-1)
 
-    y_arr = as_namespace_array(y, xp, like=X_arr)
+    # Ensure y is 1D
     if getattr(y_arr, "ndim", 1) != 1:
         y_arr = y_arr.reshape(-1)
 
     if X_arr.shape[0] != y_arr.shape[0]:
         raise ValueError("Design matrix and response must share the same number of samples.")
 
-    weights_arr = None
-    if weights is not None:
-        weights_arr = as_namespace_array(weights, xp, like=y_arr)
-        if getattr(weights_arr, "ndim", 1) != 1:
+    # Process weights and offset when backend was specified
+    if backend is not None:
+        weights_arr = weights
+        offset_arr = offset
+        if weights_arr is not None and getattr(weights_arr, "ndim", 1) != 1:
             weights_arr = weights_arr.reshape(-1)
-
-    offset_arr = None
-    if offset is not None:
-        offset_arr = as_namespace_array(offset, xp, like=y_arr)
-        if getattr(offset_arr, "ndim", 1) != 1:
+        if offset_arr is not None and getattr(offset_arr, "ndim", 1) != 1:
+            offset_arr = offset_arr.reshape(-1)
+    else:
+        # Process weights and offset for auto-detected backend
+        if weights_arr is not None and getattr(weights_arr, "ndim", 1) != 1:
+            weights_arr = weights_arr.reshape(-1)
+        if offset_arr is not None and getattr(offset_arr, "ndim", 1) != 1:
             offset_arr = offset_arr.reshape(-1)
 
     family_obj = _coerce_family(family)
@@ -268,39 +321,64 @@ def _weighted_least_squares(xp, X_weighted: Array, z_weighted: Array) -> Array:
         solution = _solve_normal_equation_numpy(gram, rhs)
         return solution.astype(X_mat.dtype, copy=False)
 
+    # Handle PyTorch contiguous requirement
     if hasattr(X_weighted, "contiguous"):
         X_weighted = X_weighted.contiguous()
-    transpose = getattr(X_weighted, "transpose")
-    X_t = transpose(-1, -2)
+
+    # Transpose - different APIs for PyTorch vs JAX
+    if hasattr(X_weighted, "transpose") and callable(getattr(X_weighted, "transpose")):
+        # Check if it's PyTorch (transpose takes args) or JAX (.T property)
+        try:
+            X_t = X_weighted.transpose(-1, -2)
+        except TypeError:
+            # JAX uses .T for 2D transpose
+            X_t = X_weighted.T
+    else:
+        X_t = X_weighted.T
+
     rhs = X_t @ z_weighted
     gram = X_t @ X_weighted
 
     dtype = getattr(gram, "dtype", None)
     device = getattr(gram, "device", None)
-    eye_kwargs: dict[str, Any] = {}
-    if dtype is not None:
-        eye_kwargs["dtype"] = dtype
-    if device is not None:
-        eye_kwargs["device"] = device
-    eye = getattr(xp, "eye")(gram.shape[-1], **eye_kwargs)
-    ridge_scalar = getattr(xp, "tensor")(1e-8, **eye_kwargs)
+
+    # Create eye matrix
+    n_features = gram.shape[-1]
+    if hasattr(xp, "eye"):
+        if device is not None:
+            # PyTorch
+            eye = xp.eye(n_features, dtype=dtype, device=device)
+        else:
+            # JAX or others
+            eye = xp.eye(n_features, dtype=dtype)
+    else:
+        eye = np.eye(n_features)
+
+    # Add ridge regularization - different scalar creation for PyTorch vs JAX
+    if hasattr(xp, "tensor"):
+        # PyTorch
+        tensor_kwargs: dict[str, Any] = {}
+        if dtype is not None:
+            tensor_kwargs["dtype"] = dtype
+        if device is not None:
+            tensor_kwargs["device"] = device
+        ridge_scalar = xp.tensor(1e-8, **tensor_kwargs)
+    else:
+        # JAX or others - just use float
+        ridge_scalar = 1e-8
+
     gram = gram + ridge_scalar * eye
 
-    unsqueeze = getattr(rhs, "unsqueeze", None)
-    if callable(unsqueeze):
-        rhs_column = unsqueeze(-1)
-    else:  # pragma: no cover - fallback for namespaces without unsqueeze
-        rhs_column = rhs.reshape(-1, 1)
+    # Reshape rhs to column vector
+    rhs_column = rhs.reshape(-1, 1)
 
+    # Solve
     try:
         solution = xp.linalg.solve(gram, rhs_column)
     except Exception:  # pragma: no cover - fallback to pseudoinverse on failure
         pinv = xp.linalg.pinv(gram)
         solution = pinv @ rhs_column
 
-    squeeze = getattr(solution, "squeeze", None)
-    if callable(squeeze):
-        return squeeze(-1)
     return solution.reshape(-1)
 
 
@@ -397,24 +475,34 @@ def _ones_column(xp, rows: int, *, like: Array) -> Array:
 def _concat_columns(xp, left: Array, right: Array) -> Array:
     if xp is np:
         return np.concatenate((left, right), axis=1)
-    cat = getattr(xp, "cat")
-    return cat((left, right), dim=1)
+    # PyTorch uses cat with dim, JAX uses concatenate with axis
+    if hasattr(xp, "cat"):
+        # PyTorch
+        return xp.cat((left, right), dim=1)
+    else:
+        # JAX
+        return xp.concatenate((left, right), axis=1)
 
 
 def _clamp_positive(value: Array, xp, eps: float = 1e-12) -> Array:
     if xp is np:
         return np.clip(value, eps, None)
-    tensor = getattr(xp, "tensor")
-    tensor_kwargs: dict[str, Any] = {}
-    dtype = getattr(value, "dtype", None)
-    device = getattr(value, "device", None)
-    if dtype is not None:
-        tensor_kwargs["dtype"] = dtype
-    if device is not None:
-        tensor_kwargs["device"] = device
-    eps_tensor = tensor(eps, **tensor_kwargs)
-    clamp = getattr(xp, "clamp")
-    return clamp(value, min=eps_tensor)
+    # Check if it's PyTorch (has clamp) or JAX (uses clip)
+    if hasattr(xp, "clamp"):
+        # PyTorch
+        tensor = getattr(xp, "tensor")
+        tensor_kwargs: dict[str, Any] = {}
+        dtype = getattr(value, "dtype", None)
+        device = getattr(value, "device", None)
+        if dtype is not None:
+            tensor_kwargs["dtype"] = dtype
+        if device is not None:
+            tensor_kwargs["device"] = device
+        eps_tensor = tensor(eps, **tensor_kwargs)
+        return xp.clamp(value, min=eps_tensor)
+    else:
+        # JAX - uses clip like NumPy
+        return xp.clip(value, eps, None)
 
 
 def _reciprocal(value: Array, xp) -> Array:

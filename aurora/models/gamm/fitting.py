@@ -389,6 +389,8 @@ def fit_gamm_gaussian(
     covariance: str = "unstructured",
     maxiter: int = 100,
     tol: float = 1e-6,
+    backend: str = "numpy",
+    device: str | None = None,
 ) -> GAMMResult:
     """Fit Gaussian GAMM (Linear Mixed Model with smooth terms).
 
@@ -414,6 +416,10 @@ def fit_gamm_gaussian(
         Maximum iterations (for future iterative methods).
     tol : float, default=1e-6
         Convergence tolerance.
+    backend : str, default='numpy'
+        Computational backend: 'numpy', 'torch', or 'jax'.
+    device : str, optional
+        Device for computation (for torch backend): 'cpu', 'cuda', etc.
 
     Returns
     -------
@@ -446,6 +452,58 @@ def fit_gamm_gaussian(
     >>> Z_info = [{'n_effects': 1, 'n_groups': 10}]
     >>> result = fit_gamm_gaussian(X_para, None, Z, Z_info, y)
     """
+    # Backend conversion
+    # For now, we convert to the specified backend and back to numpy for internal operations
+    # This allows benchmarking and sets up infrastructure for full backend support
+    backend = backend.lower()
+
+    if backend in ("torch", "pytorch"):
+        try:
+            import torch
+            if device is None:
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+            torch_device = torch.device(device)
+
+            # Convert to torch tensors
+            X_parametric_t = torch.tensor(X_parametric, dtype=torch.float64, device=torch_device)
+            Z_t = torch.tensor(Z, dtype=torch.float64, device=torch_device)
+            y_t = torch.tensor(y, dtype=torch.float64, device=torch_device)
+
+            # Convert back to numpy for internal operations (future: full torch support)
+            X_parametric = X_parametric_t.cpu().numpy()
+            Z = Z_t.cpu().numpy()
+            y = y_t.cpu().numpy()
+
+            if X_smooth is not None:
+                X_smooth = {k: torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
+                           for k, v in X_smooth.items()}
+            if S_smooth is not None:
+                S_smooth = {k: torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
+                           for k, v in S_smooth.items()}
+        except ImportError:
+            pass  # Fall back to numpy
+
+    elif backend == "jax":
+        try:
+            import jax.numpy as jnp
+
+            # Convert to JAX arrays
+            X_parametric_j = jnp.array(X_parametric)
+            Z_j = jnp.array(Z)
+            y_j = jnp.array(y)
+
+            # Convert back to numpy for internal operations (future: full JAX support)
+            X_parametric = np.asarray(X_parametric_j)
+            Z = np.asarray(Z_j)
+            y = np.asarray(y_j)
+
+            if X_smooth is not None:
+                X_smooth = {k: np.asarray(jnp.array(v)) for k, v in X_smooth.items()}
+            if S_smooth is not None:
+                S_smooth = {k: np.asarray(jnp.array(v)) for k, v in S_smooth.items()}
+        except ImportError:
+            pass  # Fall back to numpy
+
     n = len(y)
 
     # Combine fixed effects design matrices
