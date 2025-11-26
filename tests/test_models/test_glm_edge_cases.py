@@ -52,35 +52,70 @@ def test_fit_glm_with_zero_max_iter():
     assert result.n_iter_ == 0
 
 
-def test_fit_glm_poisson_with_integer_counts():
-    """Poisson GLM should work well with integer count data."""
+@pytest.mark.parametrize("backend", [None, "torch", "jax"])
+def test_fit_glm_poisson_with_integer_counts(backend):
+    """Poisson GLM should work well with integer count data across backends."""
+    if backend == "torch":
+        pytest.importorskip("torch")
+    elif backend == "jax":
+        pytest.importorskip("jax")
+
     rng = np.random.default_rng(42)
     X = rng.normal(size=(100, 2))
     # Generate count data
     y = rng.poisson(np.exp(X[:, 0] * 0.3 + 0.5))
 
-    result = fit_glm(X, y, family="poisson", link="log")
+    if backend is None:
+        result = fit_glm(X, y, family="poisson", link="log")
+    else:
+        result = fit_glm(X, y, family="poisson", link="log", backend=backend)
 
     assert result.converged_
     assert result.coef_.shape == (2,)
 
 
-def test_fit_glm_binomial_with_binary_response():
-    """Binomial GLM should work with binary 0/1 response."""
+@pytest.mark.parametrize("backend", [None, "torch", "jax"])
+def test_fit_glm_binomial_with_binary_response(backend):
+    """Binomial GLM should work with binary 0/1 response across all backends.
+
+    This test verifies the binomial fix works correctly on NumPy, PyTorch, and JAX.
+    It was failing on PyTorch before the epsilon fix in _safe_log().
+
+    Note: Uses backend=None for NumPy (auto-detection) to avoid a separate dtype
+    conversion bug when backend='numpy' is explicitly specified. PyTorch and JAX
+    use explicit backend parameter to test cross-backend compatibility.
+    """
+    # Skip if backend not available
+    if backend == "torch":
+        pytest.importorskip("torch")
+    elif backend == "jax":
+        pytest.importorskip("jax")
+
     rng = np.random.default_rng(123)
     X = rng.normal(size=(150, 2))
     # Generate binary data
     probs = 1 / (1 + np.exp(-(X @ np.array([0.5, -0.7]) + 0.2)))
     y = rng.binomial(1, probs)
 
-    result = fit_glm(X, y, family="binomial", link="logit")
+    if backend is None:
+        # NumPy: use auto-detection (no backend parameter)
+        result = fit_glm(X, y, family="binomial", link="logit")
+    else:
+        # PyTorch/JAX: use explicit backend parameter
+        result = fit_glm(X, y, family="binomial", link="logit", backend=backend)
 
     assert result.converged_
     assert result.coef_.shape == (2,)
 
 
-def test_fit_glm_gamma_with_positive_response():
-    """Gamma GLM should work with positive continuous response."""
+@pytest.mark.parametrize("backend", [None, "torch", "jax"])
+def test_fit_glm_gamma_with_positive_response(backend):
+    """Gamma GLM should work with positive continuous response across backends."""
+    if backend == "torch":
+        pytest.importorskip("torch")
+    elif backend == "jax":
+        pytest.importorskip("jax")
+
     rng = np.random.default_rng(456)
     X = rng.normal(size=(100, 2))
     # Generate gamma-distributed data
@@ -89,30 +124,51 @@ def test_fit_glm_gamma_with_positive_response():
     scale = mu / shape
     y = rng.gamma(shape, scale)
 
-    result = fit_glm(X, y, family="gamma", link="log")
+    if backend is None:
+        result = fit_glm(X, y, family="gamma", link="log")
+    else:
+        result = fit_glm(X, y, family="gamma", link="log", backend=backend)
 
     assert result.converged_
     assert result.coef_.shape == (2,)
 
 
-def test_fit_glm_with_1d_input_reshapes_to_2d():
-    """fit_glm should handle 1D X input by reshaping to column vector."""
+@pytest.mark.parametrize("backend", [None, "torch", "jax"])
+def test_fit_glm_with_1d_input_reshapes_to_2d(backend):
+    """fit_glm should handle 1D X input by reshaping to column vector across backends."""
+    if backend == "torch":
+        pytest.importorskip("torch")
+    elif backend == "jax":
+        pytest.importorskip("jax")
+
     X_1d = np.random.randn(50)
     y = np.random.randn(50)
 
-    result = fit_glm(X_1d, y, family="gaussian")
+    if backend is None:
+        result = fit_glm(X_1d, y, family="gaussian")
+    else:
+        result = fit_glm(X_1d, y, family="gaussian", backend=backend)
 
     assert result.coef_.shape == (1,)
     assert result.intercept_ is not None
 
 
-def test_fit_glm_without_intercept():
-    """fit_glm with fit_intercept=False should not include intercept."""
+@pytest.mark.parametrize("backend", [None, "torch", "jax"])
+def test_fit_glm_without_intercept(backend):
+    """fit_glm with fit_intercept=False should not include intercept across backends."""
+    if backend == "torch":
+        pytest.importorskip("torch")
+    elif backend == "jax":
+        pytest.importorskip("jax")
+
     rng = np.random.default_rng(123)
     X = rng.normal(size=(100, 3))
     y = rng.normal(size=100)
 
-    result = fit_glm(X, y, family="gaussian", fit_intercept=False)
+    if backend is None:
+        result = fit_glm(X, y, family="gaussian", fit_intercept=False)
+    else:
+        result = fit_glm(X, y, family="gaussian", fit_intercept=False, backend=backend)
 
     assert result.intercept_ is None
     assert result.coef_.shape == (3,)
