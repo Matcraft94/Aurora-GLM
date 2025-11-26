@@ -12,12 +12,40 @@ try:  # pragma: no cover - optional dependency
 except ImportError:  # pragma: no cover - optional dependency
     torch = None  # type: ignore[assignment]
 
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
-def _safe_log(value, xp):
+
+def _safe_log(value, xp, eps: float = 1e-12):
+    """Compute log with numeric stability across backends.
+
+    Parameters
+    ----------
+    value : array
+        Input array
+    xp : module
+        Array namespace (np, torch, or jnp)
+    eps : float, default=1e-12
+        Minimum value for numerical stability
+
+    Returns
+    -------
+    array
+        log(max(value, eps))
+
+    Notes
+    -----
+    Uses consistent epsilon (1e-12) across all backends for numerical stability.
+    Creates tensor with correct dtype and device for PyTorch/JAX compatibility.
+    """
     if xp is torch:  # type: ignore[comparison-overlap]
-        eps = torch.finfo(value.dtype).tiny
-        return torch.log(torch.clamp(value, min=eps))
-    return np.log(np.clip(value, 1e-12, None))
+        eps_tensor = torch.tensor(eps, dtype=value.dtype, device=value.device)
+        return torch.log(torch.clamp(value, min=eps_tensor))
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        return jnp.log(jnp.clip(value, eps, None))
+    return np.log(np.clip(value, eps, None))
 
 
 class BinomialFamily(Family):
@@ -39,6 +67,10 @@ class BinomialFamily(Family):
         return (term1 + term2).sum()
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
+        """Compute binomial deviance with consistent epsilon handling.
+
+        Uses _safe_log() for consistency with log_likelihood().
+        """
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
         mu_arr = as_namespace_array(mu, xp, like=y_arr)
@@ -46,18 +78,23 @@ class BinomialFamily(Family):
         n_arr = as_namespace_array(n_param, xp, like=mu_arr)
 
         eps = 1e-12
+
+        # Clamp y and mu to valid range [eps, n-eps]
         if xp is torch:
             eps_tensor = torch.tensor(eps, dtype=mu_arr.dtype, device=mu_arr.device)
             y_safe = torch.clamp(y_arr, min=eps_tensor, max=n_arr - eps_tensor)
             mu_safe = torch.clamp(mu_arr, min=eps_tensor, max=n_arr - eps_tensor)
-            term1 = y_arr * torch.log(y_safe / mu_safe)
-            term2 = (n_arr - y_arr) * torch.log((n_arr - y_safe) / (n_arr - mu_safe))
-            return (2.0 * (term1 + term2)).sum()
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            y_safe = jnp.clip(y_arr, eps, n_arr - eps)
+            mu_safe = jnp.clip(mu_arr, eps, n_arr - eps)
+        else:
+            y_safe = np.clip(y_arr, eps, n_arr - eps)
+            mu_safe = np.clip(mu_arr, eps, n_arr - eps)
 
-        y_safe = np.clip(y_arr, eps, n_arr - eps)
-        mu_safe = np.clip(mu_arr, eps, n_arr - eps)
-        term1 = y_arr * np.log(y_safe / mu_safe)
-        term2 = (n_arr - y_arr) * np.log((n_arr - y_safe) / (n_arr - mu_safe))
+        # Use _safe_log for consistency with log_likelihood
+        term1 = y_arr * _safe_log(y_safe / mu_safe, xp, eps=eps)
+        term2 = (n_arr - y_arr) * _safe_log((n_arr - y_safe) / (n_arr - mu_safe), xp, eps=eps)
+
         return (2.0 * (term1 + term2)).sum()
 
     def variance(self, mu, **params):  # noqa: ANN001 - match Family signature
