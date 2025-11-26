@@ -99,8 +99,33 @@ def ones_like(value):
 
 
 def clip_probability(prob, xp, eps: float = 1e-9):
+    """Clip probability to [eps, 1-eps] with backend-aware epsilon.
+
+    Parameters
+    ----------
+    prob : array
+        Probability values to clip
+    xp : module
+        Array namespace (np, torch, or jnp)
+    eps : float, default=1e-9
+        Minimum distance from 0 and 1
+
+    Returns
+    -------
+    array
+        Clipped probability in range [eps, 1-eps]
+
+    Notes
+    -----
+    Creates tensors with correct dtype and device for PyTorch/JAX compatibility.
+    Ensures numerical stability across all backends.
+    """
     if xp is torch:  # type: ignore[comparison-overlap]
-        return torch.clamp(prob, eps, 1.0 - eps)
+        eps_tensor = torch.tensor(eps, dtype=prob.dtype, device=prob.device)
+        one_tensor = torch.tensor(1.0, dtype=prob.dtype, device=prob.device)
+        return torch.clamp(prob, eps_tensor, one_tensor - eps_tensor)
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        return jnp.clip(prob, eps, 1.0 - eps)
     return np.clip(prob, eps, 1.0 - eps)
 
 

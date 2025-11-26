@@ -109,8 +109,10 @@ def fit_glm(
     if getattr(X_arr, "ndim", 1) == 1:
         if xp is np:
             X_arr = X_arr.reshape(-1, 1)
-        else:
+        elif hasattr(X_arr, "unsqueeze"):  # PyTorch
             X_arr = X_arr.unsqueeze(-1)
+        else:  # JAX or other backends
+            X_arr = X_arr.reshape(-1, 1)
 
     # Ensure y is 1D
     if getattr(y_arr, "ndim", 1) != 1:
