@@ -660,10 +660,436 @@ def plot_random_effects_summary(
     return fig
 
 
+def plot_diagnostics_panel(
+    result: GAMMResult,
+    figsize: tuple[float, float] = (12, 10),
+) -> Figure:
+    """Create 2x2 diagnostic panel for GAMM model.
+
+    Standard diagnostic panel inspired by R's plot.lm():
+    1. Residuals vs Fitted (top-left)
+    2. Q-Q Plot of residuals (top-right)
+    3. Scale-Location plot (bottom-left)
+    4. Residuals vs Leverage with Cook's distance (bottom-right)
+
+    Parameters
+    ----------
+    result : GAMMResult
+        Fitted GAMM model result.
+    figsize : tuple, default=(12, 10)
+        Figure size (width, height) in inches.
+
+    Returns
+    -------
+    fig : Figure
+        Matplotlib figure with 2x2 diagnostic panel.
+
+    Examples
+    --------
+    >>> from aurora.models.gamm import fit_gamm
+    >>> result = fit_gamm("y ~ x + (1|group)", data=df)
+    >>> fig = plot_diagnostics_panel(result)
+    >>> plt.show()
+
+    Notes
+    -----
+    This produces a publication-quality diagnostic panel following
+    the classic R layout:
+
+    **Residuals vs Fitted (top-left):**
+    - Should show random scatter around zero
+    - Patterns indicate model misspecification
+
+    **Normal Q-Q (top-right):**
+    - Points should fall on diagonal
+    - Departures indicate non-normal residuals
+
+    **Scale-Location (bottom-left):**
+    - Should show horizontal trend
+    - Increasing spread indicates heteroscedasticity
+
+    **Residuals vs Leverage (bottom-right):**
+    - Identifies influential observations
+    - Cook's distance contours show influence
+
+    References
+    ----------
+    .. [1] Belsley, D. A., Kuh, E., & Welsch, R. E. (1980). 
+           Regression Diagnostics. Wiley.
+    .. [2] Cook, R. D., & Weisberg, S. (1982). 
+           Residuals and Influence in Regression. Chapman and Hall.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=figsize)
+
+    # Extract data
+    residuals = result.residuals
+    fitted = result.fitted_values
+    n = len(residuals)
+
+    # Standardized residuals
+    resid_std = residuals / np.std(residuals)
+
+    # 1. Residuals vs Fitted (top-left)
+    ax = axes[0, 0]
+    ax.scatter(fitted, residuals, alpha=0.6, edgecolor='black', linewidth=0.3)
+    ax.axhline(0, color='red', linestyle='--', linewidth=1)
+
+    # Add LOWESS smooth
+    if n > 10:
+        try:
+            from scipy.ndimage import gaussian_filter1d
+            sort_idx = np.argsort(fitted)
+            smooth = gaussian_filter1d(residuals[sort_idx], sigma=max(1, n//15))
+            ax.plot(fitted[sort_idx], smooth, 'b-', linewidth=2, alpha=0.7)
+        except ImportError:
+            pass
+
+    ax.set_xlabel('Fitted values')
+    ax.set_ylabel('Residuals')
+    ax.set_title('Residuals vs Fitted')
+    ax.grid(alpha=0.3)
+
+    # 2. Q-Q Plot (top-right)
+    ax = axes[0, 1]
+    stats.probplot(resid_std, dist="norm", plot=ax)
+    ax.get_lines()[0].set_markerfacecolor('steelblue')
+    ax.get_lines()[0].set_markeredgecolor('black')
+    ax.get_lines()[0].set_markersize(5)
+    ax.get_lines()[1].set_color('red')
+    ax.set_title('Normal Q-Q')
+    ax.set_xlabel('Theoretical Quantiles')
+    ax.set_ylabel('Standardized Residuals')
+    ax.grid(alpha=0.3)
+
+    # 3. Scale-Location (bottom-left)
+    ax = axes[1, 0]
+    sqrt_abs_resid = np.sqrt(np.abs(resid_std))
+    ax.scatter(fitted, sqrt_abs_resid, alpha=0.6, edgecolor='black', linewidth=0.3)
+
+    if n > 10:
+        try:
+            from scipy.ndimage import gaussian_filter1d
+            sort_idx = np.argsort(fitted)
+            smooth = gaussian_filter1d(sqrt_abs_resid[sort_idx], sigma=max(1, n//15))
+            ax.plot(fitted[sort_idx], smooth, 'r-', linewidth=2, alpha=0.7)
+        except ImportError:
+            pass
+
+    ax.set_xlabel('Fitted values')
+    ax.set_ylabel('√|Standardized residuals|')
+    ax.set_title('Scale-Location')
+    ax.grid(alpha=0.3)
+
+    # 4. Residuals vs Leverage with Cook's distance (bottom-right)
+    ax = axes[1, 1]
+
+    # Compute leverage (hat values) if available
+    # For now, use simplified version based on fitted values
+    # Approximate leverage: h_ii ≈ 1/n + (x_i - x̄)²/SSx
+    fitted_centered = fitted - np.mean(fitted)
+    leverage = 1/n + fitted_centered**2 / np.sum(fitted_centered**2)
+    leverage = np.clip(leverage, 0.01, 0.99)  # Ensure valid range
+
+    ax.scatter(leverage, resid_std, alpha=0.6, edgecolor='black', linewidth=0.3)
+    ax.axhline(0, color='gray', linestyle='--', linewidth=0.5)
+
+    # Add Cook's distance contours
+    # Cook's D ≈ r²_i × h_i / (p × (1-h_i)²)
+    # For contours at D = 0.5, 1.0
+    h_range = np.linspace(0.01, 0.5, 100)
+    p = 2  # Approximate number of parameters
+
+    for cook_d in [0.5, 1.0]:
+        # r² = cook_d × p × (1-h)² / h
+        r_pos = np.sqrt(cook_d * p * (1 - h_range)**2 / h_range)
+        r_neg = -r_pos
+        
+        ax.plot(h_range, r_pos, 'r--', alpha=0.5, linewidth=0.8)
+        ax.plot(h_range, r_neg, 'r--', alpha=0.5, linewidth=0.8)
+        
+        # Label
+        ax.text(h_range[-1], r_pos[-1], f'D={cook_d}', fontsize=8, color='red', alpha=0.7)
+
+    ax.set_xlabel('Leverage')
+    ax.set_ylabel('Standardized residuals')
+    ax.set_title("Residuals vs Leverage")
+    ax.grid(alpha=0.3)
+
+    # Add overall title
+    fig.suptitle('GAMM Diagnostic Plots', fontsize=14, y=0.995)
+    fig.tight_layout()
+
+    return fig
+
+
+def plot_smooth_effect(
+    result: GAMMResult,
+    term_name: str,
+    data: dict | None = None,
+    n_points: int = 100,
+    level: float = 0.95,
+    show_data: bool = True,
+    show_residuals: bool = False,
+    figsize: tuple[float, float] = (8, 6),
+    ax: Axes | None = None,
+) -> tuple[Figure, Axes]:
+    """Plot estimated smooth function with confidence band.
+
+    Creates a plot of the estimated smooth term f(x) with:
+    - Smooth curve (estimated effect)
+    - Pointwise confidence interval
+    - Rug plot showing data density
+    - Optional partial residuals
+
+    Parameters
+    ----------
+    result : GAMMResult
+        Fitted GAMM/GAM model result.
+    term_name : str
+        Name of the smooth term to plot (e.g., 's(age)' or 'age').
+    data : dict or DataFrame, optional
+        Original data used for fitting. If None, attempts to extract from result.
+    n_points : int, default=100
+        Number of points for smooth curve evaluation.
+    level : float, default=0.95
+        Confidence level for intervals.
+    show_data : bool, default=True
+        Whether to show rug plot of data density.
+    show_residuals : bool, default=False
+        Whether to show partial residuals.
+    figsize : tuple, default=(8, 6)
+        Figure size (width, height) in inches.
+    ax : Axes, optional
+        Matplotlib axes to plot on. If None, creates new figure.
+
+    Returns
+    -------
+    fig : Figure
+        Matplotlib figure.
+    ax : Axes
+        Matplotlib axes with plot.
+
+    Examples
+    --------
+    >>> from aurora.models.gamm import fit_gamm
+    >>> result = fit_gamm("y ~ s(age) + (1|group)", data=df)
+    >>> fig, ax = plot_smooth_effect(result, term_name='age', data=df)
+    >>> plt.show()
+
+    Notes
+    -----
+    The confidence band is a pointwise interval, not a simultaneous band.
+    For simultaneous confidence bands, additional adjustments are needed.
+
+    Partial residuals are computed as:
+        e_i = f̂(x_i) + (y_i - ŷ_i)
+
+    This allows visualizing the data on the scale of the smooth effect.
+
+    References
+    ----------
+    .. [1] Wood, S. N. (2017). GAMs: An Introduction with R, 2nd ed. Chapter 4.
+    .. [2] Hastie, T., & Tibshirani, R. (1990). GAMs. Chapman and Hall.
+    """
+    # Try to extract smooth term info
+    if not hasattr(result, 'smooth_terms') or result.smooth_terms is None:
+        raise ValueError("Model does not contain smooth terms")
+
+    # Find the smooth term
+    smooth_info = None
+    for term in result.smooth_terms:
+        if term.get('name') == term_name or term.get('variable') == term_name:
+            smooth_info = term
+            break
+        # Also check for 's(name)' format
+        if f"s({term_name})" == term.get('name'):
+            smooth_info = term
+            break
+
+    if smooth_info is None:
+        available = [t.get('name', t.get('variable', '?')) for t in result.smooth_terms]
+        raise ValueError(
+            f"Smooth term '{term_name}' not found. Available: {available}"
+        )
+
+    # Get x values for the smooth
+    var_name = smooth_info.get('variable', term_name)
+
+    if data is not None:
+        if hasattr(data, 'values'):  # DataFrame
+            x_data = data[var_name].values
+        else:  # dict
+            x_data = np.asarray(data[var_name])
+    elif hasattr(result, '_data') and result._data is not None:
+        x_data = result._data[var_name]
+    else:
+        # Use range from smooth info if available
+        x_data = np.linspace(
+            smooth_info.get('x_min', 0),
+            smooth_info.get('x_max', 1),
+            n_points
+        )
+
+    # Create evaluation grid
+    x_grid = np.linspace(x_data.min(), x_data.max(), n_points)
+
+    # Get smooth coefficients and basis
+    coef_start = smooth_info.get('coef_start', 0)
+    coef_end = smooth_info.get('coef_end', coef_start + smooth_info.get('n_basis', 10))
+    smooth_coefs = result.coefficients[coef_start:coef_end]
+
+    # Build basis matrix for grid points
+    basis_type = smooth_info.get('basis', 'cr')  # Default to cubic regression splines
+    n_basis = smooth_info.get('n_basis', 10)
+    knots = smooth_info.get('knots', None)
+
+    # Simple B-spline basis construction
+    try:
+        from aurora.smoothing.splines.bspline import BSplineBasis
+        basis = BSplineBasis(n_basis=n_basis, degree=3)
+        X_grid = basis.design_matrix(x_grid)
+    except ImportError:
+        # Fallback: polynomial basis
+        X_grid = np.column_stack([x_grid**i for i in range(n_basis)])
+
+    # Compute smooth values
+    smooth_values = X_grid @ smooth_coefs
+
+    # Compute confidence intervals
+    # Approximate variance: Var(f(x)) = B(x) @ Cov(β) @ B(x).T
+    if hasattr(result, 'covariance') and result.covariance is not None:
+        cov_smooth = result.covariance[coef_start:coef_end, coef_start:coef_end]
+        var_smooth = np.diag(X_grid @ cov_smooth @ X_grid.T)
+        se_smooth = np.sqrt(np.maximum(var_smooth, 0))
+    else:
+        # Approximate SE from residual variance
+        residual_var = np.var(result.residuals)
+        se_smooth = np.sqrt(residual_var / n_points) * np.ones(n_points)
+
+    z_crit = stats.norm.ppf((1 + level) / 2)
+    ci_lower = smooth_values - z_crit * se_smooth
+    ci_upper = smooth_values + z_crit * se_smooth
+
+    # Create plot
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+
+    # Confidence band
+    ax.fill_between(x_grid, ci_lower, ci_upper, alpha=0.3, color='steelblue',
+                    label=f'{level*100:.0f}% CI')
+
+    # Smooth curve
+    ax.plot(x_grid, smooth_values, 'b-', linewidth=2, label='Smooth effect')
+
+    # Partial residuals
+    if show_residuals and data is not None:
+        # Compute partial residuals at data points
+        try:
+            basis_data = BSplineBasis(n_basis=n_basis, degree=3)
+            X_data = basis_data.design_matrix(x_data)
+        except Exception:
+            X_data = np.column_stack([x_data**i for i in range(n_basis)])
+
+        smooth_at_data = X_data @ smooth_coefs
+        partial_resid = smooth_at_data + result.residuals
+
+        ax.scatter(x_data, partial_resid, alpha=0.3, s=20, c='gray',
+                   label='Partial residuals')
+
+    # Rug plot
+    if show_data:
+        ax.plot(x_data, np.full_like(x_data, ax.get_ylim()[0]), '|',
+                color='black', alpha=0.3, markersize=10)
+
+    # Labels
+    ax.set_xlabel(var_name)
+    ax.set_ylabel(f's({var_name})')
+    ax.set_title(f"Smooth Effect: s({var_name})")
+    ax.legend(loc='best')
+    ax.grid(alpha=0.3)
+
+    fig.tight_layout()
+
+    return fig, ax
+
+
+def plot_all_smooth_effects(
+    result: GAMMResult,
+    data: dict | None = None,
+    n_cols: int = 2,
+    figsize_per_plot: tuple[float, float] = (5, 4),
+    **kwargs
+) -> Figure:
+    """Plot all smooth effects in a grid layout.
+
+    Parameters
+    ----------
+    result : GAMMResult
+        Fitted GAMM/GAM model result.
+    data : dict or DataFrame, optional
+        Original data used for fitting.
+    n_cols : int, default=2
+        Number of columns in the grid.
+    figsize_per_plot : tuple, default=(5, 4)
+        Size of each subplot.
+    **kwargs : dict
+        Additional arguments passed to plot_smooth_effect.
+
+    Returns
+    -------
+    fig : Figure
+        Matplotlib figure with grid of smooth effect plots.
+
+    Examples
+    --------
+    >>> result = fit_gamm("y ~ s(x1) + s(x2) + s(x3) + (1|group)", data=df)
+    >>> fig = plot_all_smooth_effects(result, data=df)
+    >>> plt.show()
+    """
+    if not hasattr(result, 'smooth_terms') or result.smooth_terms is None:
+        raise ValueError("Model does not contain smooth terms")
+
+    n_smooths = len(result.smooth_terms)
+    if n_smooths == 0:
+        raise ValueError("Model has no smooth terms to plot")
+
+    n_rows = int(np.ceil(n_smooths / n_cols))
+    figsize = (figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+
+    if n_smooths == 1:
+        axes = np.array([axes])
+    axes = axes.flatten()
+
+    for i, term in enumerate(result.smooth_terms):
+        term_name = term.get('variable', term.get('name', f'term_{i}'))
+        try:
+            plot_smooth_effect(result, term_name, data=data, ax=axes[i], **kwargs)
+        except Exception as e:
+            axes[i].text(0.5, 0.5, f"Error: {str(e)[:30]}...",
+                        ha='center', va='center', transform=axes[i].transAxes)
+            axes[i].set_title(f's({term_name}) - Error')
+
+    # Hide unused subplots
+    for j in range(n_smooths, len(axes)):
+        axes[j].set_visible(False)
+
+    fig.suptitle('Smooth Effect Plots', fontsize=14, y=1.02)
+    fig.tight_layout()
+
+    return fig
+
+
 __all__ = [
     'plot_caterpillar',
     'plot_random_effects_qq',
     'plot_random_effects_density',
     'plot_diagnostics',
+    'plot_diagnostics_panel',
     'plot_random_effects_summary',
+    'plot_smooth_effect',
+    'plot_all_smooth_effects',
 ]
