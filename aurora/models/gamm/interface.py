@@ -258,13 +258,56 @@ def fit_gamm(
             else:
                 raise ValueError(f"Grouping variable '{group_var}' not found in data")
 
-        # TODO: Handle smooth terms from spec.smooth_terms
-        # For now, smooth terms in formula mode are not supported
+        # Handle smooth terms from spec.smooth_terms
+        X_smooth_dict = {}
+        S_smooth_dict = {}
+        lambda_smooth_dict = {}
+
         if len(spec.smooth_terms) > 0:
-            raise NotImplementedError(
-                "Smooth terms in formula mode not yet implemented. "
-                "Use matrix mode with fit_gamm_with_smooth() for smooth terms."
-            )
+            from aurora.smoothing.splines.bspline import BSplineBasis
+
+            for smooth_term in spec.smooth_terms:
+                # Extract smooth variable and parameters
+                var_name = smooth_term.variable
+                term_name = f"s({var_name})"
+
+                # Get the data for this variable
+                if isinstance(var_name, int):
+                    if var_name >= len(data.columns):
+                        raise ValueError(f"Smooth variable index {var_name} out of range")
+                    x_smooth = data.iloc[:, var_name].values
+                elif var_name in data.columns:
+                    x_smooth = data[var_name].values
+                else:
+                    raise ValueError(f"Smooth variable '{var_name}' not found in data")
+
+                # Get parameters with defaults
+                n_basis = smooth_term.params.get('k', 10)  # Default 10 basis functions
+                degree = smooth_term.params.get('degree', 3)  # Default cubic splines
+                penalty_order = smooth_term.params.get('m', 2)  # Default second-order penalty
+                lambda_val = smooth_term.params.get('sp', None)  # Smoothing parameter
+
+                # Create B-spline basis
+                knots = BSplineBasis.create_knots(
+                    x_smooth, n_basis=n_basis, degree=degree, method='quantile'
+                )
+                basis = BSplineBasis(knots, degree=degree)
+
+                # Build basis matrix
+                X_smooth_dict[term_name] = basis.basis_matrix(x_smooth)
+
+                # Build penalty matrix
+                S_smooth_dict[term_name] = basis.penalty_matrix(order=penalty_order)
+
+                # Store smoothing parameter if provided
+                if lambda_val is not None:
+                    lambda_smooth_dict[term_name] = lambda_val
+
+        # Use lambda_smooth_dict only if some values were specified
+        if len(lambda_smooth_dict) > 0 and len(lambda_smooth_dict) == len(spec.smooth_terms):
+            lambda_smooth_final = lambda_smooth_dict
+        else:
+            lambda_smooth_final = None  # Will use automatic selection
 
     else:
         # Matrix mode - require y
@@ -273,11 +316,17 @@ def fit_gamm(
                 "Either formula+data (formula mode) or y (matrix mode) must be provided"
             )
 
+        # Initialize smooth term dictionaries (empty for matrix mode without formula)
+        X_smooth_dict = {}
+        S_smooth_dict = {}
+        lambda_smooth_final = None
+
     # Input validation
-    if family != "gaussian":
+    valid_families = ["gaussian", "poisson", "binomial", "gamma"]
+    if family not in valid_families:
         raise ValueError(
-            f"Only 'gaussian' family currently supported, got '{family}'. "
-            "Other families (Poisson, Binomial) will be implemented in Milestone 4."
+            f"Family '{family}' not supported. "
+            f"Valid families: {valid_families}"
         )
 
     # Convert inputs to numpy arrays
@@ -352,11 +401,86 @@ def fit_gamm(
 
         return result
     else:
-        # Future: PQL/Laplace for GLM families
-        raise NotImplementedError(
-            f"Family '{family}' not yet implemented. "
-            "Will be available in Milestone 4."
-        )
+        # Non-Gaussian families: use PQL approximation
+        if len(random_effects) == 0:
+            raise ValueError(
+                "At least one random effect required for GAMM. "
+                "For models without random effects, use fit_glm instead."
+            )
+
+        # Check if smooth terms are present
+        if len(X_smooth_dict) > 0:
+            # Use PQL with smooth terms (Phase 5.1)
+            from aurora.models.gamm.pql_smooth import fit_pql_with_smooth
+
+            result_dict = fit_pql_with_smooth(
+                X_parametric=X,
+                X_smooth_dict=X_smooth_dict,
+                Z=Z,
+                Z_info=Z_info,
+                y=y,
+                family=family,
+                S_smooth_dict=S_smooth_dict,
+                lambda_smooth=lambda_smooth_final,
+                maxiter_outer=maxiter,
+                tol_outer=tol,
+                verbose=False,
+            )
+
+            # Convert to GAMMResult format
+            # Calculate residuals and other diagnostics
+            mu = result_dict['fitted_values']
+            residuals = y - mu
+
+            result = GAMMResult(
+                coefficients=np.concatenate([
+                    result_dict['beta_parametric'],
+                    np.concatenate([result_dict['beta_smooth'][name]
+                                   for name in sorted(result_dict['beta_smooth'].keys())]),
+                    result_dict['random_effects']
+                ]),
+                beta_parametric=result_dict['beta_parametric'],
+                beta_smooth=result_dict['beta_smooth'],
+                random_effects={f"re_{i}": result_dict['random_effects'][i:i+1]
+                               for i in range(len(result_dict['random_effects']))},
+                variance_components=result_dict['variance_components'],
+                residual_variance=np.var(residuals),  # Approximate for non-Gaussian
+                smoothing_parameters=result_dict['smoothing_parameters'],
+                edf_total=sum(result_dict['edf_smooth'].values()) + len(result_dict['beta_parametric']),
+                edf_parametric=float(len(result_dict['beta_parametric'])),
+                edf_smooth=result_dict['edf_smooth'],
+                fitted_values=result_dict['fitted_values'],
+                residuals=residuals,
+                log_likelihood=0.0,  # TODO: compute proper log-likelihood
+                aic=0.0,
+                bic=0.0,
+                converged=result_dict['converged'],
+                n_iterations=result_dict['n_iterations_outer'],
+                n_obs=len(y),
+                n_groups=len(set(result_dict['random_effects'])),
+                family=family,
+            )
+
+            return result
+        else:
+            # Use PQL without smooth terms
+            from aurora.models.gamm.pql import fit_pql_gamm
+
+            result = fit_pql_gamm(
+                X_parametric=X,
+                X_smooth=None,
+                Z=Z,
+                Z_info=Z_info,
+                y=y,
+                family=family,
+                covariance=covariance,
+                maxiter_outer=maxiter,
+                tol_outer=tol,
+                backend=backend,
+                device=device,
+            )
+
+            return result
 
 
 def fit_gamm_with_smooth(
