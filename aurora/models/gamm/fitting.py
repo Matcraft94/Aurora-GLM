@@ -1,18 +1,385 @@
-"""GAMM fitting for Gaussian family (Linear Mixed Models).
+"""Generalized Additive Mixed Models (GAMM) for Gaussian Responses.
 
-This module implements GAMM fitting that integrates:
-- Smooth terms from GAM (Phase 3)
-- Random effects (Phase 4 Milestones 1-2)
-- REML estimation for both smoothing parameters and variance components
+Mathematical Framework
+----------------------
+A GAMM extends GAM by adding random effects to account for correlation
+and hierarchical structure in data. For Gaussian responses, GAMM reduces
+to a Linear Mixed Model (LMM) with smooth terms.
 
-For Gaussian family, GAMM reduces to LMM which can be solved efficiently
-using penalized least squares with REML.
+Model Structure
+---------------
+The Gaussian GAMM has the form:
+
+    y_i = β₀ + f₁(x_{i1}) + f₂(x_{i2}) + ... + f_p(x_{ip})
+          + X_i β_p + Z_i b + ε_i
+
+where:
+    - y_i: Response for observation i
+    - f_j(·): Smooth functions (non-parametric effects)
+    - X_i: Parametric covariates with fixed effects β_p
+    - Z_i: Random effects design row
+    - b ~ N(0, Ψ): Random effects (group-level deviations)
+    - ε_i ~ N(0, σ²): Independent errors
+
+**In matrix form**:
+
+    y = Xβ + Zb + ε
+
+where:
+    - X = [X_fixed | B₁ | B₂ | ... | B_p]: Design matrix
+      - X_fixed: Parametric covariates
+      - B_j: Basis matrix for j-th smooth term
+    - β = [β_p; β₁; β₂; ...; β_p]: Combined fixed effects
+    - Z: Random effects design matrix
+    - b ~ N(0, Ψ): Random effects vector
+    - ε ~ N(0, σ²I): Error vector
+
+Penalized Least Squares Formulation
+------------------------------------
+The smooth functions are represented using basis expansions:
+
+    f_j(x) = Σₖ β_{jk} φ_{jk}(x)
+
+where φ_{jk} are basis functions (typically B-splines).
+
+To prevent overfitting, we penalize roughness:
+
+    ℓ_p(β, b; λ, Ψ, σ²) = -½ [(y - Xβ - Zb)^T (y - Xβ - Zb) / σ²
+                              + Σⱼ λⱼ β_j^T S_j β_j
+                              + b^T Ψ⁻¹ b]
+
+where:
+    - λⱼ: Smoothing parameter for j-th smooth term
+    - S_j: Penalty matrix for j-th smooth term
+    - Ψ: Variance-covariance matrix of random effects
+
+**Unified penalty interpretation**:
+Random effects are equivalent to heavily penalized fixed effects:
+
+    b ~ N(0, Ψ)  ⟺  Penalty b^T Ψ⁻¹ b with λ = 1
+
+This unifies smoothing and random effects in a single framework.
+
+REML Estimation
+---------------
+**Restricted Maximum Likelihood** (REML) provides unbiased estimates of
+variance parameters by maximizing the likelihood of a linear transformation
+of y that is invariant to β.
+
+### REML Criterion
+
+For fixed (λ, Ψ, σ²), the REML log-likelihood is:
+
+    ℓ_R(λ, Ψ, σ²) = -½ [log|V| + log|X^T V⁻¹ X| + r^T V⁻¹ r]
+
+where:
+    - V = σ²I + ZΨZ^T: Marginal covariance of y
+    - r = y - X β̂: Residuals with β̂ = (X^T V⁻¹ X)⁻¹ X^T V⁻¹ y
+
+**Components**:
+1. log|V|: Variance determinant (penalizes complexity)
+2. log|X^T V⁻¹ X|: Fixed effects information (adjusts for β uncertainty)
+3. r^T V⁻¹ r: Penalized residual sum of squares
+
+### Optimization
+
+**Two-stage optimization**:
+
+**Outer loop**: Optimize variance parameters (λ, Ψ, σ²)
+    - Use Newton-Raphson or L-BFGS on ℓ_R
+    - Derivatives via automatic differentiation or finite differences
+
+**Inner loop**: For given (λ, Ψ, σ²), solve for (β, b)
+    - Penalized least squares (closed-form solution)
+    - Or equivalently: Henderson's mixed model equations
+
+### Henderson's Mixed Model Equations
+
+For given variance parameters, the BLUP (Best Linear Unbiased Predictor)
+satisfies:
+
+    [ X^T X     X^T Z   ] [ β̂ ]   [ X^T y ]
+    [ Z^T X   Z^T Z + Ψ⁻¹σ² ] [ b̂ ] = [ Z^T y ]
+
+**Properties**:
+- β̂ are generalized least squares estimates
+- b̂ are empirical Bayes estimates (shrunk toward zero)
+- System is sparse when Z is sparse (hierarchical data)
+
+Smooth Terms as Penalized Fixed Effects
+----------------------------------------
+Each smooth term f_j(x) = B_j β_j with penalty λ_j β_j^T S_j β_j can be
+incorporated into the mixed model equations.
+
+**Augmented system** (Wood, 2011):
+
+    [ X^T X + Λ     X^T Z   ] [ β̂ ]   [ X^T y ]
+    [ Z^T X      Z^T Z + Ψ⁻¹σ² ] [ b̂ ] = [ Z^T y ]
+
+where Λ = block_diag(0, λ₁S₁, λ₂S₂, ..., λ_pS_p) includes smoothing penalties.
+
+**Interpretation**: Smooth terms are fixed effects with structured penalties,
+while random effects are \"infinitely penalized\" fixed effects (λ → ∞).
+
+Effective Degrees of Freedom
+-----------------------------
+EDF measures model complexity, accounting for both smoothing and random effects.
+
+### For Smooth Terms
+
+    edf_j = tr[(X^T V⁻¹ X + Λ)⁻¹ X^T V⁻¹ X]_j
+
+where the trace is taken over the block corresponding to smooth term j.
+
+**Interpretation**:
+- edf_j = K_j (number of basis functions): No penalization
+- edf_j = 1: Linear function (heavy penalization)
+- edf_j ∈ (1, K_j): Intermediate smoothness
+
+### For Random Effects
+
+    edf_random = tr[Z(Z^T Z + Ψ⁻¹σ²)⁻¹ Z^T]
+
+**Interpretation**: Number of \"independent\" random effects estimated
+(shrinkage reduces EDF below nominal dimension).
+
+### Total EDF
+
+    edf_total = tr(H)
+
+where H is the hat matrix:
+
+    ŷ = H y,  H = [X  Z] [(X^T X + Λ)  X^T Z   ]⁻¹ [X^T]
+                          [Z^T X      Z^T Z + Ψ⁻¹σ²]    [Z^T]
+
+Computational Algorithms
+------------------------
+### Direct Solution (Small to Medium Problems)
+
+For n < 10,000, solve Henderson's equations directly:
+
+**Steps**:
+1. Form augmented system (p + q) × (p + q)
+2. Cholesky decomposition: A = LL^T
+3. Solve: L(L^T x) = b via back-substitution
+
+**Cost**: O((p+q)³) where p = dim(β), q = dim(b)
+
+**Advantages**: Exact, stable, simple
+
+**Disadvantages**: O(n²) for random effects (dense Z^T Z)
+
+### Sparse Methods (Large Problems)
+
+When Z is sparse (hierarchical/grouped data):
+
+**Techniques**:
+1. **Sparse Cholesky**: Exploit sparsity pattern of augmented system
+   - Cost: O(nnz × fill) where fill depends on elimination ordering
+   - Libraries: SuiteSparse, Eigen
+
+2. **Iterative solvers**: Conjugate gradient (CG)
+   - Cost: O(k × nnz) for k iterations
+   - Preconditioner: Incomplete Cholesky
+
+3. **Block updates**: Exploit structure (nested random effects)
+   - Update each level separately
+   - Leverage conditional independence
+
+### Smoothing Parameter Selection
+
+**GCV (Generalized Cross-Validation)**:
+
+    GCV(λ) = (n / (n - edf)²) × RSS
+
+**REML (Preferred)**:
+- Jointly optimize λ and Ψ via ℓ_R
+- More stable for small samples
+- Accounts for uncertainty in fixed effects
+
+**Grid search**:
+- Evaluate ℓ_R on grid {λ_min, ..., λ_max}
+- Computationally expensive for multiple smooths
+
+**Gradient-based**:
+- Compute ∇_λ ℓ_R via automatic differentiation
+- Use L-BFGS or Newton-Raphson
+- Faster convergence, requires derivatives
+
+Model Selection
+---------------
+### Akaike Information Criterion (AIC)
+
+    AIC = -2ℓ + 2 × edf_total
+
+Penalizes complexity via EDF.
+
+### Bayesian Information Criterion (BIC)
+
+    BIC = -2ℓ + log(n) × edf_total
+
+Stronger penalty for large n.
+
+**REML-based AIC/BIC**:
+Use REML log-likelihood ℓ_R instead of ML when comparing models
+with different variance structures.
+
+### Likelihood Ratio Tests
+
+For nested models M₀ ⊂ M₁:
+
+    LRT = 2(ℓ_R(M₁) - ℓ_R(M₀)) ~ χ²_Δedf
+
+where Δedf = edf_total(M₁) - edf_total(M₀).
+
+**Caveats**:
+- Variance components on boundary (σ² = 0) → mixture of χ²
+- Smoothing parameters: penalized likelihood, not nested
+
+Numerical Stability
+-------------------
+**Challenges**:
+
+1. **Ill-conditioning**: X^T X + Λ may have large condition number
+   - Solution: QR decomposition instead of Cholesky
+   - Scaling: Standardize columns of X
+
+2. **Variance parameter boundaries**: σ², Ψ must be positive-definite
+   - Reparameterize: log(σ²), Cholesky of Ψ
+   - Constrained optimization
+
+3. **Computational cost**: O((p+q)³) for large q
+   - Sparse methods essential for large random effects
+   - Approximations: Laplace, expectation propagation
+
+Integration with GAM
+--------------------
+This module seamlessly integrates:
+
+1. **Smooth terms from GAM**: Basis matrices B_j, penalty matrices S_j
+2. **Random effects**: Design matrix Z, variance components Ψ
+3. **Unified estimation**: REML optimizes {λ, Ψ, σ²} jointly
+4. **Prediction**: ŷ_new = X_new β̂ + Z_new b̂
+
+**Advantages of integration**:
+- Smooth functions + random effects in one model
+- Avoids two-stage estimation (fit smooth, then add random effects)
+- Automatic smoothing parameter selection
+
+Applications in Aurora-GLM
+---------------------------
+Gaussian GAMM is used for:
+
+1. **Longitudinal data**: Repeated measures with smooth time trends
+   - Example: Patient outcomes over time with patient random intercepts
+
+2. **Spatial data**: Smooth spatial surfaces + area random effects
+   - Example: Disease mapping with spatial smooth + regional effects
+
+3. **Hierarchical smoothing**: Different smooths per group
+   - Example: Growth curves varying by school
+
+4. **Large datasets**: Sparse random effects structure
+   - Example: Students within classes within schools
+
+Implementation Notes
+--------------------
+**Variance parameter representation**:
+- Variance components stored as list of covariance matrices
+- Single random intercept: Ψ = [σ_b²] (1×1 matrix)
+- Random intercept + slope: Ψ = 2×2 matrix
+- Multiple groupings: List with one matrix per term
+
+**Effective degrees of freedom**:
+- Computed via hat matrix trace
+- Accounts for both smoothing and shrinkage
+- Used for AIC/BIC calculation
+
+**REML vs ML**:
+- REML for variance component estimation (unbiased)
+- ML for fixed effects inference (conditional on variance)
+- Both available, REML default
 
 References
 ----------
-- Wood, S.N. (2017). Generalized Additive Models: An Introduction with R (2nd ed.).
-  Chapter 6: GAMMs.
-- Bates, D. et al. (2015). Fitting Linear Mixed-Effects Models Using lme4.
+**Core GAMM theory**:
+
+- Wood, S. N. (2017). *Generalized Additive Models: An Introduction with R*
+  (2nd ed.). CRC Press. Chapter 6: GAMMs.
+  https://doi.org/10.1201/9781315370279
+  (Comprehensive treatment, unifies smoothing and random effects)
+
+- Ruppert, D., Wand, M. P., & Carroll, R. J. (2003). *Semiparametric Regression*.
+  Cambridge University Press. Chapter 11: Mixed Model Representation.
+  (Mathematical foundations of penalized splines as mixed models)
+
+**REML estimation**:
+
+- Patterson, H. D., & Thompson, R. (1971). \"Recovery of inter-block information
+  when block sizes are unequal.\" *Biometrika*, 58(3), 545-554.
+  https://doi.org/10.1093/biomet/58.3.545
+  (Original REML paper)
+
+- Harville, D. A. (1977). \"Maximum likelihood approaches to variance component
+  estimation and to related problems.\" *Journal of the American Statistical
+  Association*, 72(358), 320-338.
+  (ML vs REML comparison)
+
+**Mixed model computation**:
+
+- Henderson, C. R. (1975). \"Best linear unbiased estimation and prediction
+  under a selection model.\" *Biometrics*, 31(2), 423-447.
+  (Mixed model equations, BLUP theory)
+
+- Bates, D., Mächler, M., Bolker, B., & Walker, S. (2015). \"Fitting linear
+  mixed-effects models using lme4.\" *Journal of Statistical Software*, 67(1), 1-48.
+  https://doi.org/10.18637/jss.v067.i01
+  (Practical implementation in R, computational strategies)
+
+**Smoothing parameter selection**:
+
+- Wood, S. N. (2011). \"Fast stable restricted maximum likelihood and marginal
+  likelihood estimation of semiparametric generalized linear models.\"
+  *Journal of the Royal Statistical Society: Series B*, 73(1), 3-36.
+  https://doi.org/10.1111/j.1467-9868.2010.00749.x
+  (Efficient REML for GAM/GAMM, Newton method with stable computation)
+
+- Wahba, G. (1985). \"A comparison of GCV and GML for choosing the smoothing
+  parameter in the generalized spline smoothing problem.\" *Annals of Statistics*,
+  13(4), 1378-1402.
+  (Theory comparing GCV and REML/ML)
+
+**Computational methods**:
+
+- Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.).
+  Johns Hopkins University Press. Chapter 11: Least Squares Problems.
+  (Numerical linear algebra for mixed models)
+
+- Davis, T. A. (2006). *Direct Methods for Sparse Linear Systems*. SIAM.
+  https://doi.org/10.1137/1.9780898718881
+  (Sparse Cholesky for large mixed models)
+
+**Degrees of freedom**:
+
+- Hodges, J. S., & Sargent, D. J. (2001). \"Counting degrees of freedom in
+  hierarchical and other richly-parameterised models.\" *Biometrika*, 88(2), 367-379.
+  https://doi.org/10.1093/biomet/88.2.367
+  (EDF definitions for mixed models)
+
+See Also
+--------
+aurora.models.gamm.pql : PQL for non-Gaussian GAMM
+aurora.models.gamm.estimation : REML estimation functions
+aurora.models.gam.fitting : GAM fitting (no random effects)
+aurora.models.gamm.random_effects : Random effects structures
+
+Notes
+-----
+For detailed mathematical derivations, see REFERENCES.md in the repository root.
+
+Gaussian GAMM unifies smooth regression and mixed models in an elegant framework.
+The connection between penalized regression and random effects (via REML) allows
+automatic selection of both smoothing parameters and variance components.
 """
 
 from __future__ import annotations

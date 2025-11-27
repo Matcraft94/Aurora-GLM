@@ -180,9 +180,12 @@ def fit_laplace(
     beta = np.zeros(p)
     b = np.zeros(q)
 
+    # Get link function
+    link = family.default_link
+
     # Initial linear predictor
     eta = X @ beta + Z @ b
-    mu = family.link.inverse(eta)
+    mu = link.inverse(eta)
 
     converged = False
 
@@ -209,7 +212,7 @@ def fit_laplace(
 
         # Update predictions
         eta = X @ beta + Z @ b
-        mu = family.link.inverse(eta)
+        mu = link.inverse(eta)
 
         # Check convergence
         delta_beta = np.max(np.abs(beta - beta_old))
@@ -295,10 +298,13 @@ def _find_conditional_mode(
     # Expand to block diagonal
     psi_inv_block = np.kron(np.eye(n_groups), psi_inv)
 
+    # Get link function
+    link = family.default_link
+
     # Define negative log conditional density
     def neg_log_conditional(b):
         eta = X @ beta + Z @ b
-        mu = family.link.inverse(eta)
+        mu = link.inverse(eta)
 
         # Negative log-likelihood
         neg_log_lik = -family.log_likelihood(y, mu).sum()
@@ -311,8 +317,9 @@ def _find_conditional_mode(
     # Gradient
     def grad_neg_log_conditional(b):
         eta = X @ beta + Z @ b
-        mu = family.link.inverse(eta)
-        dmu_deta = family.link.derivative_inv(eta)
+        mu = link.inverse(eta)
+        deta_dmu = link.derivative(mu)
+        dmu_deta = 1.0 / (deta_dmu + 1e-10)
 
         # Score from likelihood
         residuals = (y - mu) / family.variance(mu)
@@ -379,9 +386,11 @@ def _compute_hessian(
     hessian : ndarray, shape (q, q)
         Hessian matrix
     """
+    link = family.default_link
     eta = X @ beta + Z @ b
-    mu = family.link.inverse(eta)
-    dmu_deta = family.link.derivative_inv(eta)
+    mu = link.inverse(eta)
+    deta_dmu = link.derivative(mu)
+    dmu_deta = 1.0 / (deta_dmu + 1e-10)
     var_mu = family.variance(mu)
 
     # Weights for Hessian
@@ -442,13 +451,17 @@ def _update_fixed_effects(
     p = X.shape[1]
     beta = np.zeros(p)
 
+    # Get link function
+    link = family.default_link
+
     # IRLS for β with offset Zb
     offset = Z @ b
 
     for _ in range(10):  # Max 10 iterations
         eta = X @ beta + offset
-        mu = family.link.inverse(eta)
-        dmu_deta = family.link.derivative_inv(eta)
+        mu = link.inverse(eta)
+        deta_dmu = link.derivative(mu)
+        dmu_deta = 1.0 / (deta_dmu + 1e-10)
         var_mu = family.variance(mu)
 
         # Working response
