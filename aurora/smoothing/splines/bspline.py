@@ -1,12 +1,351 @@
-"""B-spline basis functions using Cox-de Boor recursion algorithm.
+"""B-Spline Basis Functions via Cox-de Boor Recursion.
 
-B-splines have several advantages over other spline representations:
-- Local support: changing one coefficient only affects a local region
-- Stable numerical computation via de Boor algorithm
-- Efficient evaluation (only need to evaluate non-zero basis functions)
-- Natural generalization to higher dimensions (tensor products)
+Mathematical Framework
+----------------------
+B-splines (basis splines) are piecewise polynomial functions that form a basis
+for the space of splines. They are the fundamental building blocks for flexible
+curve and surface representations in computer-aided design, numerical analysis,
+and statistical smoothing.
 
-This implementation follows de Boor (1978) and is compatible with scipy.interpolate.
+Definition
+----------
+Given a knot sequence (breakpoints):
+
+    t = {t₀, t₁, ..., t_{K+p}}
+
+where p is the degree, the B-spline basis functions B_{i,p}(x) for i = 0,...,K-1
+are defined recursively via the **Cox-de Boor recursion formula**.
+
+Cox-de Boor Recursion
+---------------------
+**Base case** (p = 0, piecewise constant):
+
+    B_{i,0}(x) = { 1  if tᵢ ≤ x < tᵢ₊₁
+                 { 0  otherwise
+
+**Recursive case** (p ≥ 1):
+
+    B_{i,p}(x) = w_{i,p}(x) B_{i,p-1}(x) + [1 - w_{i+1,p}(x)] B_{i+1,p-1}(x)
+
+where the weight functions are:
+
+    w_{i,p}(x) = (x - tᵢ) / (tᵢ₊ₚ - tᵢ)
+
+**Boundary convention**: If tᵢ₊ₚ = tᵢ (repeated knots), define w_{i,p} = 0.
+
+**Interpretation**: B_{i,p} is a weighted average of two lower-degree B-splines,
+interpolating linearly between them based on x's position in the knot interval.
+
+Properties of B-Splines
+-----------------------
+B-splines have several remarkable mathematical properties:
+
+1. **Non-negativity**:
+   B_{i,p}(x) ≥ 0  for all x
+
+2. **Compact support**:
+   B_{i,p}(x) = 0  for x ∉ [tᵢ, tᵢ₊ₚ₊₁]
+
+   Each basis function is non-zero only on p+1 consecutive knot intervals.
+
+3. **Partition of unity**:
+   Σᵢ B_{i,p}(x) = 1  for all x ∈ [t_p, t_{K+1}]
+
+   The basis functions sum to 1 at every point.
+
+4. **Local linear independence**:
+   Any p+1 consecutive B-splines are linearly independent.
+
+5. **Continuity**:
+   - At simple knots: C^{p-1} continuous (p-1 continuous derivatives)
+   - At knots with multiplicity m: C^{p-m} continuous
+   - Interior to knot spans: C^∞ (polynomial)
+
+6. **Polynomial precision**:
+   B-splines of degree p can exactly represent any polynomial of degree ≤ p.
+
+**Why these properties matter**:
+- Non-negativity + partition of unity → stability and intuitive coefficients
+- Compact support → sparse matrices, local control
+- Continuity → smooth approximations
+
+Spline Space
+------------
+The **spline space** S_{p,t} is the span of B-spline basis functions:
+
+    S_{p,t} = span{B_{0,p}, B_{1,p}, ..., B_{K-1,p}}
+
+Any function f ∈ S_{p,t} can be written as:
+
+    f(x) = Σᵢ βᵢ B_{i,p}(x)
+
+where β = (β₀, ..., β_{K-1}) are spline coefficients.
+
+**Dimension**: dim(S_{p,t}) = K = (number of knots) - p - 1
+
+**Approximation power**: For sufficiently smooth functions g,
+
+    min_{f ∈ S_{p,t}} ||g - f|| = O(h^{p+1})
+
+where h = max knot spacing (if knots are equally spaced).
+
+Knot Vectors
+------------
+The knot vector t determines the structure of the spline space.
+
+### Open (Clamped) Knots
+
+For approximation on [a, b], use **repeated boundary knots**:
+
+    t = {a, ..., a, t₁, t₂, ..., t_{n}, b, ..., b}
+         ⎣______⎦                           ⎣______⎦
+         p+1 times                          p+1 times
+
+**Properties**:
+- Spline interpolates boundary values: f(a) = β₀, f(b) = β_{K-1}
+- Basis functions are non-zero on entire domain
+- Standard choice for regression and smoothing
+
+### Uniform Interior Knots
+
+Interior knots {t₁, ..., t_n} can be placed:
+
+1. **Uniformly**: tᵢ = a + i(b-a)/(n+1)
+   - Simple, symmetric
+   - May not adapt to data density
+
+2. **Quantiles**: tᵢ = quantile(x, i/(n+1))
+   - Adapts to data distribution
+   - More knots where data is dense
+   - Preferred for statistical smoothing
+
+Derivatives of B-Splines
+------------------------
+The derivative of a B-spline is itself a B-spline of lower degree:
+
+    dB_{i,p}(x)/dx = p [B_{i,p-1}(x)/(tᵢ₊ₚ - tᵢ) - B_{i+1,p-1}(x)/(tᵢ₊ₚ₊₁ - tᵢ₊₁)]
+
+**Consequences**:
+- Derivatives computed via same Cox-de Boor algorithm
+- k-th derivative is B-spline of degree p-k
+- Derivative of degree-0 spline is zero (piecewise constant → flat)
+
+**Higher derivatives**: Apply formula recursively:
+
+    d^k f/dx^k = Σᵢ βᵢ d^k B_{i,p}/dx^k
+
+Penalty Matrices for Smoothing
+-------------------------------
+In penalized regression splines, we penalize roughness via:
+
+    Penalty = λ β^T S β
+
+where S is a **penalty matrix**.
+
+### Difference Penalty (Discrete Approximation)
+
+For m-th order differences:
+
+    S = D_m^T D_m
+
+where D_m is the m-th difference operator:
+
+    D_2 = [  1  -2   1   0  ...  ]
+          [  0   1  -2   1  ...  ]
+          ...
+
+**Approximates**: ∫ [f^{(m)}(x)]^2 dx for equally-spaced knots
+
+**Advantages**:
+- Simple to compute: O(K) construction
+- Sparse: band matrix
+- Works for any knot spacing
+
+**Second-order (m=2)**: Penalizes curvature (bending energy)
+
+### Integrated Squared Derivative (Exact)
+
+For m-th derivative:
+
+    S_{ij} = ∫ [B_{i,p}^{(m)}(x)] [B_{j,p}^{(m)}(x)] dx
+
+**Advantages**:
+- Exact penalty: ∫ [f^{(m)}]^2 dx = β^T S β
+- Geometric interpretation: bending energy
+
+**Disadvantages**:
+- More expensive to compute: O(K²) for dense matrix
+- Requires analytical integration or numerical quadrature
+
+**For penalized GAMs**: Difference penalty is standard and computationally cheaper.
+
+Computational Complexity
+------------------------
+### Basis Evaluation
+
+**Naive Cox-de Boor recursion**:
+- Per basis function at one point: O(p²)
+- All K basis functions at n points: O(nKp²)
+
+**Optimized (exploit compact support)**:
+- Only p+1 basis functions are non-zero at any x
+- Per point: O(p²) to find non-zero functions
+- Total: O(np²)
+
+### Derivative Computation
+
+**k-th derivative**:
+- Reduces to (p-k)-degree B-spline evaluation
+- Cost: Same as evaluation, O(np²)
+
+### Penalty Matrix
+
+**Difference penalty**:
+- Construction: O(K) for band matrix
+- Matrix-vector product: O(K) (sparse)
+
+**Integrated penalty**:
+- Construction: O(Kp) per entry, O(K²p) total
+- Dense matrix: O(K²) storage and products
+
+Numerical Stability
+-------------------
+**Advantages of Cox-de Boor**:
+
+1. **Avoid cancellation**: Only additions of non-negative terms
+2. **Bounded intermediate values**: Weights w_{i,p} ∈ [0,1]
+3. **No Vandermonde matrices**: Unlike polynomial bases, no conditioning issues
+
+**Pitfalls**:
+
+1. **Division by zero**: When tᵢ₊ₚ = tᵢ (repeated knots)
+   - Solution: Check denominator, define 0/0 = 0
+
+2. **Boundary evaluation**: x = t_{K+p} (right endpoint)
+   - Convention: Extend last interval slightly or special-case
+
+3. **Very high degree**: p > 10 rare in practice
+   - High degree → oscillations (Runge phenomenon)
+   - Better: More knots with lower degree
+
+Comparison with Other Spline Bases
+-----------------------------------
+**vs Polynomial basis** {1, x, x², ...}:
+- B-splines: Numerically stable, local support, well-conditioned
+- Polynomials: Global support, Vandermonde matrix (ill-conditioned for large degree)
+
+**vs Natural cubic splines**:
+- B-splines: Local basis, general degree, efficient evaluation
+- Natural cubic splines: Global basis, automatic C² continuity, simpler for small problems
+
+**vs Radial basis functions** (RBFs):
+- B-splines: Tensor product for multivariate, fast evaluation
+- RBFs: Isotropic, harder to scale to high dimensions
+
+**For GAMs**: B-splines are standard due to efficiency and numerical stability.
+
+Multi-Backend Support
+---------------------
+This implementation works transparently with NumPy, PyTorch, and JAX arrays
+through the array namespace abstraction. All operations use the `namespace()`
+function to detect and use the appropriate backend.
+
+**Benefits**:
+- Same code for CPU and GPU
+- Automatic differentiation support (PyTorch, JAX)
+- Type consistency across backends
+
+Applications in Aurora-GLM
+---------------------------
+B-splines are used in:
+
+1. **Generalized Additive Models (GAM)**: Smooth functions f(x) = Σ β_i B_{i,p}(x)
+2. **Penalized regression**: Roughness penalty β^T S β
+3. **Varying coefficient models**: Coefficients that vary smoothly with covariates
+4. **Tensor product smooths**: Multivariate smoothing via B-spline products
+
+**Not used for**:
+- Interpolation (prefer natural cubic splines with exact interpolation)
+- Very small datasets (n < 20, use parametric models)
+
+Implementation Notes
+--------------------
+**Design choices**:
+
+1. **Recursive evaluation**: Direct Cox-de Boor formula for clarity
+   - Could optimize with dynamic programming (de Boor's algorithm proper)
+   - Current: O(p²) per point, acceptable for p ≤ 5
+
+2. **Knot vector storage**: Full vector including repeated boundaries
+   - Standard convention from de Boor (1978)
+   - Compatible with scipy.interpolate
+
+3. **Boundary handling**: Left-closed, right-closed intervals
+   - B_{i,0}(x) = 1 for x ∈ [tᵢ, tᵢ₊₁]
+   - Special case at rightmost knot
+
+References
+----------
+**Core B-spline theory**:
+
+- de Boor, C. (2001). *A Practical Guide to Splines* (Revised ed.). Springer.
+  https://doi.org/10.1007/978-1-4612-6333-3
+  (THE reference for B-splines, contains all proofs and algorithms)
+
+- Schumaker, L. L. (2007). *Spline Functions: Basic Theory* (3rd ed.). Cambridge
+  University Press.
+  (Comprehensive mathematical treatment of spline theory)
+
+**Cox-de Boor recursion**:
+
+- Cox, M. G. (1972). \"The numerical evaluation of B-splines.\" *IMA Journal of
+  Applied Mathematics*, 10(2), 134-149.
+  https://doi.org/10.1093/imamat/10.2.134
+
+- de Boor, C. (1972). \"On calculating with B-splines.\" *Journal of Approximation
+  Theory*, 6(1), 50-62.
+  https://doi.org/10.1016/0021-9045(72)90080-9
+
+**Penalized regression splines**:
+
+- Eilers, P. H. C., & Marx, B. D. (1996). \"Flexible smoothing with B-splines and
+  penalties.\" *Statistical Science*, 11(2), 89-121.
+  https://doi.org/10.1214/ss/1038425655
+  (P-splines: B-splines + difference penalties)
+
+**Computational algorithms**:
+
+- de Boor, C. (1978). \"Efficient computer manipulation of tensor products.\"
+  *ACM Transactions on Mathematical Software*, 5(2), 173-182.
+  (Original de Boor algorithm, more efficient than naive recursion)
+
+**Statistical applications**:
+
+- Ruppert, D., Wand, M. P., & Carroll, R. J. (2003). *Semiparametric Regression*.
+  Cambridge University Press. Chapter 5: Spline Smoothing.
+
+- Wood, S. N. (2017). *Generalized Additive Models: An Introduction with R*
+  (2nd ed.). CRC Press. Chapter 4: Spline Bases.
+
+**Numerical analysis**:
+
+- Prautzsch, H., Boehm, W., & Paluszny, M. (2002). *Bézier and B-Spline
+  Techniques*. Springer.
+  (Computer graphics perspective, geometric algorithms)
+
+See Also
+--------
+aurora.smoothing.splines.cubic : Natural cubic spline basis
+aurora.models.gam.fitting : GAM fitting using B-splines
+aurora.smoothing.penalties : Penalty matrix construction
+
+Notes
+-----
+For detailed mathematical derivations, see REFERENCES.md in the repository root.
+
+B-splines combine mathematical elegance (compact support, partition of unity)
+with computational efficiency (stable recursion, sparse matrices). They are
+the workhorse basis for modern statistical smoothing.
 """
 from __future__ import annotations
 
