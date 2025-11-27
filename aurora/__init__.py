@@ -78,6 +78,9 @@ from .visualization import (
     plot_diagnostics_panel,
 )
 
+# High-level helper functions
+from .helpers import summary, plot, compare
+
 # Convenience aliases (short names)
 Gaussian = GaussianFamily
 Binomial = BinomialFamily
@@ -148,6 +151,10 @@ __all__ = [
     "accuracy_score",
     "cross_val_score",
     "KFold",
+    # High-level helpers
+    "summary",
+    "plot",
+    "compare",
 ]
 
 __version__ = "0.5.0-dev"
