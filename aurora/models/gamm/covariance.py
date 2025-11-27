@@ -315,15 +315,559 @@ class IdentityCovariance(CovarianceStructure):
         return params
 
 
+class AR1Covariance(CovarianceStructure):
+    """Autoregressive order 1 (AR(1)) covariance structure.
+
+    Models temporal correlation where observations closer in time are more
+    correlated: Cov(b_t, b_s) = σ² ρ^|t-s|
+
+    For q random effects (time points), requires 2 parameters:
+    - params[0]: log(σ²) - log-variance
+    - params[1]: arctanh(ρ) - transformed correlation (ensures ρ ∈ (-1, 1))
+
+    References
+    ----------
+    .. [1] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS. Ch. 5.
+    .. [2] Diggle et al. (2002). Analysis of Longitudinal Data, 2nd ed.
+
+    Examples
+    --------
+    >>> cov = AR1Covariance()
+    >>> cov.n_parameters(4)
+    2
+
+    >>> # Parameters: [log(σ²), arctanh(ρ)]
+    >>> params = np.array([0.0, 0.5])  # σ²=1, ρ≈0.46
+    >>> psi = cov.construct_psi(params, n_effects=4)
+    >>> # Creates correlation matrix with AR(1) structure
+
+    Notes
+    -----
+    The AR(1) structure is ideal for:
+    - Equally-spaced longitudinal data
+    - Time series with decaying correlations
+    - Repeated measures where adjacent observations are most correlated
+
+    The inverse of AR(1) covariance matrix is tridiagonal, enabling
+    efficient computation for large matrices.
+    """
+
+    def n_parameters(self, n_effects: int) -> int:
+        """Number of parameters = 2 (variance and correlation)."""
+        return 2
+
+    def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
+        """Construct AR(1) covariance matrix.
+
+        Parameters
+        ----------
+        params : ndarray
+            [log(σ²), arctanh(ρ)] - transformed variance and correlation
+        n_effects : int
+            Number of time points/random effects
+
+        Returns
+        -------
+        psi : ndarray (n_effects, n_effects)
+            AR(1) covariance matrix
+        """
+        if len(params) != 2:
+            raise ValueError(f"Expected 2 parameters, got {len(params)}")
+
+        # Transform parameters
+        sigma2 = np.exp(params[0])
+        rho = np.tanh(params[1])  # Maps R to (-1, 1)
+
+        # Build AR(1) structure: Cov(i,j) = σ² ρ^|i-j|
+        i, j = np.ogrid[:n_effects, :n_effects]
+        psi = sigma2 * (rho ** np.abs(i - j))
+
+        return psi
+
+    def extract_params(self, psi: np.ndarray) -> np.ndarray:
+        """Extract parameters from AR(1) covariance matrix.
+
+        Estimates σ² from diagonal and ρ from first off-diagonal.
+        """
+        if psi.shape[0] != psi.shape[1]:
+            raise ValueError("psi must be square")
+
+        n = psi.shape[0]
+        if n < 2:
+            raise ValueError("Need at least 2 effects to estimate AR(1)")
+
+        # Estimate variance from diagonal (should all be equal to σ²)
+        sigma2 = np.mean(np.diag(psi))
+
+        # Estimate ρ from first off-diagonal
+        if n > 1:
+            off_diag = np.mean([psi[i, i+1] for i in range(n-1)])
+            rho = off_diag / sigma2
+            rho = np.clip(rho, -0.999, 0.999)  # Ensure valid range
+        else:
+            rho = 0.0
+
+        params = np.array([np.log(sigma2), np.arctanh(rho)])
+        return params
+
+    def inverse(self, params: np.ndarray, n_effects: int) -> np.ndarray:
+        """Efficient tridiagonal inverse for AR(1) structure.
+
+        The inverse of an AR(1) matrix is tridiagonal, which allows
+        for O(n) computation instead of O(n³).
+        """
+        if len(params) != 2:
+            raise ValueError(f"Expected 2 parameters, got {len(params)}")
+
+        sigma2 = np.exp(params[0])
+        rho = np.tanh(params[1])
+
+        n = n_effects
+        if n == 1:
+            return np.array([[1.0 / sigma2]])
+
+        # Tridiagonal inverse structure
+        # Psi^{-1}[i,i] = (1 + rho²) / (σ²(1-rho²)) for interior
+        # Psi^{-1}[i,i] = 1 / (σ²(1-rho²)) for boundaries
+        # Psi^{-1}[i,i±1] = -rho / (σ²(1-rho²))
+
+        denom = sigma2 * (1 - rho**2)
+        psi_inv = np.zeros((n, n))
+
+        # Main diagonal
+        for i in range(n):
+            if i == 0 or i == n - 1:
+                psi_inv[i, i] = 1.0 / denom
+            else:
+                psi_inv[i, i] = (1 + rho**2) / denom
+
+        # Off-diagonals
+        for i in range(n - 1):
+            psi_inv[i, i+1] = -rho / denom
+            psi_inv[i+1, i] = -rho / denom
+
+        return psi_inv
+
+
+class CompoundSymmetryCovariance(CovarianceStructure):
+    """Compound symmetry (exchangeable) covariance structure.
+
+    Models constant correlation between all pairs of observations:
+    - Diagonal: Var(b_i) = σ²
+    - Off-diagonal: Cov(b_i, b_j) = σ²ρ for i ≠ j
+
+    For q random effects, requires 2 parameters:
+    - params[0]: log(σ²) - log-variance
+    - params[1]: logit(ρ_scaled) - transformed correlation
+
+    References
+    ----------
+    .. [1] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS.
+    .. [2] Diggle et al. (2002). Analysis of Longitudinal Data, 2nd ed.
+
+    Examples
+    --------
+    >>> cov = CompoundSymmetryCovariance()
+    >>> cov.n_parameters(5)
+    2
+
+    >>> params = np.array([0.0, 0.0])  # σ²=1, ρ=0.5
+    >>> psi = cov.construct_psi(params, n_effects=3)
+    >>> # Creates matrix with equal variances and equal correlations
+
+    Notes
+    -----
+    Compound symmetry is equivalent to:
+    - Random intercept model with iid residuals
+    - Exchangeable correlation (ICC model)
+
+    Constraint: ρ > -1/(q-1) for positive definiteness, where q is
+    the number of effects.
+    """
+
+    def n_parameters(self, n_effects: int) -> int:
+        """Number of parameters = 2 (variance and correlation)."""
+        return 2
+
+    def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
+        """Construct compound symmetry covariance matrix.
+
+        Parameters
+        ----------
+        params : ndarray
+            [log(σ²), logit((ρ + 1/(q-1))/(1 + 1/(q-1)))]
+        n_effects : int
+            Number of random effects
+
+        Returns
+        -------
+        psi : ndarray (n_effects, n_effects)
+            Compound symmetry covariance matrix
+        """
+        if len(params) != 2:
+            raise ValueError(f"Expected 2 parameters, got {len(params)}")
+
+        sigma2 = np.exp(params[0])
+
+        # Transform to get ρ in valid range (-1/(q-1), 1)
+        # Using shifted logit transformation
+        q = n_effects
+        rho_min = -1.0 / (q - 1) if q > 1 else -0.99
+        rho_range = 1.0 - rho_min
+
+        rho_scaled = 1.0 / (1.0 + np.exp(-params[1]))  # Sigmoid to (0, 1)
+        rho = rho_min + rho_range * rho_scaled
+
+        # Build compound symmetry structure
+        psi = sigma2 * (rho * np.ones((n_effects, n_effects)) +
+                        (1 - rho) * np.eye(n_effects))
+
+        return psi
+
+    def extract_params(self, psi: np.ndarray) -> np.ndarray:
+        """Extract parameters from compound symmetry matrix."""
+        if psi.shape[0] != psi.shape[1]:
+            raise ValueError("psi must be square")
+
+        n = psi.shape[0]
+
+        # Estimate σ² from diagonal
+        sigma2 = np.mean(np.diag(psi))
+
+        # Estimate ρ from off-diagonals
+        if n > 1:
+            off_diag_sum = np.sum(psi) - np.trace(psi)
+            n_off = n * (n - 1)
+            avg_cov = off_diag_sum / n_off
+            rho = avg_cov / sigma2
+            rho = np.clip(rho, -1/(n-1) + 0.001, 0.999)
+        else:
+            rho = 0.0
+
+        # Inverse transform
+        rho_min = -1.0 / (n - 1) if n > 1 else -0.99
+        rho_range = 1.0 - rho_min
+        rho_scaled = (rho - rho_min) / rho_range
+        rho_scaled = np.clip(rho_scaled, 0.001, 0.999)
+
+        params = np.array([np.log(sigma2), np.log(rho_scaled / (1 - rho_scaled))])
+        return params
+
+
+class ExponentialSpatialCovariance(CovarianceStructure):
+    """Exponential spatial covariance structure.
+
+    Models spatial correlation that decays exponentially with distance:
+    Cov(b_i, b_j) = σ² exp(-d_ij / φ)
+
+    where d_ij is the Euclidean distance between locations i and j,
+    and φ is the range parameter.
+
+    For geostatistical data, requires coordinates at construction time.
+    Parameters:
+    - params[0]: log(σ²) - log-variance (sill)
+    - params[1]: log(φ) - log-range parameter
+
+    References
+    ----------
+    .. [1] Diggle & Ribeiro (2007). Model-based Geostatistics.
+    .. [2] Cressie (1993). Statistics for Spatial Data.
+    .. [3] Rue & Held (2005). Gaussian Markov Random Fields.
+
+    Examples
+    --------
+    >>> coords = np.array([[0, 0], [1, 0], [0, 1], [1, 1]])
+    >>> cov = ExponentialSpatialCovariance(coordinates=coords)
+    >>> params = np.array([0.0, 0.5])  # σ²=1, φ≈1.65
+    >>> psi = cov.construct_psi(params, n_effects=4)
+
+    Notes
+    -----
+    The exponential covariance is a member of the Matérn family with
+    smoothness ν = 0.5. It produces relatively rough spatial surfaces.
+
+    The range parameter φ approximately equals the distance at which
+    the correlation drops to ~37% (= 1/e).
+
+    Practical range (correlation ≈ 5%) is approximately 3φ.
+    """
+
+    def __init__(self, coordinates: np.ndarray | None = None):
+        """Initialize with spatial coordinates.
+
+        Parameters
+        ----------
+        coordinates : ndarray (n, d), optional
+            Spatial coordinates for n locations in d dimensions.
+            If not provided, assumes 1D equally-spaced locations.
+        """
+        self.coordinates = coordinates
+        self._distance_matrix = None
+
+    def _compute_distances(self, n_effects: int) -> np.ndarray:
+        """Compute pairwise distance matrix."""
+        if self._distance_matrix is not None:
+            if self._distance_matrix.shape[0] == n_effects:
+                return self._distance_matrix
+
+        if self.coordinates is not None:
+            if len(self.coordinates) != n_effects:
+                raise ValueError(
+                    f"Coordinates have {len(self.coordinates)} locations, "
+                    f"but n_effects is {n_effects}"
+                )
+            # Compute Euclidean distances
+            from scipy.spatial.distance import pdist, squareform
+            self._distance_matrix = squareform(pdist(self.coordinates))
+        else:
+            # Assume 1D equally-spaced
+            i, j = np.ogrid[:n_effects, :n_effects]
+            self._distance_matrix = np.abs(i - j).astype(float)
+
+        return self._distance_matrix
+
+    def n_parameters(self, n_effects: int) -> int:
+        """Number of parameters = 2 (variance and range)."""
+        return 2
+
+    def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
+        """Construct exponential spatial covariance matrix.
+
+        Parameters
+        ----------
+        params : ndarray
+            [log(σ²), log(φ)] - log-variance and log-range
+        n_effects : int
+            Number of spatial locations
+
+        Returns
+        -------
+        psi : ndarray (n_effects, n_effects)
+            Spatial covariance matrix
+        """
+        if len(params) != 2:
+            raise ValueError(f"Expected 2 parameters, got {len(params)}")
+
+        sigma2 = np.exp(params[0])
+        phi = np.exp(params[1])
+
+        # Get distance matrix
+        D = self._compute_distances(n_effects)
+
+        # Exponential covariance: σ² exp(-d/φ)
+        psi = sigma2 * np.exp(-D / phi)
+
+        return psi
+
+    def extract_params(self, psi: np.ndarray) -> np.ndarray:
+        """Extract parameters from spatial covariance matrix.
+
+        Uses method of moments estimation based on variogram fitting.
+        """
+        if psi.shape[0] != psi.shape[1]:
+            raise ValueError("psi must be square")
+
+        n = psi.shape[0]
+
+        # Estimate σ² from diagonal
+        sigma2 = np.mean(np.diag(psi))
+
+        # Get distances
+        D = self._compute_distances(n)
+
+        # Estimate φ from log-linear regression on off-diagonals
+        # log(cov / σ²) = -d / φ
+        mask = ~np.eye(n, dtype=bool)
+        distances = D[mask]
+        covs = psi[mask]
+
+        if np.any(covs > 0):
+            log_ratio = np.log(np.maximum(covs / sigma2, 1e-10))
+            # Weighted regression (closer pairs have more info)
+            weights = 1.0 / (distances + 1)
+            phi_est = -np.sum(weights * distances) / np.sum(weights * log_ratio)
+            phi = max(phi_est, 0.1)  # Ensure positive
+        else:
+            phi = 1.0
+
+        params = np.array([np.log(sigma2), np.log(phi)])
+        return params
+
+
+class MaternCovariance(CovarianceStructure):
+    """Matérn covariance structure for spatial data.
+
+    The Matérn family is the most commonly used in geostatistics due
+    to its flexibility in modeling different degrees of smoothness.
+
+    Cov(d) = σ² × (2^(1-ν) / Γ(ν)) × (√(2ν) d/φ)^ν × K_ν(√(2ν) d/φ)
+
+    where K_ν is the modified Bessel function of the second kind.
+
+    Special cases:
+    - ν = 0.5: Exponential covariance
+    - ν = 1.5: Once differentiable
+    - ν = 2.5: Twice differentiable
+    - ν → ∞: Gaussian (squared exponential)
+
+    Parameters (for fixed ν):
+    - params[0]: log(σ²) - log-variance (sill)
+    - params[1]: log(φ) - log-range parameter
+
+    References
+    ----------
+    .. [1] Matérn (1960). Spatial Variation.
+    .. [2] Stein (1999). Interpolation of Spatial Data.
+    .. [3] Rasmussen & Williams (2006). Gaussian Processes for ML.
+
+    Examples
+    --------
+    >>> coords = np.array([[0, 0], [1, 0], [2, 0]])
+    >>> cov = MaternCovariance(coordinates=coords, nu=1.5)
+    >>> params = np.array([0.0, 0.0])  # σ²=1, φ=1
+    >>> psi = cov.construct_psi(params, n_effects=3)
+    """
+
+    def __init__(
+        self,
+        coordinates: np.ndarray | None = None,
+        nu: float = 1.5
+    ):
+        """Initialize Matérn covariance.
+
+        Parameters
+        ----------
+        coordinates : ndarray (n, d), optional
+            Spatial coordinates. If None, assumes 1D equally-spaced.
+        nu : float, default=1.5
+            Smoothness parameter. Common choices: 0.5, 1.5, 2.5
+        """
+        self.coordinates = coordinates
+        self.nu = nu
+        self._distance_matrix = None
+
+    def _compute_distances(self, n_effects: int) -> np.ndarray:
+        """Compute pairwise distance matrix."""
+        if self._distance_matrix is not None:
+            if self._distance_matrix.shape[0] == n_effects:
+                return self._distance_matrix
+
+        if self.coordinates is not None:
+            if len(self.coordinates) != n_effects:
+                raise ValueError(
+                    f"Coordinates have {len(self.coordinates)} locations, "
+                    f"but n_effects is {n_effects}"
+                )
+            from scipy.spatial.distance import pdist, squareform
+            self._distance_matrix = squareform(pdist(self.coordinates))
+        else:
+            i, j = np.ogrid[:n_effects, :n_effects]
+            self._distance_matrix = np.abs(i - j).astype(float)
+
+        return self._distance_matrix
+
+    def n_parameters(self, n_effects: int) -> int:
+        """Number of parameters = 2 (variance and range)."""
+        return 2
+
+    def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
+        """Construct Matérn covariance matrix.
+
+        Parameters
+        ----------
+        params : ndarray
+            [log(σ²), log(φ)]
+        n_effects : int
+            Number of spatial locations
+
+        Returns
+        -------
+        psi : ndarray (n_effects, n_effects)
+            Matérn covariance matrix
+        """
+        if len(params) != 2:
+            raise ValueError(f"Expected 2 parameters, got {len(params)}")
+
+        from scipy.special import gamma, kv
+
+        sigma2 = np.exp(params[0])
+        phi = np.exp(params[1])
+        nu = self.nu
+
+        D = self._compute_distances(n_effects)
+
+        # Matérn formula
+        # Handle d=0 separately (limit is σ²)
+        scaled_d = np.sqrt(2 * nu) * D / phi
+
+        # Compute Matérn covariance
+        with np.errstate(divide='ignore', invalid='ignore'):
+            factor = (2**(1 - nu)) / gamma(nu)
+            psi = sigma2 * factor * (scaled_d ** nu) * kv(nu, scaled_d)
+
+        # Fix diagonal (d=0 case: cov = σ²)
+        np.fill_diagonal(psi, sigma2)
+
+        # Handle numerical issues
+        psi = np.nan_to_num(psi, nan=0.0)
+
+        # Ensure symmetry
+        psi = (psi + psi.T) / 2
+
+        return psi
+
+    def extract_params(self, psi: np.ndarray) -> np.ndarray:
+        """Extract parameters from Matérn covariance matrix."""
+        if psi.shape[0] != psi.shape[1]:
+            raise ValueError("psi must be square")
+
+        n = psi.shape[0]
+
+        # Estimate σ² from diagonal
+        sigma2 = np.mean(np.diag(psi))
+
+        # Estimate φ using method of moments (simplified)
+        D = self._compute_distances(n)
+        mask = ~np.eye(n, dtype=bool)
+        distances = D[mask]
+        covs = psi[mask]
+
+        # Find correlation at various distances
+        if np.any(covs > 0) and np.any(distances > 0):
+            # Use effective range: distance where corr ≈ 0.05
+            corrs = covs / sigma2
+            # Simple estimation based on decay
+            valid = (corrs > 0.01) & (distances > 0)
+            if np.any(valid):
+                # φ ≈ -median_dist / log(median_corr)
+                med_d = np.median(distances[valid])
+                med_c = np.median(corrs[valid])
+                phi = -med_d / np.log(med_c + 0.01)
+                phi = np.clip(phi, 0.1, 100)
+            else:
+                phi = 1.0
+        else:
+            phi = 1.0
+
+        params = np.array([np.log(sigma2), np.log(phi)])
+        return params
+
+
 def get_covariance_structure(
     structure: str,
+    **kwargs
 ) -> CovarianceStructure:
     """Get covariance structure instance by name.
 
     Parameters
     ----------
-    structure : {'unstructured', 'diagonal', 'identity'}
+    structure : {'unstructured', 'diagonal', 'identity', 'ar1', 
+                 'compound_symmetry', 'cs', 'exponential', 'matern'}
         Covariance structure name
+    **kwargs : dict
+        Additional arguments for specific structures:
+        - coordinates: ndarray for spatial structures
+        - nu: smoothness for Matérn
 
     Returns
     -------
@@ -341,23 +885,50 @@ def get_covariance_structure(
     >>> isinstance(cov, UnstructuredCovariance)
     True
 
-    >>> cov = get_covariance_structure('diagonal')
-    >>> isinstance(cov, DiagonalCovariance)
+    >>> cov = get_covariance_structure('ar1')
+    >>> isinstance(cov, AR1Covariance)
     True
+
+    >>> coords = np.array([[0, 0], [1, 0], [0, 1]])
+    >>> cov = get_covariance_structure('exponential', coordinates=coords)
+    >>> isinstance(cov, ExponentialSpatialCovariance)
+    True
+
+    >>> cov = get_covariance_structure('matern', coordinates=coords, nu=2.5)
+    >>> cov.nu
+    2.5
     """
-    structures = {
+    # Structures without extra arguments
+    simple_structures = {
         'unstructured': UnstructuredCovariance,
         'diagonal': DiagonalCovariance,
         'identity': IdentityCovariance,
+        'ar1': AR1Covariance,
+        'compound_symmetry': CompoundSymmetryCovariance,
+        'cs': CompoundSymmetryCovariance,  # Alias
     }
 
-    if structure not in structures:
-        raise ValueError(
-            f"Unknown covariance structure: '{structure}'. "
-            f"Must be one of {list(structures.keys())}"
+    if structure in simple_structures:
+        return simple_structures[structure]()
+
+    # Structures with coordinates
+    if structure == 'exponential':
+        return ExponentialSpatialCovariance(
+            coordinates=kwargs.get('coordinates')
         )
 
-    return structures[structure]()
+    if structure == 'matern':
+        return MaternCovariance(
+            coordinates=kwargs.get('coordinates'),
+            nu=kwargs.get('nu', 1.5)
+        )
+
+    # Unknown structure
+    all_structures = list(simple_structures.keys()) + ['exponential', 'matern']
+    raise ValueError(
+        f"Unknown covariance structure: '{structure}'. "
+        f"Must be one of {all_structures}"
+    )
 
 
 __all__ = [
@@ -365,5 +936,9 @@ __all__ = [
     'UnstructuredCovariance',
     'DiagonalCovariance',
     'IdentityCovariance',
+    'AR1Covariance',
+    'CompoundSymmetryCovariance',
+    'ExponentialSpatialCovariance',
+    'MaternCovariance',
     'get_covariance_structure',
 ]
