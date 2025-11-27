@@ -1,4 +1,284 @@
-"""Newton-Raphson optimization algorithm."""
+"""Newton-Raphson Method for Unconstrained Optimization.
+
+Mathematical Framework
+----------------------
+The Newton-Raphson method (also called Newton's method) is a second-order
+optimization algorithm that uses both gradient and Hessian information to
+find stationary points of a function.
+
+Problem Formulation
+-------------------
+Find x* that minimizes f(x):
+
+    x* = argmin_{x ∈ ℝᵖ} f(x)
+
+where f: ℝᵖ → ℝ is twice continuously differentiable.
+
+**Optimality condition**: At a local minimum, ∇f(x*) = 0
+
+Newton's Method Algorithm
+-------------------------
+Starting from initial guess x⁽⁰⁾, iterate until convergence:
+
+**Step 1: Compute gradient and Hessian**
+
+    g⁽ᵗ⁾ = ∇f(x⁽ᵗ⁾)          (gradient, p-vector)
+    H⁽ᵗ⁾ = ∇²f(x⁽ᵗ⁾)         (Hessian, p×p matrix)
+
+**Step 2: Solve Newton system**
+
+Compute search direction p⁽ᵗ⁾ by solving:
+
+    H⁽ᵗ⁾ p⁽ᵗ⁾ = -g⁽ᵗ⁾
+
+**Step 3: Update parameters**
+
+    x⁽ᵗ⁺¹⁾ = x⁽ᵗ⁾ + p⁽ᵗ⁾
+
+**Step 4: Check convergence**
+
+Stop when ||g⁽ᵗ⁾|| < tol or ||p⁽ᵗ⁾|| < tol
+
+Derivation via Taylor Approximation
+------------------------------------
+The Newton step is derived from the second-order Taylor expansion:
+
+    f(x) ≈ f(x⁽ᵗ⁾) + g⁽ᵗ⁾ᵀ(x - x⁽ᵗ⁾) + ½(x - x⁽ᵗ⁾)ᵀ H⁽ᵗ⁾ (x - x⁽ᵗ⁾)
+
+Minimizing this quadratic approximation (setting derivative to zero):
+
+    ∇[quadratic] = g⁽ᵗ⁾ + H⁽ᵗ⁾(x - x⁽ᵗ⁾) = 0
+
+gives the Newton step:
+    x - x⁽ᵗ⁾ = -(H⁽ᵗ⁾)⁻¹ g⁽ᵗ⁾
+
+**Interpretation**: At each iteration, Newton's method finds the minimum
+of the local quadratic approximation of f.
+
+Convergence Theory
+------------------
+**Theorem** (Quadratic convergence, Dennis & Schnabel, 1996):
+
+Suppose:
+1. f is twice continuously differentiable
+2. x* is a local minimum with ∇f(x*) = 0
+3. H(x*) is positive definite (strict local minimum)
+4. Starting point x⁽⁰⁾ is sufficiently close to x*
+
+Then:
+- Newton's method converges to x*
+- Convergence is quadratic: ||x⁽ᵗ⁺¹⁾ - x*|| ≤ C ||x⁽ᵗ⁾ - x*||²
+
+**Rate**: Number of correct digits approximately doubles per iteration.
+
+**Comparison**:
+- Linear convergence: error × constant (gradient descent)
+- Superlinear: error^α, 1 < α < 2 (quasi-Newton)
+- Quadratic: error² (Newton's method)
+
+**Global convergence**: Newton's method is NOT globally convergent.
+- May diverge from poor starting points
+- Requires positive-definite Hessian (not guaranteed away from minimum)
+- Often combined with line search or trust regions for globalization
+
+Conditions for Positive Definiteness
+-------------------------------------
+Newton's method requires H⁽ᵗ⁾ to be positive definite at each iteration.
+
+**When H is positive definite**:
+- f is strictly convex (globally or locally)
+- Near a strict local minimum
+- For GLMs with canonical link: always (Fisher information)
+
+**When H may be indefinite**:
+- Saddle points: some eigenvalues negative
+- Far from minimum
+- Non-convex optimization landscapes
+
+**Remedy**: Modified Newton with regularization:
+    (H⁽ᵗ⁾ + λI) p⁽ᵗ⁾ = -g⁽ᵗ⁾
+where λ > 0 ensures positive definiteness (not implemented here).
+
+Hessian Computation
+-------------------
+This implementation computes Hessians using three methods:
+
+### 1. Automatic Differentiation (Preferred)
+
+**PyTorch**:
+    Uses torch.autograd.grad twice (forward-mode AD)
+    Cost: O(p²) forward passes
+
+**JAX**:
+    Uses jax.hessian (reverse-over-reverse AD)
+    Cost: O(p) forward + O(p) backward passes
+    Most efficient for small to medium p
+
+### 2. Finite Differences (Fallback)
+
+When AD not available, uses central differences:
+
+    ∂²f/∂xᵢ∂xⱼ ≈ [f(x+eᵢ+eⱼ) - f(x+eᵢ-eⱼ) - f(x-eᵢ+eⱼ) + f(x-eᵢ-eⱼ)] / (4h²)
+
+where eᵢ is the i-th unit vector and h = 10⁻⁴.
+
+**Cost**: O(p²) function evaluations (4 per Hessian entry)
+
+**Accuracy**: O(h²) truncation error, but subject to roundoff for small h
+
+Numerical Stability
+-------------------
+**Challenges**:
+
+1. **Singular Hessian**: When H is rank-deficient (parameter redundancy)
+   - Solution fails
+   - Returns error message
+   - Suggests using L-BFGS or ridge regularization
+
+2. **Ill-conditioned Hessian**: When condition number κ(H) is large
+   - Numerical error in solution: O(ε × κ(H))
+   - Error amplification in gradient
+   - Common in overparameterized models
+
+3. **Finite-difference errors**: Tradeoff between truncation and roundoff
+   - Step size h = 10⁻⁴ balances errors
+   - Can fail for very steep or flat functions
+
+**Improvements** (not implemented):
+- Cholesky decomposition with diagonal pivoting
+- Condition number monitoring
+- Iterative refinement
+- Hessian-free methods (conjugate gradient on H·p = -g)
+
+Computational Complexity
+------------------------
+Per iteration, for p parameters:
+
+**Gradient computation**:
+- AD: O(p) backward pass
+- Finite differences: O(p) function evals
+
+**Hessian computation**:
+- AD (JAX): O(p) gradients = O(p²) total
+- AD (PyTorch): O(p²) backward passes
+- Finite differences: O(p²) function evals
+
+**System solve** H·p = -g:
+- Direct (Cholesky): O(p³)
+- Iterative (CG): O(kp²) for k iterations
+
+**Total per iteration**: O(p³) dominated by linear solve
+
+**vs IRLS**: Same O(p³), but Newton computes full Hessian not just X^T W X
+
+**vs L-BFGS**: L-BFGS avoids O(p³) by approximating H⁻¹, cost O(mp) where m ≈ 10
+
+Comparison with Other Methods
+------------------------------
+**vs Gradient Descent**:
+- Newton: Quadratic convergence, expensive per iteration
+- GD: Linear convergence, cheap per iteration
+- Crossover: Newton better for moderate p, high accuracy needs
+
+**vs Fisher Scoring (IRLS for GLMs)**:
+- Newton uses observed Hessian: ∇²ℓ
+- Fisher uses expected Hessian: E[∇²ℓ]
+- For exponential families: same for canonical link
+- Fisher more stable (always positive-definite)
+
+**vs Quasi-Newton (L-BFGS)**:
+- Newton: O(p³) per iteration, fewer iterations
+- Quasi-Newton: O(p²) per iteration, more iterations
+- Quasi-Newton preferred for large p (p > 1000)
+
+**vs Trust Region**:
+- Newton: No globalization, may diverge
+- Trust region: Guaranteed descent, slower per iteration
+- Hybrid approaches combine both
+
+Applications in Aurora-GLM
+---------------------------
+Newton-Raphson is used for:
+
+1. **Non-canonical GLM links**: When IRLS not equivalent to Fisher scoring
+2. **Dispersion parameter estimation**: Optimize profile likelihood
+3. **Variance component estimation**: REML in mixed models (via PQL)
+4. **General maximum likelihood**: When IRLS doesn't apply
+
+**Not used for**:
+- Standard GLM fitting → use IRLS instead (more stable)
+- Large-scale problems → use L-BFGS
+- Non-smooth objectives → use subgradient methods
+
+Implementation Notes
+--------------------
+**Multi-backend support**:
+Transparently works with NumPy, PyTorch, and JAX arrays through
+automatic differentiation when available, falling back to finite
+differences.
+
+**Automatic differentiation**:
+- Leverages backend AD for exact gradient and Hessian
+- No manual derivative implementation required
+- Enables rapid prototyping of new models
+
+**Convergence criteria**:
+- Gradient norm: ||g|| < tol (first-order optimality)
+- Step size: ||p|| < tol (stationarity)
+- Both checked for robustness
+
+References
+----------
+**Core Newton method theory**:
+
+- Dennis, J. E., & Schnabel, R. B. (1996). *Numerical Methods for Unconstrained
+  Optimization and Nonlinear Equations*. SIAM.
+  https://doi.org/10.1137/1.9781611971200
+
+- Nocedal, J., & Wright, S. J. (2006). *Numerical Optimization* (2nd ed.).
+  Springer. Chapter 3: Line Search Methods.
+  https://doi.org/10.1007/978-0-387-40065-5
+
+**Convergence analysis**:
+
+- Ortega, J. M., & Rheinboldt, W. C. (2000). *Iterative Solution of Nonlinear
+  Equations in Several Variables*. SIAM.
+  (Classic convergence rate proofs)
+
+**Automatic differentiation**:
+
+- Griewank, A., & Walther, A. (2008). *Evaluating Derivatives: Principles and
+  Techniques of Algorithmic Differentiation* (2nd ed.). SIAM.
+  https://doi.org/10.1137/1.9780898717761
+
+- Baydin, A. G., et al. (2018). \"Automatic differentiation in machine learning:
+  A survey.\" *Journal of Machine Learning Research*, 18(153), 1-43.
+
+**Numerical linear algebra**:
+
+- Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.).
+  Johns Hopkins University Press. Chapter 4: Linear systems.
+
+**Modified Newton methods**:
+
+- Gill, P. E., Murray, W., & Wright, M. H. (1981). *Practical Optimization*.
+  Academic Press. Chapter 4: Modifications for indefinite Hessians.
+
+See Also
+--------
+aurora.core.optimization.irls : IRLS for GLMs (Fisher scoring)
+aurora.core.optimization.lbfgs : Quasi-Newton method (Hessian-free)
+aurora.models.glm.fitting : GLM fitting algorithms
+
+Notes
+-----
+For detailed mathematical derivations, see REFERENCES.md in the repository root.
+
+Newton's method is the gold standard for small to moderate-sized optimization
+problems where Hessian computation is feasible. Its quadratic convergence rate
+makes it highly efficient near the solution, though care must be taken with
+initialization and Hessian conditioning.
+"""
 from __future__ import annotations
 
 from typing import Callable
