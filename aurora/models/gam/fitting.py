@@ -1,9 +1,247 @@
-"""GAM fitting using penalized regression splines.
+"""Generalized Additive Models (GAM) using Penalized Regression Splines.
 
-This module implements univariate Generalized Additive Models using:
-- B-spline or cubic spline bases
-- Difference penalties for smoothness
-- GCV for automatic smoothing parameter selection
+Mathematical Framework
+----------------------
+A Generalized Additive Model extends linear models by allowing non-linear
+smooth functions of predictors:
+
+    E[Y] = β₀ + f₁(x₁) + f₂(x₂) + ... + fₚ(xₚ)
+
+where fⱼ(·) are smooth functions estimated from data.
+
+Penalized Spline Representation
+--------------------------------
+Each smooth function fⱼ(x) is represented using a basis expansion:
+
+    fⱼ(x) = Σₖ βⱼₖ φⱼₖ(x)
+
+where:
+    - φⱼₖ(x) are basis functions (B-splines or cubic splines)
+    - βⱼₖ are coefficients to be estimated
+    - k = 1, ..., Kⱼ (number of basis functions)
+
+**Design matrix**: X = [φ₁(x₁), φ₂(x₁), ..., φₖ(x₁)]ᵀ for n observations
+
+Penalized Likelihood
+--------------------
+To prevent overfitting, we add a roughness penalty to the likelihood:
+
+    ℓₚ(β) = ℓ(β) - ½ λ β^T S β
+
+where:
+    - ℓ(β) is the log-likelihood
+    - λ ≥ 0 is the smoothing parameter
+    - S is the penalty matrix measuring roughness of f
+
+**For Gaussian responses** (least squares):
+
+    minimize: ||y - Xβ||² + λ β^T S β
+
+**Penalized normal equations**:
+
+    (X^T X + λS) β = X^T y
+
+Solution:
+    β̂ = (X^T X + λS)⁻¹ X^T y
+
+**Effective degrees of freedom**:
+
+    edf = tr[(X^T X + λS)⁻¹ X^T X]
+        = tr[H_λ]
+
+where H_λ is the "hat" matrix (smoother matrix).
+
+Penalty Matrix Construction
+----------------------------
+**Difference penalty** (approximates mth derivative):
+
+For second-order differences (m=2), approximating ∫[f''(x)]² dx:
+
+    S = D^T D
+
+where D is the (K-2) × K second difference matrix:
+
+    D = [
+        [ 1  -2   1   0  ... ]
+        [ 0   1  -2   1  ... ]
+        ...
+    ]
+
+**Integrated squared derivative penalty** (exact for cubic splines):
+
+    Sᵢⱼ = ∫ φᵢ''(x) φⱼ''(x) dx
+
+Smoothing Parameter Selection
+------------------------------
+### Generalized Cross-Validation (GCV)
+
+**GCV score** (Craven & Wahba, 1978):
+
+    GCV(λ) = (n / (n - edf)²) Σᵢ (yᵢ - f̂(xᵢ))²
+           = (n ||y - Xβ̂_λ||²) / (n - tr(H_λ))²
+
+**Algorithm**:
+1. Define search grid: λ ∈ [λ_min, λ_max] (log-scale)
+2. For each λ:
+   a. Compute β̂_λ = (X^T X + λS)⁻¹ X^T y
+   b. Compute edf_λ = tr[(X^T X + λS)⁻¹ X^T X]
+   c. Compute GCV(λ)
+3. Select λ* = argmin GCV(λ)
+
+**Properties**:
+- GCV is an approximation to leave-one-out cross-validation
+- Invariant to scaling of y
+- Tends to slightly undersmooth in practice
+
+### Restricted Maximum Likelihood (REML)
+
+**REML criterion** (for Gaussian responses):
+
+    -2ℓ_R(λ) = log|X^T X + λS| + n log(RSS) + log|X^T X|
+
+where RSS = ||y - Xβ̂_λ||².
+
+**Advantages over GCV**:
+- More stable for small samples
+- Accounts for uncertainty in fixed effects
+- Tends to give slightly larger λ (more smoothing)
+
+Basis Functions
+---------------
+### B-Splines (de Boor, 2001)
+
+**Cox-de Boor recursion formula**:
+
+    Bᵢ,₀(x) = { 1  if tᵢ ≤ x < tᵢ₊₁
+              { 0  otherwise
+
+    Bᵢ,ₖ(x) = (x - tᵢ)/(tᵢ₊ₖ - tᵢ) Bᵢ,ₖ₋₁(x)
+            + (tᵢ₊ₖ₊₁ - x)/(tᵢ₊ₖ₊₁ - tᵢ₊₁) Bᵢ₊₁,ₖ₋₁(x)
+
+where {tᵢ} are knots and k is the degree.
+
+**Properties**:
+- Local support: Bᵢ,ₖ(x) ≠ 0 only for x ∈ [tᵢ, tᵢ₊ₖ₊₁]
+- Non-negativity: Bᵢ,ₖ(x) ≥ 0
+- Partition of unity: Σᵢ Bᵢ,ₖ(x) = 1
+- Numerical stability: No cancellation errors
+- Efficient computation: O(k²) per evaluation
+
+### Natural Cubic Splines (Green & Silverman, 1993)
+
+**Cubic spline** with natural boundary conditions:
+- f''(x) = 0 at boundaries
+- Minimizes ∫[f''(x)]² dx among all interpolating functions
+
+**Representation**:
+
+    f(x) = Σⱼ₌₁ᴷ γⱼ Nⱼ(x)
+
+where Nⱼ(x) are natural cubic spline basis functions.
+
+**Advantage**: Exact penalty ∫[f''(x)]² dx computable analytically
+
+Computational Complexity
+------------------------
+For n observations and K basis functions:
+
+**Fitting** (fixed λ):
+    - Basis evaluation: O(nK × k²) for B-splines of degree k
+    - Penalty construction: O(K³) or O(K²) for difference penalties
+    - System solve: O(K³) via Cholesky decomposition
+    - Total: O(nK × k² + K³)
+
+**GCV search** (L candidate values of λ):
+    - L × [system solve + edf computation]
+    - Using matrix decomposition tricks: O(L × K²)
+    - Total: O(K³ + L × K²)
+
+Numerical Stability
+-------------------
+**Techniques used**:
+
+1. **Cholesky decomposition**: For solving (X^T X + λS)β = X^T y
+   - Requires positive-definite matrix
+   - Numerical error O(ε × κ²) where κ is condition number
+
+2. **QR decomposition**: Fallback for near-singular cases
+   - More stable: error O(ε × κ)
+   - Slower: O(K³) vs O(K³/3) for Cholesky
+
+3. **Basis centering**: Remove mean to improve conditioning
+
+4. **Eigendecomposition**: For repeated solves with different λ
+   - Decompose: S = UΛU^T
+   - Transform: y* = U^T X^T y
+   - Solve in diagonal space: much faster
+
+Multi-backend Support
+---------------------
+This module supports NumPy, PyTorch, and JAX backends through the
+array namespace abstraction. All operations use the namespace API
+for transparent backend compatibility.
+
+References
+----------
+**Core GAM theory**:
+
+- Hastie, T., & Tibshirani, R. (1990). *Generalized Additive Models*.
+  Chapman and Hall/CRC.
+
+- Wood, S. N. (2017). *Generalized Additive Models: An Introduction with R*
+  (2nd ed.). CRC Press. Chapters 3-5.
+
+**Penalized splines**:
+
+- Eilers, P. H. C., & Marx, B. D. (1996). "Flexible smoothing with B-splines
+  and penalties." *Statistical Science*, 11(2), 89-121.
+  https://doi.org/10.1214/ss/1038425655
+
+- Ruppert, D., Wand, M. P., & Carroll, R. J. (2003). *Semiparametric Regression*.
+  Cambridge University Press. Chapter 5.
+
+**Smoothing parameter selection**:
+
+- Craven, P., & Wahba, G. (1978). "Smoothing noisy data with spline functions."
+  *Numerische Mathematik*, 31(4), 377-403.
+  https://doi.org/10.1007/BF01404567
+
+- Wood, S. N. (2011). "Fast stable restricted maximum likelihood and marginal
+  likelihood estimation of semiparametric generalized linear models."
+  *JRSS: Series B*, 73(1), 3-36.
+  https://doi.org/10.1111/j.1467-9868.2010.00749.x
+
+**B-spline theory**:
+
+- de Boor, C. (2001). *A Practical Guide to Splines* (Revised ed.). Springer.
+  https://doi.org/10.1007/978-1-4612-6333-3
+
+**Natural cubic splines**:
+
+- Green, P. J., & Silverman, B. W. (1993). *Nonparametric Regression and
+  Generalized Linear Models: A Roughness Penalty Approach*. Chapman and Hall/CRC.
+
+**Numerical methods**:
+
+- Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.).
+  Johns Hopkins University Press. Chapters 4-5.
+
+See Also
+--------
+aurora.models.gam.additive : Additive GAM with multiple smooth terms
+aurora.smoothing.splines.bspline : B-spline basis implementation
+aurora.smoothing.splines.cubic : Cubic spline basis implementation
+aurora.smoothing.selection.gcv : GCV smoothing parameter selection
+aurora.smoothing.selection.reml : REML smoothing parameter selection
+
+Notes
+-----
+For detailed mathematical derivations and proofs, see REFERENCES.md in the
+repository root.
+
+This implementation follows the penalized regression spline approach of
+Eilers & Marx (1996) combined with the computational strategies from
+Wood (2017).
 """
 from __future__ import annotations
 

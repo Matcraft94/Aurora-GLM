@@ -1,4 +1,153 @@
-"""Iteratively reweighted least squares fitting for GLMs."""
+"""Iteratively Reweighted Least Squares (IRLS) fitting for Generalized Linear Models.
+
+Mathematical Framework
+----------------------
+A Generalized Linear Model (GLM) relates the mean μ_i = E[Y_i] to predictors
+via a link function g(·):
+
+    g(μ_i) = η_i = X_i^T β
+
+where:
+    - Y_i follows an exponential family distribution
+    - η_i is the linear predictor
+    - β is the coefficient vector
+    - g(·) is a monotonic, differentiable link function
+
+Exponential Family Representation
+----------------------------------
+The response Y_i has density/mass function:
+
+    f(y_i; θ_i, φ) = exp{[y_i θ_i - b(θ_i)] / a(φ) + c(y_i, φ)}
+
+where:
+    - θ_i is the canonical parameter: μ_i = b'(θ_i)
+    - φ is the dispersion parameter
+    - Var(Y_i) = a(φ) V(μ_i), where V(μ) = b''(θ) is the variance function
+
+Iteratively Reweighted Least Squares (IRLS)
+--------------------------------------------
+IRLS is a Newton-Raphson algorithm applied to the log-likelihood score equations.
+
+**Score function**:
+    U(β) = ∂ℓ/∂β = X^T W (y - μ)
+
+where W = diag(w_i) with:
+    w_i = [g'(μ_i)]^{-2} / V(μ_i)
+
+**Fisher information**:
+    I(β) = X^T W X
+
+**Update step** (iteration t):
+
+1. Compute linear predictor: η^(t) = X β^(t)
+2. Compute fitted values: μ^(t) = g^{-1}(η^(t))
+3. Compute working response:
+   z^(t) = η^(t) + (y - μ^(t)) g'(μ^(t))
+
+4. Compute working weights:
+   w_i^(t) = [g'(μ_i^(t))]^{-2} / V(μ_i^(t))
+
+5. Update coefficients (weighted least squares):
+   β^(t+1) = (X^T W^(t) X)^{-1} X^T W^(t) z^(t)
+
+6. Check convergence:
+   ||β^(t+1) - β^(t)|| / (||β^(t)|| + ε) < tolerance
+
+Deviance and Model Fit
+-----------------------
+**Deviance**: Scaled likelihood ratio test statistic:
+
+    D(y; μ) = 2 [ℓ(y; y) - ℓ(μ; y)]
+
+where ℓ(y; y) is the saturated model log-likelihood.
+
+**Pearson chi-squared statistic**:
+
+    X² = Σ (y_i - μ_i)² / V(μ_i)
+
+**Effective degrees of freedom**: p (number of coefficients)
+
+**Information criteria**:
+    - AIC = -2ℓ(β̂) + 2p
+    - BIC = -2ℓ(β̂) + p log(n)
+
+Numerical Stability
+-------------------
+This implementation includes several stability enhancements:
+
+1. **Boundary protection**: Constrain μ to be strictly within valid range
+   - Gaussian: no constraint
+   - Poisson: μ > ε (default ε = 1e-10)
+   - Binomial: ε < μ < 1-ε
+   - Gamma: μ > ε
+
+2. **Step halving**: If deviance increases, halve the step size
+
+3. **QR decomposition**: For ill-conditioned X^T W X
+
+4. **Convergence diagnostics**: Track both coefficient and deviance convergence
+
+Supported Families and Links
+-----------------------------
+**Gaussian** (identity, log, inverse):
+    - Canonical link: identity
+    - Variance: V(μ) = 1
+
+**Poisson** (log, identity, sqrt):
+    - Canonical link: log
+    - Variance: V(μ) = μ
+
+**Binomial** (logit, probit, cloglog):
+    - Canonical link: logit
+    - Variance: V(μ) = μ(1 - μ/n)
+
+**Gamma** (inverse, identity, log):
+    - Canonical link: inverse
+    - Variance: V(μ) = μ²
+
+References
+----------
+**Core theory**:
+
+- McCullagh, P., & Nelder, J. A. (1989). *Generalized Linear Models* (2nd ed.).
+  Chapman and Hall/CRC. doi:10.1007/978-1-4899-3242-6
+
+- Nelder, J. A., & Wedderburn, R. W. M. (1972). "Generalized linear models."
+  *Journal of the Royal Statistical Society: Series A*, 135(3), 370-384.
+  doi:10.2307/2344614
+
+**IRLS algorithm**:
+
+- Green, P. J. (1984). "Iteratively reweighted least squares for maximum
+  likelihood estimation, and some robust and resistant alternatives."
+  *Journal of the Royal Statistical Society: Series B*, 46(2), 149-192.
+  doi:10.1111/j.2517-6161.1984.tb01288.x
+
+**Numerical methods**:
+
+- Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.).
+  Johns Hopkins University Press.
+
+**Model selection**:
+
+- Akaike, H. (1974). "A new look at the statistical model identification."
+  *IEEE Transactions on Automatic Control*, 19(6), 716-723.
+  doi:10.1109/TAC.1974.1100705
+
+See Also
+--------
+aurora.models.gam.fitting : Generalized Additive Models
+aurora.models.gamm.fitting : Generalized Additive Mixed Models
+aurora.distributions.families : Distribution family implementations
+aurora.core.optimization : Optimization algorithms
+
+Notes
+-----
+For mathematical proofs and derivations, see REFERENCES.md in the repository root.
+
+The IRLS algorithm is equivalent to Fisher scoring when the canonical link is used.
+For non-canonical links, IRLS approximates the Hessian with the expected information.
+"""
 from __future__ import annotations
 
 import math
