@@ -89,3 +89,10 @@ CLAUDE.md
 # Benchmark results
 benchmarks/results/
 *.json
+
+# Data files
+*.csv
+*.tsv
+
+# PDFs
+*.pdf
