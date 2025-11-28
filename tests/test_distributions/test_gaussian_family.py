@@ -122,7 +122,9 @@ def test_gaussian_log_likelihood_is_normal_pdf(xp):
     mu_np = np.array([0.1, 0.9, 2.1, 2.9])
     expected = float(np.sum(-0.5 * (y_np - mu_np)**2 / variance))
 
-    assert pytest.approx(expected, abs=1e-10) == ll_scalar
+    # JAX uses float32 by default, so allow more tolerance
+    tol = 1e-5 if (jnp is not None and xp is jnp) else 1e-10
+    assert pytest.approx(expected, abs=tol) == ll_scalar
 
 
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
@@ -147,7 +149,9 @@ def test_gaussian_deviance_is_rss(xp):
     mu_np = np.array([1.1, 1.9, 3.2, 3.8])
     expected = float(np.sum((y_np - mu_np)**2) / variance)
 
-    assert pytest.approx(expected, abs=1e-10) == dev_scalar
+    # JAX uses float32 by default, so allow more tolerance
+    tol = 1e-5 if (jnp is not None and xp is jnp) else 1e-10
+    assert pytest.approx(expected, abs=tol) == dev_scalar
 
 
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
@@ -179,9 +183,10 @@ def test_gaussian_matches_numpy_reference(xp):
     dev_np = float(family_np.deviance(y_np, mu_np))
     dev_xp = _to_scalar(family_xp.deviance(y_xp, mu_xp), xp)
 
-    # Should match at machine precision for Gaussian (no complex operations)
-    assert abs(ll_np - ll_xp) < 1e-10, f"Log-likelihood mismatch: {ll_np} vs {ll_xp}"
-    assert abs(dev_np - dev_xp) < 1e-10, f"Deviance mismatch: {dev_np} vs {dev_xp}"
+    # JAX uses float32 by default, so allow more tolerance
+    tol = 1e-5 if (jnp is not None and xp is jnp) else 1e-10
+    assert abs(ll_np - ll_xp) < tol, f"Log-likelihood mismatch: {ll_np} vs {ll_xp}"
+    assert abs(dev_np - dev_xp) < tol, f"Deviance mismatch: {dev_np} vs {dev_xp}"
 
 
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)

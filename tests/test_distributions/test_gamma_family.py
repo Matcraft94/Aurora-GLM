@@ -168,13 +168,14 @@ def test_gamma_matches_numpy_reference(xp):
 
     # Should match within reasonable tolerance
     # PyTorch may have slightly different precision (~1e-6)
-    # JAX with float64 should match at machine precision (~1e-15)
+    # JAX uses float32 by default, so needs more tolerance (~1e-5)
     if torch is not None and xp is torch:
         assert abs(ll_np - ll_xp) < 1e-6, f"Log-likelihood mismatch: {ll_np} vs {ll_xp}"
         assert abs(dev_np - dev_xp) < 1e-6, f"Deviance mismatch: {dev_np} vs {dev_xp}"
     elif jnp is not None and xp is jnp:
-        assert abs(ll_np - ll_xp) < 1e-10, f"Log-likelihood mismatch: {ll_np} vs {ll_xp}"
-        assert abs(dev_np - dev_xp) < 1e-10, f"Deviance mismatch: {dev_np} vs {dev_xp}"
+        # JAX without x64 mode uses float32
+        assert abs(ll_np - ll_xp) < 1e-5, f"Log-likelihood mismatch: {ll_np} vs {ll_xp}"
+        assert abs(dev_np - dev_xp) < 1e-5, f"Deviance mismatch: {dev_np} vs {dev_xp}"
 
 
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
