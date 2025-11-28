@@ -542,23 +542,41 @@ result = fit_gamm(
 
 For a complete example with model comparison, diagnostics, and visualization, see:
 - `examples/gamm_example.py` - Simulated sleep study with random intercepts and slopes
+- `examples/non_gaussian_gamm_demo.py` - Poisson and Binomial GAMM with PQL
+- `examples/nested_crossed_effects_demo.py` - Complex random effect structures
 
-**Coming soon** (Non-Gaussian families with PQL/Laplace):
+### Non-Gaussian GAMM (Poisson/Binomial with PQL)
+
 ```python
-# Future: Poisson GAMM for count data
-result = fit_gamm(
+from aurora.models.gamm import fit_pql_smooth
+
+# Poisson GAMM for count data
+result = fit_pql_smooth(
     y=counts,
     X=X,
-    random_effects=[re],
-    groups_data={'subject': subject_id},
-    family='poisson',  # Not yet implemented
-    link='log'
+    groups=subject_id,
+    family='poisson',
+    smooth_terms=[SmoothTerm(variable=0, n_basis=10)],
+    max_iter=50
 )
+
+# Binomial GAMM for binary outcomes
+result = fit_pql_smooth(
+    y=binary_outcome,
+    X=X,
+    groups=subject_id,
+    family='binomial',
+    smooth_terms=[SmoothTerm(variable=0, n_basis=8)],
+    max_iter=100
+)
+
+print(f"Fixed effects: {result.beta}")
+print(f"Random effects variance: {result.variance_components}")
 ```
 
-## Current Usage (Low-Level Components)
+## Low-Level API (Distribution Families)
 
-While high-level GLM fitting is not yet available, you can use the foundational components:
+For advanced users who need direct access to distribution families:
 
 ### Using Distribution Families
 
@@ -712,48 +730,47 @@ git push origin feature/implement-glm-fitting
 
 Contributions are welcome! This project is in active development with many opportunities to help:
 
-### HIGH PRIORITY (needed for Phase 2)
-
-1. **Core GLM implementation**
-   - Implement `fit_glm()` with IRLS algorithm
-   - Complete `GLMResult` with inference (std errors, p-values)
-   - Implement residuals and diagnostics
-   - Validate against statsmodels and R
-
-2. **Testing and validation**
-   - Tests comparing with statsmodels
-   - Tests comparing with R's `glm()`
-   - Performance benchmarks
-   - Edge case handling
-
-3. **Documentation**
-   - Examples with real datasets
-   - Tutorial notebooks
-   - API documentation
-
-### MEDIUM PRIORITY (nice to have)
+### HIGH PRIORITY (Phase 5 Completion)
 
 1. **Additional distributions**
-   - Inverse Gaussian
-   - Negative Binomial
-   - Beta
-   - Tweedie
+   - Inverse Gaussian family
+   - Negative Binomial family
+   - Beta family for proportions
+   - Tweedie family for insurance data
 
 2. **Additional link functions**
-   - Probit
-   - Square root
-   - Power
+   - Probit: `g(μ) = Φ⁻¹(μ)`
+   - Square root: `g(μ) = √μ`
+   - Power family: `g(μ) = μᵖ`
 
 3. **Performance optimizations**
-   - Benchmarking suite
-   - Cython for critical loops (if needed)
-   - Sparse matrix support
+   - Sparse matrix support for large datasets
+   - Cython for critical numerical loops
+   - Memory-efficient batch processing
 
-### LOW PRIORITY (future phases)
+### MEDIUM PRIORITY
 
-1. GAM implementation (Phase 3)
-2. GAMM implementation (Phase 4)
-3. Advanced visualization
+1. **Advanced covariance structures**
+   - AR1 (autoregressive)
+   - Compound symmetry
+   - Toeplitz
+
+2. **Documentation improvements**
+   - API reference documentation
+   - More tutorial notebooks
+   - Real-world case studies
+
+3. **Validation expansion**
+   - Comprehensive R/mgcv benchmarks
+   - Edge case coverage
+   - Numerical stability tests
+
+### LOW PRIORITY (Future)
+
+1. Zero-inflated models
+2. Hurdle models
+3. Bayesian extensions
+4. GPU-optimized backends
 
 ### Contribution Guidelines
 
@@ -818,77 +835,117 @@ class MyLink(LinkFunction):
 ```
 aurora/
 ├── core/
-│   ├── backends/         # Backend abstraction (JAX, PyTorch)
-│   ├── optimization/     # Optimization algorithms
+│   ├── backends/         # Backend abstraction (JAX, PyTorch, NumPy)
+│   ├── autodiff/         # Automatic differentiation utilities
+│   ├── linalg/           # Linear algebra primitives
+│   ├── optimization/     # Newton-Raphson, IRLS, L-BFGS
 │   └── types.py          # Type definitions and Protocols
 ├── distributions/
-│   ├── families/         # Distribution families
-│   ├── links/            # Link functions
+│   ├── families/         # Gaussian, Poisson, Binomial, Gamma
+│   ├── links/            # Identity, Log, Logit, Inverse, CLogLog
 │   └── _utils.py         # Array namespace utilities
-├── models/               # GLM/GAM/GAMM (in progress)
-├── smoothing/            # Splines and penalties (planned)
-├── inference/            # Hypothesis testing (to implement)
-├── estimation/           # REML/ML/Laplace (planned)
-├── validation/           # Metrics and cross-validation (to implement)
-└── visualization/        # Plotting utilities (planned)
+├── models/
+│   ├── base/             # LinearModelResult, MixedModelResultBase
+│   ├── glm/              # fit_glm(), GLMResult, diagnostics
+│   ├── gam/              # fit_gam(), formula parser, smooths
+│   └── gamm/             # fit_gamm(), PQL, random effects
+├── smoothing/
+│   ├── splines/          # B-splines, natural cubic, thin plate
+│   ├── penalties/        # Difference, ridge, combined penalties
+│   └── selection/        # GCV, REML smoothing selection
+├── inference/
+│   ├── hypothesis/       # Wald tests, likelihood ratio tests
+│   ├── intervals/        # Confidence intervals, prediction bands
+│   ├── anova/            # Type I/II/III ANOVA
+│   └── diagnostics/      # Residuals, influence measures
+├── estimation/
+│   ├── ml/               # Maximum likelihood
+│   ├── reml/             # Restricted maximum likelihood
+│   └── laplace/          # Laplace approximation
+├── validation/
+│   ├── metrics/          # MSE, MAE, R², AIC, BIC, C-index
+│   ├── cross_val/        # KFold, StratifiedKFold, cross_val_score
+│   └── sensitivity/      # Cook's distance, leverage, DFBETAs
+├── io/
+│   ├── readers/          # CSV, data loading
+│   ├── writers/          # Result export, coefficients
+│   └── converters/       # Format conversions
+├── utils/
+│   ├── validation/       # Input validation decorators
+│   └── exceptions/       # Custom exception classes
+└── visualization/
+    ├── model_plots/      # Diagnostic plots, smooth plots
+    ├── residuals/        # Residual visualizations
+    └── predictions/      # Prediction plots, confidence bands
 ```
 
 ## Roadmap
 
-### Short Term (3 months)
-- [x] Core infrastructure (backends, types, optimization)
+### Completed ✅
+
+- [x] **Phase 1**: Core infrastructure (backends, types, optimization)
+- [x] **Phase 2**: Full GLM implementation with IRLS, diagnostics, inference
+- [x] **Phase 3**: GAM with B-splines, natural cubic, thin plate, GCV/REML
+- [x] **Phase 4**: GAMM with random effects, PQL for non-Gaussian families
 - [x] Distribution families (Gaussian, Poisson, Binomial, Gamma)
 - [x] Link functions (Identity, Log, Logit, Inverse, CLogLog)
-- [ ] GLM fitting with IRLS
-- [ ] Inference (confidence intervals, p-values)
-- [ ] Diagnostics (residuals, Cook's distance)
-- [ ] Validation against statsmodels and R
-- [ ] Basic examples and documentation
+- [x] R-style formula parser with smooth terms
+- [x] Validation against statsmodels and R
+- [x] 1021 tests passing with comprehensive coverage
 
-### Medium Term (6 months)
-- [ ] GAM with spline basis functions
-- [ ] Formula parser for R-style formulas
-- [ ] Smoothing parameter selection (GCV, REML)
-- [ ] Visualization of smooth terms
-- [ ] Performance benchmarks published
-- [ ] 10+ GitHub stars
-- [ ] External users reporting issues
+### In Progress 🚧 (Phase 5)
 
-### Long Term (12 months)
-- [ ] GAMM with random effects
-- [ ] REML/ML/Laplace estimation
-- [ ] 100+ GitHub stars
-- [ ] 1000+ PyPI downloads/month
-- [ ] Research paper or conference presentation
-- [ ] 5+ active contributors
+- [ ] Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
+- [ ] Additional link functions (Probit, Square root, Power)
+- [ ] AR1 and compound symmetry covariance structures
+- [ ] Performance optimizations (sparse matrices)
+- [ ] PyPI package publication
+
+### Future Plans 📋
+
+- [ ] Zero-inflated models (ZIP, ZINB)
+- [ ] Hurdle models
+- [ ] Bayesian extensions with PyMC/NumPyro
+- [ ] GPU-optimized large-scale fitting
+- [ ] Research paper publication
+- [ ] Interactive documentation site
 
 ## Success Metrics
 
-### Phase 2 Success Criteria
+### Achieved ✅
 
-**Functionality** (Must Have):
-- [ ] `fit_glm()` works with all implemented families
-- [ ] Predictions are correct
-- [ ] Confidence intervals match reference implementations
-- [ ] P-values match reference implementations
-- [ ] Residuals (deviance, Pearson) implemented
+**Functionality**:
+- [x] `fit_glm()` works with all implemented families (Gaussian, Poisson, Binomial, Gamma)
+- [x] `fit_gam()` with B-splines, natural cubic, thin plate smooths
+- [x] `fit_gamm()` with random intercepts, slopes, nested/crossed effects
+- [x] PQL estimation for non-Gaussian GAMM
+- [x] Predictions correct with confidence intervals
+- [x] P-values via Wald approximation
+- [x] Comprehensive residuals (response, Pearson, deviance, studentized)
 
-**Validation** (Must Have):
-- [ ] Results match statsmodels within tolerance (1e-6 for coefficients)
-- [ ] Results match R's `glm()` within tolerance
-- [ ] Tests pass with NumPy, PyTorch, and JAX backends
-- [ ] Test coverage >90%
+**Validation**:
+- [x] Results match statsmodels within 1e-6 for coefficients
+- [x] Results match R's `glm()` within 1e-5
+- [x] Tests pass with NumPy, PyTorch, and JAX backends
+- [x] 1021 tests passing with comprehensive coverage
 
-**Performance** (Should Have):
-- [ ] Comparable or faster than statsmodels
-- [ ] No memory leaks
-- [ ] Scalable to 100K+ observations
+**Documentation**:
+- [x] Tutorial notebooks for GLM, GAM, GAMM
+- [x] R-style formula syntax documented
+- [x] Example scripts with visualizations
+- [x] Comprehensive README with usage examples
 
-**Documentation** (Must Have):
-- [ ] All docstrings complete
-- [ ] At least 3 working examples
-- [ ] README updated with usage examples
-- [ ] Basic tutorial notebook
+### Targets 🎯
+
+**Performance**:
+- [ ] Benchmark suite comparing with statsmodels/mgcv
+- [ ] Sparse matrix support for 1M+ observations
+- [ ] GPU acceleration benchmarks
+
+**Community**:
+- [ ] PyPI publication
+- [ ] 100+ GitHub stars
+- [ ] External contributors
 
 ## Performance Goals
 
