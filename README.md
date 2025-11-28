@@ -902,23 +902,58 @@ aurora/
 - **Scalability**: Handle 1M+ observations efficiently
 - **GPU acceleration**: Efficient utilization when available
 
-## References
+## References and Mathematical Foundations
 
-### Theory
-- McCullagh, P. & Nelder, J.A. (1989). *Generalized Linear Models* (2nd ed.)
-- Wood, S.N. (2017). *Generalized Additive Models: An Introduction with R* (2nd ed.)
-- Hastie, T. & Tibshirani, R. (1990). *Generalized Additive Models*
+Aurora-GLM is built on rigorous statistical foundations with comprehensive mathematical documentation. For detailed mathematical formulations, proofs, and derivations, see **[REFERENCES.md](REFERENCES.md)**.
 
-### Reference Implementations
-- **R glm()**: Base stats package
-- **R mgcv**: GAM implementation by Simon Wood
-- **statsmodels.genmod**: Python GLM implementation
-- **scikit-learn**: API design patterns
+### Core Statistical Theory
+
+**Generalized Linear Models (GLM)**:
+- McCullagh, P., & Nelder, J. A. (1989). *Generalized Linear Models* (2nd ed.). Chapman and Hall/CRC.
+- Nelder, J. A., & Wedderburn, R. W. M. (1972). "Generalized linear models." *JRSS: Series A*, 135(3), 370-384.
+
+**Generalized Additive Models (GAM)**:
+- Hastie, T., & Tibshirani, R. (1990). *Generalized Additive Models*. Chapman and Hall/CRC.
+- Wood, S. N. (2017). *Generalized Additive Models: An Introduction with R* (2nd ed.). CRC Press.
+- Wood, S. N. (2011). "Fast stable restricted maximum likelihood and marginal likelihood estimation of semiparametric generalized linear models." *JRSS: Series B*, 73(1), 3-36.
+
+**Generalized Additive Mixed Models (GAMM)**:
+- Breslow, N. E., & Clayton, D. G. (1993). "Approximate inference in generalized linear mixed models." *JASA*, 88(421), 9-25.
+- Lin, X., & Breslow, N. E. (1996). "Bias correction in generalized linear mixed models with multiple components of dispersion." *JASA*, 91(435), 1007-1016.
+- Bates, D., Mächler, M., Bolker, B., & Walker, S. (2015). "Fitting linear mixed-effects models using lme4." *Journal of Statistical Software*, 67(1), 1-48.
+
+**Smoothing and Splines**:
+- de Boor, C. (2001). *A Practical Guide to Splines* (Revised ed.). Springer.
+- Eilers, P. H. C., & Marx, B. D. (1996). "Flexible smoothing with B-splines and penalties." *Statistical Science*, 11(2), 89-121.
+- Craven, P., & Wahba, G. (1978). "Smoothing noisy data with spline functions." *Numerische Mathematik*, 31(4), 377-403.
+
+### Numerical Methods
+
+**Optimization**:
+- Green, P. J. (1984). "Iteratively reweighted least squares for maximum likelihood estimation." *JRSS: Series B*, 46(2), 149-192.
+- Liu, D. C., & Nocedal, J. (1989). "On the limited memory BFGS method for large scale optimization." *Mathematical Programming*, 45(1-3), 503-528.
+
+**Numerical Stability**:
+- Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.). Johns Hopkins University Press.
+- Higham, N. J. (2002). *Accuracy and Stability of Numerical Algorithms* (2nd ed.). SIAM.
+
+### Reference Implementations (Validation)
+
+- **R glm()**: Base stats package (GLM reference)
+- **R mgcv**: GAM/GAMM by Simon Wood (gold standard for smoothing)
+- **R lme4**: Mixed models by Bates et al. (GLMM reference)
+- **statsmodels**: Python statistical modeling library
+- **scikit-learn**: API design patterns and conventions
 
 ### Technical Resources
-- JAX: https://jax.readthedocs.io
-- PyTorch: https://pytorch.org/docs
-- Array API Standard: https://data-apis.org/array-api
+
+- **JAX**: Composable transformations - https://jax.readthedocs.io
+- **PyTorch**: Automatic differentiation - https://pytorch.org/docs
+- **Array API Standard**: Cross-library compatibility - https://data-apis.org/array-api
+
+### Complete Bibliography
+
+For a comprehensive list of mathematical foundations, algorithms, and validation references, including detailed equations and derivations, please see **[REFERENCES.md](REFERENCES.md)**.
 
 ## License
 
