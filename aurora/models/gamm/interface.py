@@ -281,15 +281,15 @@ def fit_gamm(
                 else:
                     raise ValueError(f"Smooth variable '{var_name}' not found in data")
 
-                # Get parameters with defaults
-                n_basis = smooth_term.params.get('k', 10)  # Default 10 basis functions
-                degree = smooth_term.params.get('degree', 3)  # Default cubic splines
-                penalty_order = smooth_term.params.get('m', 2)  # Default second-order penalty
-                lambda_val = smooth_term.params.get('sp', None)  # Smoothing parameter
+                # Get parameters from SmoothTerm attributes
+                n_basis = smooth_term.n_basis  # Default 10 in SmoothTerm
+                degree = 3  # Default cubic splines for BSplineBasis
+                penalty_order = smooth_term.penalty_order  # Default 2 in SmoothTerm
+                lambda_val = smooth_term.lambda_  # May be None for automatic selection
 
                 # Create B-spline basis
                 knots = BSplineBasis.create_knots(
-                    x_smooth, n_basis=n_basis, degree=degree, method='quantile'
+                    x_smooth, n_basis=n_basis, degree=degree, method=smooth_term.knot_method
                 )
                 basis = BSplineBasis(knots, degree=degree)
 
