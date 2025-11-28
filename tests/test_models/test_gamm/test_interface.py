@@ -133,19 +133,24 @@ def test_fit_gamm_no_random_raises():
         fit_gamm(y=y, X=X, random_effects=None, groups_data=None)
 
 
-def test_fit_gamm_non_gaussian_raises():
-    """fit_gamm should raise for non-Gaussian families."""
+def test_fit_gamm_non_gaussian_supported():
+    """fit_gamm now supports non-Gaussian families via PQL."""
     np.random.seed(42)
 
     n = 50
     groups = np.repeat(np.arange(5), 10)
     X = np.ones((n, 1))
-    y = np.random.randn(n)
+    # Generate count data for Poisson
+    y = np.random.poisson(3, n)
 
     re = RandomEffect(grouping="subject")
 
-    with pytest.raises(ValueError, match="Only 'gaussian' family currently supported"):
-        fit_gamm(y=y, X=X, random_effects=[re], groups_data={"subject": groups}, family="poisson")
+    # Should now work with non-Gaussian families (Phase 5 implementation)
+    result = fit_gamm(y=y, X=X, random_effects=[re], groups_data={"subject": groups}, family="poisson")
+    
+    # Verify result structure (uses beta_parametric and random_effects attributes)
+    assert hasattr(result, 'beta_parametric')
+    assert hasattr(result, 'random_effects')
 
 
 def test_fit_gamm_missing_groups_raises():
