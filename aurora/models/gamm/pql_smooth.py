@@ -253,23 +253,39 @@ def fit_pql_with_smooth(
         # Inner loop: Update (beta_para, beta_smooth, b) given Psi and Lambda
         converged_inner = False
         for iter_inner in range(maxiter_inner):
+            # Clamp eta to prevent overflow in link.inverse (exp)
+            eta = np.clip(eta, -700.0, 700.0)
+            
             # Compute current predictions
             mu = link.inverse(eta)
+            
+            # Clamp mu to valid range for the family
+            mu = np.clip(mu, 1e-10, 1e10)
 
-            # Compute derivative dμ/dη
+            # Compute derivative dμ/dη with protection
             deta_dmu = link.derivative(mu)
-            dmu_deta = 1.0 / (deta_dmu + 1e-10)
+            deta_dmu = np.clip(deta_dmu, 1e-10, None)
+            dmu_deta = 1.0 / deta_dmu
 
-            # Variance function
+            # Variance function with protection
             var = family_obj.variance(mu)
+            var = np.clip(var, 1e-10, None)
 
-            # Working weights
-            W_diag = 1.0 / (var * deta_dmu**2 + 1e-10)
+            # Working weights with enhanced stability
+            W_diag = dmu_deta**2 / var
             W_diag = np.clip(W_diag, 1e-10, 1e10)  # Numerical stability
             W = np.diag(W_diag)
 
-            # Working response
+            # Working response with NaN protection
             z = eta + (y - mu) * dmu_deta
+            
+            # Validate finite values and fall back if needed
+            if not (np.all(np.isfinite(z)) and np.all(np.isfinite(W_diag))):
+                import warnings
+                warnings.warn("NaN/Inf detected in PQL smooth iteration, using regularization")
+                z = np.where(np.isfinite(z), z, eta)
+                W_diag = np.where(np.isfinite(W_diag), W_diag, 1e-6)
+                W = np.diag(W_diag)
 
             # Solve augmented system
             # [X_p^T W X_p      X_p^T W X_s        X_p^T W Z    ] [β_p]   [X_p^T W z]
@@ -339,7 +355,8 @@ def fit_pql_with_smooth(
         Psi_list_new = []
         for i, b_group in enumerate(b_grouped):
             # Reshape to matrix (n_levels, dim)
-            dim = Z_info[i].get('dim', 1)
+            # Support both 'dim' and 'n_effects' keys for compatibility
+            dim = Z_info[i].get('dim', Z_info[i].get('n_effects', 1))
             n_levels = len(b_group) // dim
             if len(b_group) % dim != 0:
                 # Handle uneven split
@@ -487,8 +504,9 @@ def _split_random_effects(
     b_grouped = []
     offset = 0
     for info in Z_info:
-        n_levels = info['n_levels']
-        dim = info.get('dim', 1)
+        # Support both 'n_levels' and 'n_groups' keys for compatibility
+        n_levels = info.get('n_levels', info.get('n_groups', 1))
+        dim = info.get('dim', info.get('n_effects', 1))
         size = n_levels * dim
         b_grouped.append(b[offset:offset + size])
         offset += size
