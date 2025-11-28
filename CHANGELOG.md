@@ -5,6 +5,75 @@ All notable changes to Aurora-GLM will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-11-27
+
+### Phase 4 Completion + Phase 5 Progress - Architecture Improvements
+
+This release marks the completion of Phase 4 (GAMM with random effects) and significant progress on Phase 5 (extended features), with major architectural improvements and numerical stability fixes.
+
+### Added
+
+#### Non-Gaussian GAMM (Phase 4 Completion)
+- **PQL estimation**: Penalized Quasi-Likelihood for Poisson and Binomial GAMM
+- **PQL with smooths**: `fit_pql_smooth()` combining smooth terms with random effects
+- **Laplace approximation**: Alternative estimation method for non-Gaussian families
+- **Formula extensions**: lme4-style random effects syntax `(1 + x | group)`
+- **Nested/crossed effects**: Full support for complex random effect structures
+- **Caterpillar plots**: Visualization of random effects with confidence intervals
+
+#### Phase 5 Infrastructure
+- **I/O module** (`aurora/io/`): CSV reading, result save/load, coefficient export
+- **Unified result hierarchy**: `LinearModelResult`, `MixedModelResultBase` base classes
+- **Validation decorators**: `@validate_array`, `@validate_positive`, `@validate_probability`
+- **Sensitivity analysis**: Cook's distance, leverage, influence diagnostics for GLM
+- **ANOVA module**: Type I/II/III sums of squares, likelihood ratio tests
+- **Helper functions**: Unified `summary()`, `plot()`, `compare()` API
+
+#### Test Coverage Expansion
+- **7 new test modules**: Comprehensive coverage for previously untested areas
+  - `test_linalg_module.py`: Linear algebra primitives (Cholesky, QR, eigen)
+  - `test_anova_module.py`: ANOVA and likelihood ratio tests
+  - `test_io_module.py`: Data I/O operations
+  - `test_base_result.py`: Result class hierarchy
+  - `test_helpers.py`: Helper function API
+  - `test_validation_decorators.py`: Input validation
+  - `test_sensitivity_module.py`: Influence diagnostics
+
+### Fixed
+
+#### Numerical Stability
+- **LogLink overflow protection**: Clamp eta to [-700, 700] to prevent exp() overflow
+- **PQL convergence**: NaN/Inf protection in working residuals and weights
+- **Variance validation**: Ensure positive variance components in random effects
+- **Iteration limits**: Increased max_iter for complex models (Binomial GAMM)
+
+#### JAX Backend Compatibility
+- **Float32 tolerance**: Use 1e-5 tolerance for JAX tests (vs 1e-6 for NumPy)
+- **Numeric precision**: Proper handling of JAX's default float32 precision
+
+#### API Consistency
+- **SmoothTerm attributes**: Direct attribute access (`.k`, `.bs`) instead of `.params` dict
+- **Formula aliases**: Support mgcv-style aliases (`k` for `n_basis`, `m` for `order`, `sp` for `lambda_`)
+- **GLM result interface**: Consistent use of `.coef_` across all model types
+
+### Changed
+- **Test suite**: Expanded from 457 to 1021 tests (123% increase)
+- **Version**: Upgraded from 0.4.0-dev to 0.5.0 stable
+- **Status**: Advanced from Phase 4 (50%) to Phase 5 (75%)
+
+### Statistics
+- **Tests**: 1021 passing, 14 skipped
+- **Commits**: 22 atomic commits following Conventional Commits
+- **Coverage areas**: GLM, GAM, GAMM, distributions, smoothing, validation, inference
+
+### Breaking Changes
+None - All changes are backwards compatible.
+
+### Dependencies
+No new dependencies added.
+
+---
+
 ## [0.2.0]
 
 ### Phase 2 Completion - Full GLM Implementation
