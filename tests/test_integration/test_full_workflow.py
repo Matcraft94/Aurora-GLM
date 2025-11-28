@@ -125,9 +125,12 @@ def test_gamm_full_workflow():
     )
     assert result.converged
 
-    # Fix: variance_components is a numpy array (covariance matrix), not a dictionary
+    # variance_components is a list of covariance matrices (one per random effect term)
     assert result.variance_components is not None
-    psi_arr = np.atleast_2d(result.variance_components)
+    assert isinstance(result.variance_components, list)
+    assert len(result.variance_components) == 1  # One random effect term
+    psi = result.variance_components[0]
+    psi_arr = np.atleast_2d(psi)
     assert psi_arr.shape[0] >= 1  # At least one dimension
     # Check diagonal elements (variances) are non-negative
     assert np.all(np.diag(psi_arr) >= -1e-10)  # Positive semi-definite
