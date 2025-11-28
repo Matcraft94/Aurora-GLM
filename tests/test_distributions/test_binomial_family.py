@@ -235,7 +235,7 @@ def test_binomial_epsilon_consistency(xp):
 
     # Should match within reasonable tolerance
     # PyTorch may have slightly different numerical precision (~1e-7)
-    # JAX with float64 should match at machine precision (~1e-15)
+    # JAX uses float32 by default (without x64), needs more tolerance
     if xp is np:
         # NumPy vs NumPy should be exact
         assert pytest.approx(ll_ref, abs=1e-14) == ll
@@ -245,6 +245,6 @@ def test_binomial_epsilon_consistency(xp):
         assert pytest.approx(ll_ref, abs=1e-6) == ll
         assert pytest.approx(dev_ref, abs=1e-6) == dev
     elif jnp is not None and xp is jnp:
-        # JAX with float64 should match NumPy at machine precision
-        assert pytest.approx(ll_ref, abs=1e-10) == ll
-        assert pytest.approx(dev_ref, abs=1e-10) == dev
+        # JAX without x64 mode uses float32
+        assert pytest.approx(ll_ref, abs=1e-5) == ll
+        assert pytest.approx(dev_ref, abs=1e-5) == dev
