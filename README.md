@@ -1009,11 +1009,11 @@ For a comprehensive list of mathematical foundations, algorithms, and validation
 
 ## License
 
-*(Add license information here - e.g., MIT)*
+*(thinking about...)*
 
 ## Citation
 
-*(Add citation information when published)*
+*(Not Yet...)*
 
 ## Acknowledgments
 
