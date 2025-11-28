@@ -203,16 +203,17 @@ def test_laplace_vs_glm_no_random_effects():
     eta = X @ beta_true
     y = np.random.poisson(np.exp(eta))
 
-    # Fit GLM
+    # Fit GLM - X already has intercept column, so disable fit_intercept
     from aurora.models.glm import fit_glm
-    glm_result = fit_glm(X, y, family='poisson')
+    glm_result = fit_glm(X, y, family='poisson', fit_intercept=False)
 
     # Fit Laplace with tiny Psi
     psi_init = np.array([[1e-6]])
     result = fit_laplace(X, Z, y, family='poisson', psi_init=psi_init, maxiter=50)
 
     # Coefficients should be close to GLM
-    assert np.allclose(result.beta, glm_result.beta, atol=0.1)
+    # With fit_intercept=False, coef_ contains all coefficients
+    assert np.allclose(result.beta, glm_result.coef_, atol=0.1)
 
     # Random effect variance should remain tiny
     assert result.psi[0, 0] < 0.01, "Variance should stay near zero when not needed"
