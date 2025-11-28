@@ -443,14 +443,18 @@ def test_caterpillar_plot_visual_elements(simple_gamm_result):
     """Test that caterpillar plot has expected visual elements."""
     fig, ax = plot_caterpillar(simple_gamm_result)
 
-    # Should have reference line at zero
-    vlines = [line for line in ax.lines if line.get_xdata()[0] == 0]
+    # Should have reference line at zero (axvline creates a Line2D)
+    vlines = [line for line in ax.lines if hasattr(line, 'get_xdata') and 
+              len(line.get_xdata()) > 0 and line.get_xdata()[0] == 0]
     assert len(vlines) > 0, "Should have reference line at x=0"
 
-    # Should have horizontal lines (CIs)
-    hlines = [line for line in ax.lines
-              if len(line.get_ydata()) == 2 and line.get_ydata()[0] == line.get_ydata()[1]]
-    assert len(hlines) > 0, "Should have horizontal CI lines"
+    # Should have confidence interval elements (either hlines as LineCollection or as patches)
+    # ax.hlines creates a LineCollection, not individual Line2D objects
+    from matplotlib.collections import LineCollection
+    has_ci = (len([c for c in ax.collections if isinstance(c, LineCollection)]) > 0 or
+              any(hasattr(line, 'get_ydata') and len(line.get_ydata()) == 2 
+                  for line in ax.lines))
+    assert has_ci, "Should have CI elements (LineCollection or lines)"
 
     plt.close(fig)
 
