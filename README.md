@@ -2,11 +2,11 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ✅ **Development Status**: Phase 4 IN PROGRESS (50%). Full GAM implementation complete. GAMM with random effects (Gaussian family) now available with REML estimation!
+> ✅ **Development Status**: Phase 5 IN PROGRESS (75%). Full GAM/GAMM implementation complete. Non-Gaussian GAMM (Poisson, Binomial) with PQL estimation available!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/Matcraft94/Aurora-GLM)
+[![Status](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/Matcraft94/Aurora-GLM)
 
 ## Project Identity
 
@@ -14,8 +14,8 @@
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.4.0-dev
-- **Status**: Phase 4 IN PROGRESS (50%) - GAMM with random effects (Gaussian family), REML estimation, mixed model equations
+- **Version**: 0.5.0
+- **Status**: Phase 5 IN PROGRESS (75%) - Non-Gaussian GAMM (Poisson, Binomial), PQL estimation, nested/crossed random effects
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -103,45 +103,40 @@ Aurora-GLM aims to be:
 
 > Full design documentation in `aurora/smoothing/DESIGN.md`. Total: **348 tests passing** (up from 119 in Phase 2).
 
-### Phase 4: GAMM (Random Effects) - IN PROGRESS 🚧 (50%)
+### Phase 4: GAMM (Random Effects) - COMPLETED ✅ (100%)
 
-**Implemented** (109 new tests):
-- ✅ **Random effects infrastructure**: RandomEffect specification with intercepts and slopes (11 tests)
-- ✅ **Design matrix construction**: Z matrix builder with block-diagonal structure (12 tests)
-- ✅ **REML estimation**: Variance component estimation via restricted maximum likelihood (19 tests)
-- ✅ **Mixed model equations solver**: Augmented system solver for β and random effects b (16 tests)
-- ✅ **Gaussian GAMM fitting**: `fit_gamm_gaussian()` with smooth terms and random effects (16 tests)
-- ✅ **High-level interface**: `fit_gamm()` and `fit_gamm_with_smooth()` with pandas support (14 tests)
-- ✅ **Predictions**: Population-level and conditional predictions with `predict_from_gamm()` (9 tests)
-- ✅ **Covariance structures**: Unstructured, diagonal, and identity parameterizations with Cholesky (12 tests)
+**Implemented** (150+ tests):
+- ✅ **Random effects infrastructure**: RandomEffect specification with intercepts and slopes
+- ✅ **Design matrix construction**: Z matrix builder with block-diagonal structure
+- ✅ **REML estimation**: Variance component estimation via restricted maximum likelihood
+- ✅ **Mixed model equations solver**: Augmented system solver for β and random effects b
+- ✅ **Gaussian GAMM fitting**: `fit_gamm_gaussian()` with smooth terms and random effects
+- ✅ **High-level interface**: `fit_gamm()` and `fit_gamm_with_smooth()` with pandas support
+- ✅ **Predictions**: Population-level and conditional predictions with `predict_from_gamm()`
+- ✅ **Covariance structures**: Unstructured, diagonal, and identity parameterizations with Cholesky
+- ✅ **Non-Gaussian families**: Poisson, Binomial with PQL (Penalized Quasi-Likelihood) estimation
+- ✅ **Formula parser extensions**: lme4-style syntax `(1 + x | group)` supported
+- ✅ **Nested and crossed random effects**: Full support for complex random effect structures
+- ✅ **Visualization**: Caterpillar plots, Q-Q plots for random effects
 - ✅ **Comprehensive example**: Longitudinal data analysis (sleep study) with visualizations
 
-**Remaining for Phase 4**:
-- 📋 Non-Gaussian families (Poisson, Binomial) with PQL/Laplace approximation
-- 📋 Formula parser extensions for lme4-style syntax: `(1 + x | group)`
-- 📋 Crossed and nested random effects
-- 📋 Additional covariance structures (AR1, compound symmetry)
-- 📋 Visualization (caterpillar plots, Q-Q plots for random effects)
+### Phase 5: Extended Features - IN PROGRESS 🚧 (75%)
 
-### Phase 5: Extended Features - PLANNED 📋
+**Implemented in Phase 5**:
+- ✅ **Multi-backend stability**: JAX float32 tolerance handling, overflow protection
+- ✅ **Numerical robustness**: LogLink clamping, PQL NaN/Inf protection
+- ✅ **Unified result hierarchy**: LinearModelResult, MixedModelResultBase
+- ✅ **I/O module**: CSV reading, result save/load, coefficient export
+- ✅ **Validation decorators**: @validate_array, @validate_positive, @validate_probability
+- ✅ **Sensitivity analysis**: Cook's distance, leverage, influence diagnostics
+- ✅ **ANOVA module**: Type I/II/III SS, likelihood ratio tests
+- ✅ **Helper functions**: summary(), plot(), compare() unified API
 
-**Additional distributions**:
-- 📋 Inverse Gaussian
-- 📋 Negative Binomial
-- 📋 Beta
-- 📋 Tweedie
-- 📋 Exponential
-- 📋 Multinomial
-
-**Additional link functions**:
-- 📋 Probit: `g(μ) = Φ⁻¹(μ)`
-- 📋 Square root: `g(μ) = √μ`
-- 📋 Power: `g(μ) = μᵖ`
-
-**Advanced features**:
-- 📋 Comprehensive diagnostics and visualization
-- 📋 Validation against R's mgcv and statsmodels
-- 📋 Performance optimizations (Cython, sparse matrices)
+**Remaining for Phase 5**:
+- 📋 Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
+- 📋 Additional link functions (Probit, Square root, Power)
+- 📋 Performance optimizations (sparse matrices, Cython for critical paths)
+- 📋 AR1 and compound symmetry covariance structures
 
 ## Quick Start - GLM API (Phase 2 - AVAILABLE NOW!)
 
@@ -974,9 +969,9 @@ Special thanks to the open-source community for providing excellent tools and li
 
 ---
 
-**Status**: 🚧 Phase 4 IN PROGRESS (50%): GAMM with random effects (Gaussian family), REML estimation, mixed model equations
-**Tests**: 457 passing, 2 skipped (109 new GAMM tests added in Phase 4, 229 GAM tests from Phase 3)
-**Version**: 0.4.0-dev
+**Status**: 🚧 Phase 5 IN PROGRESS (75%): Extended features, multi-backend stability, comprehensive test coverage
+**Tests**: 1021 passing, 14 skipped (comprehensive coverage across GLM, GAM, GAMM)
+**Version**: 0.5.0
 **Python**: 3.10+
 **Maintained by**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
 
