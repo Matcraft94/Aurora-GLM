@@ -393,14 +393,14 @@ def _parse_smooth_term(term_str: str) -> SmoothTerm:
             except ValueError:
                 pass  # Keep as string
 
-        # Map parameter names
+        # Map parameter names (with R/mgcv-style aliases)
         if key == 'basis':
             kwargs['basis_type'] = value
-        elif key == 'n_basis':
+        elif key in ('n_basis', 'k'):  # 'k' is the mgcv-style parameter
             kwargs['n_basis'] = value
-        elif key == 'penalty_order':
+        elif key in ('penalty_order', 'm'):  # 'm' is mgcv-style penalty order
             kwargs['penalty_order'] = value
-        elif key == 'lambda':
+        elif key in ('lambda', 'sp'):  # 'sp' is mgcv-style smoothing parameter
             kwargs['lambda_'] = value
         else:
             raise ValueError(f"Unknown smooth term parameter: {key}")
