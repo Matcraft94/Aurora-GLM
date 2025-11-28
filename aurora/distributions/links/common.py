@@ -46,7 +46,14 @@ class LogLink(LinkFunction):
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
         xp = namespace(eta)
         eta_arr = as_namespace_array(eta, xp, like=eta)
-        return xp.exp(eta_arr)
+        # Clamp eta to prevent overflow: log(max_float64) ≈ 709
+        if xp is np:
+            eta_clamped = np.clip(eta_arr, -700, 700)
+        elif hasattr(xp, 'clamp'):  # PyTorch
+            eta_clamped = xp.clamp(eta_arr, -700, 700)
+        else:  # JAX or other
+            eta_clamped = xp.clip(eta_arr, -700, 700)
+        return xp.exp(eta_clamped)
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
