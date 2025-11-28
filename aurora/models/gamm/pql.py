@@ -356,15 +356,31 @@ def fit_pql(
             deta_dmu = family_obj.default_link.derivative(mu)
             dmu_deta = 1.0 / (deta_dmu + 1e-10)  # Add small epsilon for stability
             var_mu = family_obj.variance(mu)
+            
+            # Ensure numerical stability - clip variance to avoid division issues
+            var_mu = np.clip(var_mu, 1e-10, 1e10)
+            dmu_deta = np.clip(dmu_deta, -1e10, 1e10)
 
             # Working response: z = η + (y - μ) / (dμ/dη)
             z = eta + (y - mu) / dmu_deta
+            
+            # Handle NaN/Inf in working response
+            z = np.nan_to_num(z, nan=0.0, posinf=1e10, neginf=-1e10)
 
             # Weights: w = (dμ/dη)² / Var(μ)
             w = dmu_deta**2 / var_mu
+            
+            # Ensure weights are positive and finite
+            w = np.clip(w, 1e-10, 1e10)
+            w = np.nan_to_num(w, nan=1e-10, posinf=1e10, neginf=1e-10)
 
             # Solve weighted mixed model equations
             beta, b, sigma2 = _solve_pql_equations(X, Z, z, w, S, lambda_, psi)
+            
+            # Check for NaN in coefficients - indicates divergence
+            if np.any(np.isnan(beta)) or np.any(np.isnan(b)):
+                raise ValueError("PQL iteration diverged (NaN in coefficients). "
+                                "Try different starting values or increase regularization.")
 
             # Check inner convergence
             beta_change = np.max(np.abs(beta - beta_old))
@@ -465,8 +481,29 @@ def _solve_pql_equations(
     n_effects = psi.shape[0]
     n_groups = q // n_effects
 
-    # Expand Ψ to block-diagonal form
-    psi_inv_expanded = np.kron(np.eye(n_groups), linalg.inv(psi))
+    # Validate psi before inversion
+    if not np.all(np.isfinite(psi)):
+        import warnings
+        warnings.warn("NaN/Inf in psi matrix, using identity")
+        psi = np.eye(n_effects)
+    
+    # Ensure psi is positive definite before inversion
+    try:
+        psi_inv = linalg.inv(psi)
+    except linalg.LinAlgError:
+        # Regularize and retry
+        psi_reg = psi + 1e-4 * np.eye(n_effects)
+        try:
+            psi_inv = linalg.inv(psi_reg)
+        except linalg.LinAlgError:
+            psi_inv = np.eye(n_effects)
+    
+    # Handle NaN/Inf in inverse
+    if not np.all(np.isfinite(psi_inv)):
+        psi_inv = np.eye(n_effects)
+
+    # Expand Ψ⁻¹ to block-diagonal form
+    psi_inv_expanded = np.kron(np.eye(n_groups), psi_inv)
 
     # Build augmented system
     #  [X'WX + λS    X'WZ     ]
@@ -548,20 +585,36 @@ def _update_variance_components(
 
     # Reshape b into groups × effects matrix
     b_matrix = b.reshape(n_groups, n_effects)
+    
+    # Handle NaN/Inf in random effects
+    if not np.all(np.isfinite(b_matrix)):
+        import warnings
+        warnings.warn("NaN/Inf detected in random effects, using identity covariance")
+        return np.eye(n_effects)
 
     if method == "empirical":
         # Compute empirical covariance
         psi_emp = (b_matrix.T @ b_matrix) / n_groups
+        
+        # Handle NaN/Inf in covariance matrix
+        if not np.all(np.isfinite(psi_emp)):
+            import warnings
+            warnings.warn("NaN/Inf in empirical covariance, using identity")
+            return np.eye(n_effects)
 
         # Phase 1.4: Add shrinkage toward identity (5%)
         shrinkage = 0.05
         trace_avg = np.trace(psi_emp) / n_effects
+        if not np.isfinite(trace_avg) or trace_avg <= 0:
+            trace_avg = 1.0
         psi_emp = (1 - shrinkage) * psi_emp + shrinkage * trace_avg * np.eye(
             n_effects
         )
 
         # Phase 1.4: Ensure positive definiteness
         eigvals = np.linalg.eigvalsh(psi_emp)
+        if not np.all(np.isfinite(eigvals)):
+            return np.eye(n_effects)
         if np.min(eigvals) < 1e-6:
             psi_emp = psi_emp + (1e-6 - np.min(eigvals)) * np.eye(n_effects)
 
