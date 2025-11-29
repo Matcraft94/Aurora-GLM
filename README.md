@@ -52,18 +52,22 @@ Aurora-GLM aims to be:
 - ✅ Callbacks for monitoring
 - ✅ Robust convergence checking
 
-**Distribution Families** (4/10 planned):
+**Distribution Families** (7/10 planned):
 - ✅ Gaussian (Normal)
 - ✅ Poisson
 - ✅ Binomial
 - ✅ Gamma
+- ✅ Beta (proportions modeling, precision parameter φ)
+- ✅ Inverse Gaussian (positive durations, Wald distribution)
+- 📋 Negative Binomial (overdispersed counts)
 
-**Link Functions** (5/8 planned):
+**Link Functions** (6/8 planned):
 - ✅ Identity: `g(μ) = μ`
 - ✅ Log: `g(μ) = log(μ)`
 - ✅ Logit: `g(μ) = log(μ/(1-μ))`
 - ✅ Inverse: `g(μ) = 1/μ`
 - ✅ CLogLog: `g(μ) = log(-log(1-μ))`
+- ✅ Probit: `g(μ) = Φ⁻¹(μ)` (inverse normal CDF)
 
 ### Phase 2: Basic GLM - COMPLETED ✅ (100%)
 
@@ -123,6 +127,9 @@ Aurora-GLM aims to be:
 ### Phase 5: Extended Features - IN PROGRESS 🚧 (75%)
 
 **Implemented in Phase 5**:
+- ✅ **BetaFamily distribution**: Proportions in (0,1), precision parameter φ, multi-backend
+- ✅ **InverseGaussianFamily distribution**: Positive durations, lambda parameter, WaldFamily alias
+- ✅ **ProbitLink function**: Inverse normal CDF for binary/proportion data
 - ✅ **Multi-backend stability**: JAX float32 tolerance handling, overflow protection
 - ✅ **Numerical robustness**: LogLink clamping, PQL NaN/Inf protection
 - ✅ **Unified result hierarchy**: LinearModelResult, MixedModelResultBase
@@ -133,8 +140,7 @@ Aurora-GLM aims to be:
 - ✅ **Helper functions**: summary(), plot(), compare() unified API
 
 **Remaining for Phase 5**:
-- 📋 Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
-- 📋 Additional link functions (Probit, Square root, Power)
+- 📋 Additional distributions (Negative Binomial, Tweedie)
 - 📋 Performance optimizations (sparse matrices, Cython for critical paths)
 - 📋 AR1 and compound symmetry covariance structures
 
@@ -183,9 +189,13 @@ Significance codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ### Predictions and Diagnostics
 
 ```python
-# Make predictions
+# Make predictions (OOP style)
 X_new = np.random.randn(10, 2)
 predictions = result.predict(X_new, type='response')
+
+# Functional-style prediction (new in v0.5.0+)
+from aurora.models.glm import predict_glm
+predictions = predict_glm(result, X_new, type='response')
 
 # Confidence intervals for predictions
 ci_lower, ci_upper = result.predict(X_new, interval='confidence', level=0.95)
@@ -733,13 +743,10 @@ Contributions are welcome! This project is in active development with many oppor
 ### HIGH PRIORITY (Phase 5 Completion)
 
 1. **Additional distributions**
-   - Inverse Gaussian family
-   - Negative Binomial family
-   - Beta family for proportions
+   - Negative Binomial family for overdispersed counts
    - Tweedie family for insurance data
 
 2. **Additional link functions**
-   - Probit: `g(μ) = Φ⁻¹(μ)`
    - Square root: `g(μ) = √μ`
    - Power family: `g(μ) = μᵖ`
 
@@ -835,7 +842,12 @@ class MyLink(LinkFunction):
 ```
 aurora/
 ├── core/
-│   ├── backends/         # Backend abstraction (JAX, PyTorch, NumPy)
+│   ├── backends/         # Multi-backend support infrastructure
+│   │   ├── _protocol.py  # Backend Protocol and type definitions (internal)
+│   │   ├── _registry.py  # Backend registration and lazy loading (internal)
+│   │   ├── operations.py # Backend-agnostic numerical operations
+│   │   ├── jax_backend.py      # JAX backend implementation
+│   │   └── pytorch_backend.py  # PyTorch backend implementation
 │   ├── autodiff/         # Automatic differentiation utilities
 │   ├── linalg/           # Linear algebra primitives
 │   ├── optimization/     # Newton-Raphson, IRLS, L-BFGS
@@ -846,7 +858,10 @@ aurora/
 │   └── _utils.py         # Array namespace utilities
 ├── models/
 │   ├── base/             # LinearModelResult, MixedModelResultBase
-│   ├── glm/              # fit_glm(), GLMResult, diagnostics
+│   ├── glm/              # Generalized Linear Models
+│   │   ├── fitting.py    # fit_glm() implementation
+│   │   ├── prediction.py # predict_glm() functional interface
+│   │   └── ...           # GLMResult, diagnostics
 │   ├── gam/              # fit_gam(), formula parser, smooths
 │   └── gamm/             # fit_gamm(), PQL, random effects
 ├── smoothing/
@@ -895,8 +910,10 @@ aurora/
 
 ### In Progress 🚧 (Phase 5)
 
-- [ ] Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
-- [ ] Additional link functions (Probit, Square root, Power)
+- [ ] Additional distributions (Negative Binomial, Tweedie)
+- [x] BetaFamily for proportions modeling
+- [x] InverseGaussianFamily (WaldFamily) for positive durations
+- [x] ProbitLink function
 - [ ] AR1 and compound symmetry covariance structures
 - [ ] Performance optimizations (sparse matrices)
 - [ ] PyPI package publication
