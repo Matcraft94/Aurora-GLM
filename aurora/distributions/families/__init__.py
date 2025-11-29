@@ -6,6 +6,10 @@ Standard exponential family distributions:
 - PoissonFamily: Poisson distribution for count data
 - GammaFamily: Gamma distribution for positive continuous data
 
+Additional distributions (Phase 5 Milestone 1):
+- BetaFamily: Beta distribution for proportions in (0, 1)
+- InverseGaussianFamily: Inverse Gaussian for positive durations
+
 Heavy-tailed and robust distributions (Phase 5.5):
 - StudentTFamily: Student's t for robust regression
 - CauchyFamily: Cauchy distribution (t with df=1)
@@ -18,6 +22,10 @@ from .gamma import GammaFamily
 from .gaussian import GaussianFamily
 from .poisson import PoissonFamily
 
+# New distributions (Phase 5 Milestone 1)
+from .beta import BetaFamily
+from .inverse_gaussian import InverseGaussianFamily, WaldFamily
+
 # Heavy-tailed distributions (Phase 5.5)
 from .student_t import StudentTFamily, CauchyFamily
 from .negative_binomial import NegativeBinomialFamily, NegBinFamily
@@ -29,6 +37,10 @@ __all__ = [
     "BinomialFamily",
     "PoissonFamily",
     "GammaFamily",
+    # Additional distributions (Phase 5 Milestone 1)
+    "BetaFamily",
+    "InverseGaussianFamily",
+    "WaldFamily",  # Alias for InverseGaussianFamily
     # Heavy-tailed / Robust distributions
     "StudentTFamily",
     "CauchyFamily",
