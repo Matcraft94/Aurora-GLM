@@ -5,6 +5,23 @@ All notable changes to Aurora-GLM will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed - Internal Architecture
+
+- **Refactor**: Reorganized `aurora.core.backends` module structure for better separation of concerns
+  - Created `_protocol.py` for backend interface definitions (Protocol, types)
+  - Created `_registry.py` for backend registration logic (registry, lazy loading)
+  - Simplified `__init__.py` to only contain imports and re-exports
+  - **PUBLIC API UNCHANGED**: All existing imports remain compatible
+  - **NUMERICAL RESULTS UNCHANGED**: No changes to computation logic
+
+### Notes for Developers
+
+- New backend implementations should satisfy the `Backend` Protocol defined in `_protocol.py`
+- Registration logic is now in `_registry.py` (internal module)
+- End users: No action required, all code continues to work
+
 ## [0.5.0]
 
 ### Phase 4 Completion + Phase 5 Progress - Architecture Improvements
