@@ -78,7 +78,12 @@ where $\ell(\mathbf{y}; \mathbf{y})$ is the saturated model log-likelihood.
 - Akaike Information Criterion (AIC): $-2\ell(\hat{\boldsymbol{\beta}}) + 2p$
 - Bayesian Information Criterion (BIC): $-2\ell(\hat{\boldsymbol{\beta}}) + p \log(n)$
 
-**Reference**: Akaike, H. (1974). "A new look at the statistical model identification." *IEEE Transactions on Automatic Control*, 19(6), 716-723.
+**References**:
+- Akaike, H. (1974). "A new look at the statistical model identification." *IEEE Transactions on Automatic Control*, 19(6), 716-723.
+
+**Model Selection and Statistical Learning**:
+- Hastie, T., Tibshirani, R., & Friedman, J. (2009). *The Elements of Statistical Learning: Data Mining, Inference, and Prediction* (2nd ed.). Springer. https://doi.org/10.1007/978-0-387-84858-7
+  (Comprehensive coverage of model selection, cross-validation, and information criteria)
 
 ---
 
@@ -281,21 +286,8 @@ where $\mathbf{b}_i \sim \mathcal{N}(\mathbf{0}, \boldsymbol{\Psi})$.
    $$
 
    e. Solve weighted mixed model equations:
-   $$
-   \begin{bmatrix}
-   \mathbf{X}^T\mathbf{W}\mathbf{X} & \mathbf{X}^T\mathbf{W}\mathbf{Z} \\
-   \mathbf{Z}^T\mathbf{W}\mathbf{X} & \mathbf{Z}^T\mathbf{W}\mathbf{Z} + \boldsymbol{\Psi}^{-1}
-   \end{bmatrix}
-   \begin{bmatrix}
-   \boldsymbol{\beta} \\
-   \mathbf{b}
-   \end{bmatrix}
-   =
-   \begin{bmatrix}
-   \mathbf{X}^T\mathbf{W}\mathbf{z} \\
-   \mathbf{Z}^T\mathbf{W}\mathbf{z}
-   \end{bmatrix}
-   $$
+
+$$\begin{bmatrix} \mathbf{X}^T\mathbf{W}\mathbf{X} & \mathbf{X}^T\mathbf{W}\mathbf{Z} \\ \mathbf{Z}^T\mathbf{W}\mathbf{X} & \mathbf{Z}^T\mathbf{W}\mathbf{Z} + \boldsymbol{\Psi}^{-1} \end{bmatrix} \begin{bmatrix} \hat{\boldsymbol{\beta}} \\ \hat{\mathbf{b}} \end{bmatrix} = \begin{bmatrix} \mathbf{X}^T\mathbf{W}\mathbf{z} \\ \mathbf{Z}^T\mathbf{W}\mathbf{z} \end{bmatrix}$$
 
 3. **Outer loop** (update $\boldsymbol{\Psi}$):
 
@@ -515,7 +507,7 @@ If you use Aurora-GLM in your research, please cite:
 
 2. **Ruppert, D., Wand, M. P., & Carroll, R. J. (2003).** *Semiparametric Regression*. Cambridge University Press.
 
-3. **Pinheiro, J. C., & Bates, D. M. (2006).** *Mixed-Effects Models in S and S-PLUS*. Springer.
+3. **Pinheiro, J. C., & Bates, D. M. (2000).** *Mixed-Effects Models in S and S-PLUS*. Springer. https://doi.org/10.1007/b98882
 
 4. **Schumaker, L. L. (2007).** *Spline Functions: Basic Theory* (3rd ed.). Cambridge University Press. (Comprehensive mathematical treatment of spline theory)
 
