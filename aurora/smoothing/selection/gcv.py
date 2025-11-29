@@ -56,8 +56,9 @@ def gcv_score(
 
     References
     ----------
-    Craven, P. & Wahba, G. (1979). Smoothing noisy data with spline functions.
+    Craven, P. & Wahba, G. (1978). Smoothing noisy data with spline functions.
         Numerische Mathematik, 31, 377-403.
+        https://doi.org/10.1007/BF01404567
     Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
     """
     n, p = X.shape
