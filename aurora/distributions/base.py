@@ -196,7 +196,8 @@ References
 **Deviance and model selection**:
 
 - Hastie, T., Tibshirani, R., & Friedman, J. (2009). *The Elements of
-  Statistical Learning* (2nd ed.). Springer. Chapter 7.
+  Statistical Learning: Data Mining, Inference, and Prediction* (2nd ed.).
+  Springer. https://doi.org/10.1007/978-0-387-84858-7 (Chapter 7)
 
 See Also
 --------

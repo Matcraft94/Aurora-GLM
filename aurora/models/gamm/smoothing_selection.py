@@ -91,6 +91,7 @@ References
 
 - Craven, P., & Wahba, G. (1978). "Smoothing noisy data with spline functions."
   Numerische Mathematik, 31(4), 377-403.
+  https://doi.org/10.1007/BF01404567
 
 See Also
 --------
