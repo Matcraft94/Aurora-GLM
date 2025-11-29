@@ -236,6 +236,125 @@ class InverseSquareLink(LinkFunction):
         return -2.0 / (mu_arr ** 3)
 
 
+class ProbitLink(LinkFunction):
+    """Probit link ``g(mu) = Φ^{-1}(mu)``.
+    
+    The probit link uses the inverse cumulative distribution function (CDF)
+    of the standard normal distribution. Common alternative to logit for
+    binomial and beta regression models.
+    
+    Properties:
+    - Lighter tails than logit
+    - Assumes underlying normally distributed latent variable
+    - Results similar to logit in practice for μ ∈ [0.2, 0.8]
+    
+    Mathematical details:
+    - Link: g(μ) = Φ^{-1}(μ) where Φ is the standard normal CDF
+    - Inverse: μ = Φ(η)
+    - Derivative: dg/dμ = 1/φ(Φ^{-1}(μ)) where φ is the normal PDF
+    
+    Examples
+    --------
+    >>> from aurora.distributions.links import ProbitLink
+    >>> link = ProbitLink()
+    >>> import numpy as np
+    >>> mu = np.array([0.1, 0.5, 0.9])
+    >>> eta = link.link(mu)  # Transform to linear predictor
+    >>> mu_back = link.inverse(eta)  # Should equal mu
+    >>> np.allclose(mu, mu_back)
+    True
+    
+    Notes
+    -----
+    The probit link is preferred when:
+    - There is a theoretical latent normal process
+    - Lighter tails than logit are desired
+    - Compatibility with other software using probit (e.g., econometrics)
+    
+    Comparison with logit:
+    - Both are symmetric around 0.5
+    - Logit has heavier tails (more robust to outliers)
+    - Probit: π × logit(μ) / √3 is a good approximation
+    
+    References
+    ----------
+    - Bliss, C. I. (1934). "The method of probits." Science, 79, 38-39.
+    - McCullagh, P., & Nelder, J. A. (1989). Generalized Linear Models.
+    """
+
+    def link(self, mu):  # noqa: ANN001 - signature from base class
+        """Transform probability to linear predictor: η = Φ^{-1}(μ)."""
+        from scipy.stats import norm
+        xp = namespace(mu)
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
+        
+        # Φ^{-1}(μ) - inverse normal CDF
+        if xp is np:
+            return norm.ppf(mu_arr)
+        elif xp is torch:  # type: ignore[comparison-overlap]
+            # PyTorch: use scipy and convert
+            mu_np = mu_arr.detach().cpu().numpy()
+            eta_np = norm.ppf(mu_np)
+            return torch.as_tensor(eta_np, dtype=mu_arr.dtype, device=mu_arr.device)
+        else:
+            # JAX or other: convert through numpy
+            import numpy as np_std
+            mu_np = np_std.asarray(mu_arr)
+            eta_np = norm.ppf(mu_np)
+            return xp.asarray(eta_np)
+
+    def inverse(self, eta):  # noqa: ANN001 - signature from base class
+        """Transform linear predictor to probability: μ = Φ(η)."""
+        from scipy.stats import norm
+        xp = namespace(eta)
+        eta_arr = as_namespace_array(eta, xp, like=eta)
+        
+        # Clamp eta to avoid extreme values
+        if xp is np:
+            eta_clamped = np.clip(eta_arr, -8, 8)  # norm.cdf(-8) ≈ 6e-16
+            return norm.cdf(eta_clamped)
+        elif xp is torch:  # type: ignore[comparison-overlap]
+            eta_clamped = torch.clamp(eta_arr, -8, 8)
+            eta_np = eta_clamped.detach().cpu().numpy()
+            mu_np = norm.cdf(eta_np)
+            return torch.as_tensor(mu_np, dtype=eta_arr.dtype, device=eta_arr.device)
+        else:
+            import numpy as np_std
+            eta_np = np_std.clip(np_std.asarray(eta_arr), -8, 8)
+            mu_np = norm.cdf(eta_np)
+            return xp.asarray(mu_np)
+
+    def derivative(self, mu):  # noqa: ANN001 - signature from base class
+        """Compute derivative: dg/dμ = 1/φ(Φ^{-1}(μ)).
+        
+        The derivative is the reciprocal of the normal PDF evaluated
+        at the quantile corresponding to μ.
+        """
+        from scipy.stats import norm
+        xp = namespace(mu)
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
+        
+        if xp is np:
+            z = norm.ppf(mu_arr)
+            pdf_z = norm.pdf(z)
+            # Avoid division by zero at extreme values
+            pdf_z = np.clip(pdf_z, 1e-10, None)
+            return 1.0 / pdf_z
+        elif xp is torch:  # type: ignore[comparison-overlap]
+            mu_np = mu_arr.detach().cpu().numpy()
+            z = norm.ppf(mu_np)
+            pdf_z = np.clip(norm.pdf(z), 1e-10, None)
+            deriv_np = 1.0 / pdf_z
+            return torch.as_tensor(deriv_np, dtype=mu_arr.dtype, device=mu_arr.device)
+        else:
+            import numpy as np_std
+            mu_np = np_std.asarray(mu_arr)
+            z = norm.ppf(mu_np)
+            pdf_z = np_std.clip(norm.pdf(z), 1e-10, None)
+            deriv_np = 1.0 / pdf_z
+            return xp.asarray(deriv_np)
+
+
 __all__ = [
     "IdentityLink", 
     "LogLink", 
@@ -245,4 +364,5 @@ __all__ = [
     "SqrtLink",
     "PowerLink",
     "InverseSquareLink",
+    "ProbitLink",
 ]

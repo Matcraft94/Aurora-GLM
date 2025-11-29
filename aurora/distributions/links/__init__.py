@@ -8,6 +8,7 @@ Standard links:
 - LogitLink: g(μ) = log(μ/(1-μ)) (Binomial)
 - InverseLink: g(μ) = 1/μ (Gamma canonical)
 - CLogLogLink: g(μ) = log(-log(1-μ)) (Binomial alternative)
+- ProbitLink: g(μ) = Φ^{-1}(μ) (Binomial/Beta alternative)
 
 Additional links (Phase 5.5):
 - SqrtLink: g(μ) = √μ (count data alternative)
@@ -23,6 +24,7 @@ from .common import (
     LogLink,
     LogitLink,
     PowerLink,
+    ProbitLink,
     SqrtLink,
 )
 
@@ -32,6 +34,7 @@ __all__ = [
     "LogitLink",
     "InverseLink",
     "CLogLogLink",
+    "ProbitLink",
     "SqrtLink",
     "PowerLink",
     "InverseSquareLink",
