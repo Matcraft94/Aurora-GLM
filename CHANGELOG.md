@@ -7,19 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Phase 5 Milestone 1 - Extended Distribution Families
+
+- **BetaFamily distribution** (`aurora/distributions/families/beta.py`):
+  - Models proportions and rates in the interval (0, 1)
+  - Precision parameter φ (phi) for controlling variance
+  - Variance function: V(μ) = μ(1-μ)/(φ+1)
+  - Default link: LogitLink (canonical)
+  - Supports alternative links: ProbitLink, CloglogLink
+  - Maximum likelihood phi estimation from residuals
+  - Multi-backend support: NumPy, PyTorch, JAX
+  - 42 comprehensive unit tests
+
+- **InverseGaussianFamily distribution** (`aurora/distributions/families/inverse_gaussian.py`):
+  - Models positive continuous data (durations, failure times)
+  - Shape parameter λ (lambda)
+  - Variance function: V(μ) = μ³/λ
+  - Default link: InverseSquareLink (canonical, η = 1/μ²)
+  - Supports alternative links: LogLink, InverseLink
+  - WaldFamily alias for statistical compatibility
+  - Maximum likelihood lambda estimation
+  - Multi-backend support: NumPy, PyTorch, JAX
+  - 40 comprehensive unit tests
+
+- **ProbitLink function** (`aurora/distributions/links/common.py`):
+  - Links μ to η via inverse normal CDF: η = Φ⁻¹(μ)
+  - Inverse via normal CDF: μ = Φ(η)
+  - Numerical stability with clamping at bounds
+  - Used with Binomial and Beta families for alternative response curves
+  - Multi-backend support: NumPy, PyTorch, JAX
+  - 14 comprehensive unit tests
+
 ### Changed - Internal Architecture
 
+#### Backend Module Refactoring
 - **Refactor**: Reorganized `aurora.core.backends` module structure for better separation of concerns
-  - Created `_protocol.py` for backend interface definitions (Protocol, types)
+  - Created `_protocol.py` for backend interface definitions (`Backend` Protocol, `BackendFactory`)
   - Created `_registry.py` for backend registration logic (registry, lazy loading)
   - Simplified `__init__.py` to only contain imports and re-exports
+  - Added comprehensive docstring with usage examples and backward compatibility notes
   - **PUBLIC API UNCHANGED**: All existing imports remain compatible
   - **NUMERICAL RESULTS UNCHANGED**: No changes to computation logic
+
+#### GLM Prediction Module Extraction
+- **Refactor**: Extracted `predict_glm()` to dedicated prediction module
+  - Created `aurora/models/glm/prediction.py` for prediction utilities
+  - Provides functional interface for GLM predictions
+  - Supports both response-scale and linear predictor predictions
+  - Maintains backward compatibility with `GLMResult.predict()` method
+  - **PUBLIC API ENHANCED**: New `predict_glm()` function available for functional programming style
 
 ### Notes for Developers
 
 - New backend implementations should satisfy the `Backend` Protocol defined in `_protocol.py`
 - Registration logic is now in `_registry.py` (internal module)
+- Use `predict_glm()` for functional-style predictions or `result.predict()` for OOP style
 - End users: No action required, all code continues to work
 
 ## [0.5.0]
@@ -629,8 +673,11 @@ None - All Phase 2 and Phase 3 APIs remain unchanged.
 - Extended documentation and tutorials
 
 ### [0.5.0] - Planned - Phase 5: Extended Features
-- Additional distributions (Inverse Gaussian, Negative Binomial, Beta, Tweedie)
-- Additional link functions (Probit, Square root, Power)
+- ✅ Beta distribution for proportions modeling (COMPLETED)
+- ✅ Inverse Gaussian (Wald) distribution for positive durations (COMPLETED)
+- ✅ Probit link function for alternative binary response modeling (COMPLETED)
+- Additional distributions (Negative Binomial, Tweedie)
+- Additional link functions (Square root, Power)
 - Sparse matrix support for large-scale problems
 - GPU acceleration via JAX backend
 
