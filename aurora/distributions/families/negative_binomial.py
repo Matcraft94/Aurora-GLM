@@ -433,7 +433,9 @@ class NegativeBinomialFamily(Family):
             theta_str = "'estimate'"
         else:
             theta_str = f"{self._theta:.4g}"
-        return f"NegativeBinomialFamily(theta={theta_str}, link='{self._link.name}')"
+        # Get link name from class name (e.g., LogLink -> log)
+        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        return f"NegativeBinomialFamily(theta={theta_str}, link='{link_name}')"
 
 
 # Alias for convenience
