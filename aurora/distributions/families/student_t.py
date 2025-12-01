@@ -365,7 +365,9 @@ class StudentTFamily(Family):
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"StudentTFamily(df={self.df}, link='{self._link.name}')"
+        # Get link name from class name (e.g., IdentityLink -> identity)
+        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        return f"StudentTFamily(df={self.df}, link='{link_name}')"
 
 
 class CauchyFamily(StudentTFamily):
@@ -394,7 +396,9 @@ class CauchyFamily(StudentTFamily):
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"CauchyFamily(link='{self._link.name}')"
+        # Get link name from class name (e.g., IdentityLink -> identity)
+        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        return f"CauchyFamily(link='{link_name}')"
 
 
 __all__ = ['StudentTFamily', 'CauchyFamily']

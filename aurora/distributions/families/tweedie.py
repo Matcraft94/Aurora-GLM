@@ -461,7 +461,9 @@ class TweedieFamily(Family):
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"TweedieFamily(power={self.power:.3g}, phi={self.phi:.3g}, link='{self._link.name}')"
+        # Get link name from class name (e.g., LogLink -> log)
+        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        return f"TweedieFamily(power={self.power:.3g}, phi={self.phi:.3g}, link='{link_name}')"
 
 
 class CompoundPoissonGammaFamily(TweedieFamily):
