@@ -511,19 +511,274 @@ def _line_search(
     kwargs=None,
     method="strong-wolfe",
 ):
-    """Perform a basic backtracking line search satisfying the Armijo condition."""
+    """Line search satisfying Wolfe conditions.
+
+    Strong Wolfe Conditions
+    -----------------------
+    For step size α to be acceptable, it must satisfy:
+
+    1. **Armijo condition** (sufficient decrease):
+       f(x + αd) ≤ f(x) + c₁ α ∇f(x)ᵀd
+
+    2. **Curvature condition** (strong Wolfe):
+       |∇f(x + αd)ᵀd| ≤ c₂ |∇f(x)ᵀd|
+
+    Parameters c₁ and c₂ satisfy 0 < c₁ < c₂ < 1.
+    Typical values: c₁ = 1e-4, c₂ = 0.9
+
+    Algorithm
+    ---------
+    This implements the line search algorithm from Nocedal & Wright (2006),
+    Algorithm 3.5 (Line Search Algorithm) with Algorithm 3.6 (Zoom).
+
+    The algorithm proceeds in two phases:
+    1. **Bracketing**: Find an interval [α_lo, α_hi] containing a step
+       satisfying the strong Wolfe conditions.
+    2. **Zoom**: Bisection-like refinement to find acceptable α in the bracket.
+
+    Convergence
+    -----------
+    **Theorem** (Wolfe, 1969): If f is bounded below along the ray x + αd
+    and f is continuously differentiable, then there exist step lengths
+    satisfying the strong Wolfe conditions.
+
+    References
+    ----------
+    [1] Nocedal, J., & Wright, S. J. (2006). Numerical Optimization (2nd ed.).
+        Springer. Section 3.1: Step Length Selection.
+    [2] Wolfe, P. (1969). "Convergence conditions for ascent methods."
+        SIAM Review, 11(2), 226-235.
+    [3] Moré, J. J., & Thuente, D. J. (1994). "Line search algorithms with
+        guaranteed sufficient decrease." ACM TOMS, 20(3), 286-307.
+    """
+    if kwargs is None:
+        kwargs = {}
+
+    if method == "backtracking":
+        return _backtracking_line_search(
+            loss_fn, grad_fn, x, d, g, backend, args=args, kwargs=kwargs
+        )
+    else:  # strong-wolfe (default)
+        return _strong_wolfe_line_search(
+            loss_fn, grad_fn, x, d, g, backend, args=args, kwargs=kwargs
+        )
+
+
+def _strong_wolfe_line_search(
+    loss_fn,
+    grad_fn,
+    x,
+    d,
+    g,
+    backend,
+    *,
+    args=(),
+    kwargs=None,
+    c1=1e-4,
+    c2=0.9,
+    alpha_max=50.0,
+    max_iter=25,
+):
+    """Strong Wolfe line search (Algorithm 3.5 from Nocedal & Wright).
+
+    Mathematical Conditions
+    -----------------------
+    Find α satisfying:
+        (W1) f(x + αd) ≤ f(x) + c₁ α φ'(0)        [Armijo]
+        (W2) |φ'(α)| ≤ c₂ |φ'(0)|                  [Strong Wolfe curvature]
+
+    where φ(α) = f(x + αd) and φ'(α) = ∇f(x + αd)ᵀd.
+
+    Parameters
+    ----------
+    c1 : float
+        Armijo constant, typically 1e-4
+    c2 : float
+        Wolfe curvature constant, typically 0.9 for quasi-Newton
+        (use 0.1 for nonlinear CG)
+    alpha_max : float
+        Maximum step size to consider
+    max_iter : int
+        Maximum iterations in bracketing phase
+    """
+    if kwargs is None:
+        kwargs = {}
+
+    # Initial values
+    f_0 = loss_fn(x, *args, **kwargs)
+    phi_0 = f_0  # φ(0) = f(x)
+
+    # Directional derivative at α=0: φ'(0) = ∇f(x)ᵀd
+    dphi_0 = _to_scalar((g * d).sum(), backend)
+    fev = 1
+
+    # If not a descent direction, return failure
+    if dphi_0 >= 0:
+        g_new = grad_fn(x, *args, **kwargs)
+        return 0.0, f_0, g_new, fev
+
+    alpha_prev = 0.0
+    phi_prev = phi_0
+    dphi_prev = dphi_0
+
+    alpha = 1.0  # Initial step size (Newton step)
+
+    for i in range(max_iter):
+        x_new = x + alpha * d
+        phi = loss_fn(x_new, *args, **kwargs)
+        fev += 1
+
+        # Check Armijo condition (W1)
+        armijo_threshold = phi_0 + c1 * alpha * dphi_0
+
+        if phi > armijo_threshold or (i > 0 and phi >= phi_prev):
+            # Need to zoom in [alpha_prev, alpha]
+            result = _zoom(
+                loss_fn, grad_fn, x, d, backend,
+                alpha_prev, alpha,
+                phi_prev, phi,
+                dphi_prev,
+                phi_0, dphi_0, c1, c2,
+                args=args, kwargs=kwargs
+            )
+            return result[0], result[1], result[2], fev + result[3]
+
+        # Compute gradient at new point
+        g_new = grad_fn(x_new, *args, **kwargs)
+        dphi = _to_scalar((g_new * d).sum(), backend)
+
+        # Check strong Wolfe curvature condition (W2)
+        if abs(dphi) <= c2 * abs(dphi_0):
+            # Found acceptable step
+            return alpha, phi, g_new, fev
+
+        # If slope is non-negative, zoom in [alpha, alpha_prev]
+        if dphi >= 0:
+            result = _zoom(
+                loss_fn, grad_fn, x, d, backend,
+                alpha, alpha_prev,
+                phi, phi_prev,
+                dphi,
+                phi_0, dphi_0, c1, c2,
+                args=args, kwargs=kwargs
+            )
+            return result[0], result[1], result[2], fev + result[3]
+
+        # Update for next iteration
+        alpha_prev = alpha
+        phi_prev = phi
+        dphi_prev = dphi
+
+        # Expand step (use golden ratio or simple doubling)
+        alpha = min(2.0 * alpha, alpha_max)
+
+    # Max iterations reached, return current best
+    x_new = x + alpha * d
+    f_new = loss_fn(x_new, *args, **kwargs)
+    g_new = grad_fn(x_new, *args, **kwargs)
+    return alpha, f_new, g_new, fev + 1
+
+
+def _zoom(
+    loss_fn, grad_fn, x, d, backend,
+    alpha_lo, alpha_hi,
+    phi_lo, phi_hi,
+    dphi_lo,
+    phi_0, dphi_0, c1, c2,
+    *,
+    args=(),
+    kwargs=None,
+    max_iter=10,
+):
+    """Zoom phase of line search (Algorithm 3.6 from Nocedal & Wright).
+
+    Refines a bracket [α_lo, α_hi] to find a step satisfying strong Wolfe.
+
+    The interval [α_lo, α_hi] satisfies:
+    1. α_lo and α_hi bracket a point satisfying Wolfe conditions
+    2. α_lo has lower function value
+    3. φ'(α_lo)(α_hi - α_lo) < 0
+
+    Uses bisection with optional quadratic interpolation for faster convergence.
+    """
+    if kwargs is None:
+        kwargs = {}
+
+    fev = 0
+
+    for _ in range(max_iter):
+        # Bisection (could use quadratic interpolation for faster convergence)
+        alpha = 0.5 * (alpha_lo + alpha_hi)
+
+        x_new = x + alpha * d
+        phi = loss_fn(x_new, *args, **kwargs)
+        fev += 1
+
+        armijo_threshold = phi_0 + c1 * alpha * dphi_0
+
+        if phi > armijo_threshold or phi >= phi_lo:
+            # Shrink from above
+            alpha_hi = alpha
+            phi_hi = phi
+        else:
+            g_new = grad_fn(x_new, *args, **kwargs)
+            dphi = _to_scalar((g_new * d).sum(), backend)
+
+            # Check strong Wolfe curvature condition
+            if abs(dphi) <= c2 * abs(dphi_0):
+                return alpha, phi, g_new, fev
+
+            # Update bracket
+            if dphi * (alpha_hi - alpha_lo) >= 0:
+                alpha_hi = alpha_lo
+                phi_hi = phi_lo
+
+            alpha_lo = alpha
+            phi_lo = phi
+            dphi_lo = dphi
+
+        # Check for convergence (bracket too small)
+        if abs(alpha_hi - alpha_lo) < 1e-12:
+            break
+
+    # Return best found
+    x_new = x + alpha_lo * d
+    f_new = loss_fn(x_new, *args, **kwargs)
+    g_new = grad_fn(x_new, *args, **kwargs)
+    return alpha_lo, f_new, g_new, fev + 1
+
+
+def _backtracking_line_search(
+    loss_fn,
+    grad_fn,
+    x,
+    d,
+    g,
+    backend,
+    *,
+    args=(),
+    kwargs=None,
+    c1=1e-4,
+    rho=0.5,
+    max_iter=20,
+):
+    """Simple backtracking line search (Armijo condition only).
+
+    Finds α satisfying:
+        f(x + αd) ≤ f(x) + c₁ α ∇f(x)ᵀd
+
+    This is faster but may not guarantee curvature condition needed
+    for quasi-Newton methods.
+    """
     if kwargs is None:
         kwargs = {}
 
     alpha = 1.0
-    c1 = 1e-4
-    rho = 0.9
-
     f_0 = loss_fn(x, *args, **kwargs)
-    directional_derivative = (g * d).sum()
+    directional_derivative = _to_scalar((g * d).sum(), backend)
 
     fev = 1
-    for _ in range(20):
+    for _ in range(max_iter):
         x_new = x + alpha * d
         f_new = loss_fn(x_new, *args, **kwargs)
         fev += 1
@@ -538,6 +793,13 @@ def _line_search(
     f_new = loss_fn(x_new, *args, **kwargs)
     g_new = grad_fn(x_new, *args, **kwargs)
     return alpha, f_new, g_new, fev
+
+
+def _to_scalar(value, backend):
+    """Convert array scalar to Python float."""
+    if hasattr(backend, 'as_numpy'):
+        return float(backend.as_numpy(value))
+    return float(value)
 
 
 def _convert_to_backend(backend, value):
