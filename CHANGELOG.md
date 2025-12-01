@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-11-30
+
 ### Added
+
+#### Core Infrastructure - Automatic Differentiation
+
+- **Autodiff module** (`aurora/core/autodiff/`):
+  - Complete automatic differentiation utilities for gradient-based optimization
+  - **gradient.py**: Gradient computation for scalar-valued functions
+  - **hessian.py**: Hessian matrix computation with symmetry verification
+  - **jacobian.py**: Jacobian matrix for vector-valued functions
+  - **products.py**: Memory-efficient Hessian-vector products (HVP), Jacobian-vector products (JVP), vector-Jacobian products (VJP)
+  - **backends.py**: Automatic backend detection (NumPy/PyTorch/JAX)
+  - **utils.py**: Numerical differentiation utilities
+  - Multi-backend support: Native autodiff for PyTorch/JAX, numerical for NumPy
+  - 502 comprehensive unit tests
+
+#### Optimization Enhancements
+
+- **Sparse matrix support in IRLS** (`aurora/core/optimization/irls.py`):
+  - Automatic detection and handling of scipy.sparse design matrices
+  - Sparse-aware weighted least squares solver using SuperLU
+  - Performance improvement: O(nnz) complexity vs O(np²) for dense matrices
+  - Efficient for high-dimensional categorical data and B-spline bases
+  - 658 comprehensive unit tests
+
+- **Advanced optimization algorithms** (`aurora/core/optimization/`):
+  - **Strong Wolfe line search**: Robust step length selection with bracketing and zoom phases
+  - **Modified Newton optimizer**: Levenberg-Marquardt regularization for indefinite Hessians
+  - Adaptive lambda adjustment ensuring positive definiteness
+  - New optimizer aliases: `modified_newton`, `levenberg-marquardt`
+  - Global convergence guarantees for smooth functions
 
 #### Phase 5 Milestone 1 - Extended Distribution Families
 
@@ -40,6 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-backend support: NumPy, PyTorch, JAX
   - 14 comprehensive unit tests
 
+- **Additional distribution families**:
+  - **NegativeBinomialFamily**: Overdispersed count data with variance = μ + μ²/θ
+  - **StudentTFamily**: Heavy-tailed distributions for robust regression
+  - **TweedieFamily**: Compound Poisson-Gamma for insurance and actuarial applications
+  - 1580+ comprehensive unit tests for new distributions
+
 ### Changed - Internal Architecture
 
 #### Backend Module Refactoring
@@ -59,12 +96,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Maintains backward compatibility with `GLMResult.predict()` method
   - **PUBLIC API ENHANCED**: New `predict_glm()` function available for functional programming style
 
+#### Test Organization
+- **Refactor**: Reorganized test files into proper subdirectories
+  - Moved integration tests from root to `tests/test_integration/`
+  - Moved PISA case study tests to integration directory
+  - Moved multi-backend integration tests to proper location
+  - Better separation between unit tests and integration tests
+
 ### Notes for Developers
 
 - New backend implementations should satisfy the `Backend` Protocol defined in `_protocol.py`
 - Registration logic is now in `_registry.py` (internal module)
 - Use `predict_glm()` for functional-style predictions or `result.predict()` for OOP style
+- Autodiff module enables gradient-based optimizers across all backends
+- Sparse matrices are auto-detected via `scipy.sparse.issparse()`
 - End users: No action required, all code continues to work
+
+### Performance Improvements
+
+- **Sparse matrix support**: Significant speedup for high-dimensional sparse data (>90% zeros)
+- **Optimization algorithms**: More robust convergence with Wolfe line search and modified Newton
+- **Autodiff**: Efficient gradient computation enabling advanced optimization methods
 
 ## [0.5.0]
 
