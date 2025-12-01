@@ -4,13 +4,14 @@ from __future__ import annotations
 from .base import Optimizer
 from .irls import irls
 from .lbfgs import lbfgs
-from .newton import newton_raphson
+from .newton import newton_raphson, modified_newton
 from .result import OptimizationResult
 
 __all__ = [
 	"OptimizationResult",
 	"Optimizer",
 	"newton_raphson",
+	"modified_newton",
 	"irls",
 	"lbfgs",
 	"optimize",
@@ -32,6 +33,8 @@ def optimize(
 	optimizers = {
 		"newton": newton_raphson,
 		"newton-raphson": newton_raphson,
+		"modified-newton": modified_newton,
+		"levenberg-marquardt": modified_newton,
 		"irls": irls,
 		"lbfgs": lbfgs,
 		"l-bfgs": lbfgs,

@@ -466,4 +466,256 @@ def _compute_hessian(loss_fn, params, backend, args, kwargs):
     return hessian, evaluations
 
 
-__all__ = ["newton_raphson"]
+def modified_newton(
+    loss_fn: Callable,
+    init_params: Array,
+    *,
+    backend=None,
+    args: tuple = (),
+    kwargs: dict | None = None,
+    max_iter: int = 100,
+    tol: float = 1e-6,
+    lambda_init: float = 1e-3,
+    lambda_factor: float = 10.0,
+    lambda_max: float = 1e8,
+    callback: OptimizationCallback | None = None,
+) -> OptimizationResult:
+    """Modified Newton-Raphson with Levenberg-Marquardt regularization.
+
+    Mathematical Framework
+    ----------------------
+    When the Hessian H is indefinite or ill-conditioned, the standard Newton
+    step p = -H⁻¹g may not be a descent direction. Modified Newton adds
+    regularization:
+
+        (H + λI) p = -g
+
+    where λ > 0 ensures positive definiteness.
+
+    Levenberg-Marquardt Strategy
+    ----------------------------
+    The regularization parameter λ is adjusted adaptively:
+
+    1. **Start with small λ**: Allow near-Newton steps when H is well-behaved
+    2. **Increase λ if step rejected**: When function doesn't decrease sufficiently,
+       multiply λ by `lambda_factor` to trust gradient more than curvature
+    3. **Decrease λ if step accepted**: After successful steps, reduce λ
+       to allow faster convergence via better Hessian approximation
+
+    **Interpretation**:
+    - λ → 0: Pure Newton (quadratic convergence near solution)
+    - λ → ∞: Steepest descent (slow but robust)
+
+    The algorithm smoothly interpolates between these extremes.
+
+    Guaranteeing Positive Definiteness
+    ----------------------------------
+    For symmetric H with eigenvalues λ₁ ≤ λ₂ ≤ ... ≤ λₙ:
+    - H + λI has eigenvalues λ₁ + λ, λ₂ + λ, ..., λₙ + λ
+    - If λ > -λ₁ (where λ₁ is the smallest eigenvalue), H + λI is positive definite
+
+    In practice, we use the Cholesky factorization attempt:
+    - If Cholesky succeeds: H + λI is positive definite
+    - If Cholesky fails: Increase λ and retry
+
+    Convergence Properties
+    ----------------------
+    **Theorem** (Dennis & Schnabel, 1996): Modified Newton with adaptive λ
+    converges globally for any starting point if:
+    1. f is bounded below
+    2. ∇f is Lipschitz continuous
+    3. f is twice continuously differentiable
+
+    **Local rate**: Near the solution where H is positive definite:
+    - If λ → 0 sufficiently fast: Quadratic convergence
+    - If λ bounded away from 0: Linear convergence
+
+    Parameters
+    ----------
+    loss_fn : callable
+        Objective function to minimize
+    init_params : array
+        Initial parameter values
+    backend : object, optional
+        Array backend (NumPy, PyTorch, JAX)
+    args : tuple
+        Additional positional arguments for loss_fn
+    kwargs : dict, optional
+        Additional keyword arguments for loss_fn
+    max_iter : int, default=100
+        Maximum number of iterations
+    tol : float, default=1e-6
+        Convergence tolerance for gradient norm
+    lambda_init : float, default=1e-3
+        Initial regularization parameter
+    lambda_factor : float, default=10.0
+        Factor to increase/decrease λ
+    lambda_max : float, default=1e8
+        Maximum allowed λ (switches to pure gradient descent)
+    callback : callable, optional
+        Function called after each iteration
+
+    Returns
+    -------
+    OptimizationResult
+        Contains solution, final function value, convergence status
+
+    References
+    ----------
+    [1] Levenberg, K. (1944). "A method for the solution of certain non-linear
+        problems in least squares." Quarterly of Applied Mathematics, 2(2), 164-168.
+    [2] Marquardt, D. W. (1963). "An algorithm for least-squares estimation of
+        nonlinear parameters." Journal of SIAM, 11(2), 431-441.
+    [3] Dennis, J. E., & Schnabel, R. B. (1996). Numerical Methods for
+        Unconstrained Optimization and Nonlinear Equations. SIAM.
+    [4] Nocedal, J., & Wright, S. J. (2006). Numerical Optimization (2nd ed.).
+        Springer. Chapter 4: Trust-Region Methods.
+
+    Examples
+    --------
+    >>> def rosenbrock(x):
+    ...     return (1 - x[0])**2 + 100*(x[1] - x[0]**2)**2
+    >>> result = modified_newton(rosenbrock, [-1.0, 1.0])
+    >>> print(result.x)  # Should be close to [1, 1]
+    """
+    if kwargs is None:
+        kwargs = {}
+
+    if backend is None:
+        from ..backends import get_backend
+        backend = get_backend("jax")
+
+    grad_fn = backend.grad(loss_fn)
+
+    x = backend.array(init_params)
+    x_np = np.asarray(backend.as_numpy(x), dtype=float)
+
+    nfev = 0
+    njev = 0
+    nhev = 0
+
+    # Current function value
+    f_val = float(backend.as_numpy(loss_fn(x, *args, **kwargs)))
+    nfev += 1
+
+    lam = lambda_init
+
+    for iteration in range(max_iter):
+        # Compute gradient
+        grad = grad_fn(x, *args, **kwargs)
+        njev += 1
+        grad_np = np.asarray(backend.as_numpy(grad), dtype=float)
+        grad_norm = np.linalg.norm(grad_np)
+
+        # Check convergence
+        if grad_norm < tol:
+            return OptimizationResult(
+                x=x_np,
+                fun=f_val,
+                grad=grad_np,
+                success=True,
+                message="Converged: gradient norm below tolerance",
+                nit=iteration,
+                nfev=nfev,
+                njev=njev,
+                nhev=nhev,
+            )
+
+        # Compute Hessian
+        hess_np, evals = _compute_hessian(loss_fn, x, backend, args, kwargs)
+        nfev += evals
+        nhev += 1
+
+        # Modified Newton with adaptive λ
+        step_found = False
+        for _ in range(20):  # Max attempts to find good λ
+            try:
+                # Form H + λI
+                H_mod = hess_np + lam * np.eye(len(x_np))
+
+                # Attempt Cholesky factorization (tests positive definiteness)
+                L = np.linalg.cholesky(H_mod)
+
+                # Solve (H + λI)p = -g via Cholesky
+                # L L^T p = -g  =>  L y = -g, then L^T p = y
+                y = np.linalg.solve(L, -grad_np)
+                step = np.linalg.solve(L.T, y)
+
+                # Evaluate new point
+                x_new_np = x_np + step
+                x_new = backend.array(x_new_np, dtype=getattr(x, "dtype", None))
+                f_new = float(backend.as_numpy(loss_fn(x_new, *args, **kwargs)))
+                nfev += 1
+
+                # Armijo condition: sufficient decrease
+                # f(x + p) ≤ f(x) + c₁ ∇f(x)ᵀp
+                c1 = 1e-4
+                directional_deriv = np.dot(grad_np, step)
+                if f_new <= f_val + c1 * directional_deriv:
+                    # Accept step
+                    x_np = x_new_np
+                    x = x_new
+                    f_val = f_new
+                    step_found = True
+
+                    # Decrease λ for next iteration (trust Hessian more)
+                    lam = max(lam / lambda_factor, 1e-10)
+                    break
+                else:
+                    # Increase λ (trust gradient more)
+                    lam = min(lam * lambda_factor, lambda_max)
+
+            except np.linalg.LinAlgError:
+                # Cholesky failed - matrix not positive definite
+                # Increase λ and retry
+                lam = min(lam * lambda_factor, lambda_max)
+
+        if not step_found:
+            # Fall back to gradient descent step
+            step = -grad_np * (1.0 / (grad_norm + 1e-8))
+            x_new_np = x_np + step * 0.1  # Small step
+            x_new = backend.array(x_new_np, dtype=getattr(x, "dtype", None))
+            f_new = float(backend.as_numpy(loss_fn(x_new, *args, **kwargs)))
+            nfev += 1
+
+            if f_new < f_val:
+                x_np = x_new_np
+                x = x_new
+                f_val = f_new
+
+        if callback is not None:
+            callback(iteration, x_np, f_val)
+
+        # Check step size convergence
+        if step_found and np.linalg.norm(step) < tol:
+            final_grad = np.asarray(backend.as_numpy(grad_fn(x, *args, **kwargs)), dtype=float)
+            njev += 1
+            return OptimizationResult(
+                x=x_np,
+                fun=f_val,
+                grad=final_grad,
+                success=True,
+                message="Converged: step size below tolerance",
+                nit=iteration + 1,
+                nfev=nfev,
+                njev=njev,
+                nhev=nhev,
+            )
+
+    # Maximum iterations reached
+    final_grad = np.asarray(backend.as_numpy(grad_fn(x, *args, **kwargs)), dtype=float)
+    njev += 1
+    return OptimizationResult(
+        x=x_np,
+        fun=f_val,
+        grad=final_grad,
+        success=False,
+        message="Maximum iterations reached",
+        nit=max_iter,
+        nfev=nfev,
+        njev=njev,
+        nhev=nhev,
+    )
+
+
+__all__ = ["newton_raphson", "modified_newton"]
