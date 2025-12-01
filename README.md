@@ -2,7 +2,7 @@
 
 **Aurora-GLM** is a modular, extensible, and high-performance Python framework for statistical modeling, focusing on Generalized Linear Models (GLM), Generalized Additive Models (GAM), and Generalized Additive Mixed Models (GAMM).
 
-> ✅ **Development Status**: Phase 5 IN PROGRESS (75%). Full GAM/GAMM implementation complete. Non-Gaussian GAMM (Poisson, Binomial) with PQL estimation available!
+> ✅ **Development Status**: Phase 5 IN PROGRESS (80%). Full GAM/GAMM implementation complete with autodiff, sparse optimization, and extended distributions!
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -14,8 +14,8 @@
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.5.0
-- **Status**: Phase 5 IN PROGRESS (75%) - Non-Gaussian GAMM (Poisson, Binomial), PQL estimation, nested/crossed random effects
+- **Version**: 0.6.0
+- **Status**: Phase 5 IN PROGRESS (80%) - Extended distributions, autodiff module, sparse matrix optimization
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -47,19 +47,24 @@ Aurora-GLM aims to be:
 
 **Optimization Algorithms**:
 - ✅ Newton-Raphson with automatic Hessian
-- ✅ IRLS (Iteratively Reweighted Least Squares) for GLM
-- ✅ L-BFGS with line search and two-loop recursion
+- ✅ Modified Newton with Levenberg-Marquardt regularization
+- ✅ IRLS (Iteratively Reweighted Least Squares) for GLM with sparse matrix support
+- ✅ L-BFGS with strong Wolfe line search and two-loop recursion
+- ✅ Autodiff module (gradient, hessian, jacobian) for NumPy/PyTorch/JAX
 - ✅ Callbacks for monitoring
 - ✅ Robust convergence checking
 
-**Distribution Families** (7/10 planned):
+**Distribution Families** (10/10 planned):
 - ✅ Gaussian (Normal)
 - ✅ Poisson
 - ✅ Binomial
 - ✅ Gamma
 - ✅ Beta (proportions modeling, precision parameter φ)
 - ✅ Inverse Gaussian (positive durations, Wald distribution)
-- 📋 Negative Binomial (overdispersed counts)
+- ✅ Negative Binomial (overdispersed counts, NB2 parameterization)
+- ✅ Student-t (heavy-tailed, robust regression)
+- ✅ Tweedie (compound Poisson-Gamma, insurance/actuarial)
+- ✅ Quasi-families (Quasi-Poisson, Quasi-Binomial)
 
 **Link Functions** (6/8 planned):
 - ✅ Identity: `g(μ) = μ`
