@@ -60,10 +60,17 @@ def fit_gamm(
     family : str, default='gaussian'
         Distribution family. Currently only 'gaussian' supported.
     covariance : str, default='unstructured'
-        Covariance structure for random effects:
+        Covariance structure for random effects. Options:
+        - 'identity': Independent random effects (default)
+        - 'diagonal': Heterogeneous variances, no correlation
         - 'unstructured': Full covariance matrix
-        - 'diagonal': Independent random effects
-        - 'identity': Equal variances, no correlation
+        - 'ar1': Autoregressive AR(1) for temporal correlation
+        - 'compound_symmetry' or 'cs': Exchangeable correlation
+        - 'exponential': Spatial decay (requires coordinates)
+        - 'matern': Matérn spatial covariance (requires coordinates)
+
+        For temporal/longitudinal data, use 'ar1'. For clustered data
+        with equal correlations, use 'compound_symmetry'.
     maxiter : int, default=100
         Maximum iterations for optimization.
     tol : float, default=1e-6

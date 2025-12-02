@@ -37,11 +37,18 @@ class RandomEffect:
         intercept (if include_intercept=True).
     include_intercept : bool, default=True
         Whether to include a random intercept (1 | group).
-    covariance : {'unstructured', 'diagonal', 'identity'}, default='unstructured'
-        Covariance structure among random effects:
+    covariance : str, default='unstructured'
+        Covariance structure among random effects. Options:
         - 'unstructured': Full covariance matrix (q(q+1)/2 parameters)
         - 'diagonal': Independent random effects (q parameters)
         - 'identity': Equal variances, no correlation (1 parameter)
+        - 'ar1': Autoregressive AR(1) for temporal correlation
+        - 'compound_symmetry' or 'cs': Exchangeable correlation (ICC model)
+        - 'exponential': Spatial exponential decay (requires coordinates)
+        - 'matern': Matérn spatial covariance (requires coordinates)
+
+        For temporal/longitudinal data, use 'ar1'. For clustered data with
+        equal within-cluster correlation, use 'compound_symmetry'.
 
     Attributes
     ----------
@@ -91,7 +98,7 @@ class RandomEffect:
     grouping: str | int
     variables: tuple[str | int, ...] = field(default_factory=tuple)
     include_intercept: bool = True
-    covariance: Literal['unstructured', 'diagonal', 'identity'] = 'unstructured'
+    covariance: Literal['unstructured', 'diagonal', 'identity', 'ar1', 'compound_symmetry', 'cs', 'exponential', 'matern'] = 'unstructured'
 
     def __post_init__(self):
         """Validate random effect specification."""
@@ -100,7 +107,11 @@ class RandomEffect:
             raise ValueError("grouping must be specified")
 
         # Validate covariance structure
-        valid_cov = {'unstructured', 'diagonal', 'identity'}
+        valid_cov = {
+            'unstructured', 'diagonal', 'identity',
+            'ar1', 'compound_symmetry', 'cs',  # Temporal correlation
+            'exponential', 'matern'  # Spatial correlation
+        }
         if self.covariance not in valid_cov:
             raise ValueError(
                 f"covariance must be one of {valid_cov}, got '{self.covariance}'"

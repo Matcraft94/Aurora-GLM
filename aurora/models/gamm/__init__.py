@@ -6,6 +6,10 @@ from aurora.models.gamm.covariance import (
     DiagonalCovariance,
     IdentityCovariance,
     UnstructuredCovariance,
+    AR1Covariance,
+    CompoundSymmetryCovariance,
+    ExponentialSpatialCovariance,
+    MaternCovariance,
     get_covariance_structure,
 )
 from aurora.models.gamm.design import construct_Z_matrix, extract_random_effects
@@ -62,6 +66,10 @@ __all__ = [
     "UnstructuredCovariance",
     "DiagonalCovariance",
     "IdentityCovariance",
+    "AR1Covariance",
+    "CompoundSymmetryCovariance",
+    "ExponentialSpatialCovariance",
+    "MaternCovariance",
     "get_covariance_structure",
     # Design matrices
     "construct_Z_matrix",
