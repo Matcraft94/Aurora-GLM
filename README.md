@@ -507,6 +507,61 @@ corr = psi[0, 1] / np.sqrt(psi[0, 0] * psi[1, 1])
 print(f"Correlation: {corr:.3f}")
 ```
 
+### Temporal Correlation with AR1
+
+For longitudinal data with temporal autocorrelation:
+
+```python
+from aurora.models.gamm import fit_gamm, RandomEffect
+
+# AR1 covariance for temporally correlated observations
+re_ar1 = RandomEffect(grouping='subject', covariance='ar1')
+
+result = fit_gamm(
+    y=y,
+    X=X,
+    random_effects=[re_ar1],
+    groups_data={'subject': subject_id}
+)
+
+# Extract AR1 parameters
+# params[0] = log(σ²), params[1] = arctanh(ρ)
+params = result.variance_components
+sigma2 = np.exp(params[0])  # Variance
+rho = np.tanh(params[1])    # Autocorrelation
+print(f"AR1: σ² = {sigma2:.3f}, ρ = {rho:.3f}")
+
+# Interpretation: observations at lag k have correlation ρ^k
+# Example: ρ = 0.7 means adjacent observations have correlation 0.7,
+# observations 2 time units apart have correlation 0.49, etc.
+```
+
+### Compound Symmetry (Exchangeable Correlation)
+
+For clustered data with equal within-cluster correlation:
+
+```python
+# Compound symmetry: all pairs equally correlated
+re_cs = RandomEffect(grouping='cluster', covariance='compound_symmetry')
+
+result = fit_gamm(
+    y=y,
+    X=X,
+    random_effects=[re_cs],
+    groups_data={'cluster': cluster_id}
+)
+
+# Extract variance and ICC (Intraclass Correlation Coefficient)
+params = result.variance_components
+sigma2 = np.exp(params[0])
+
+# For compound symmetry, all within-cluster pairs have the same correlation
+# This represents the ICC: proportion of variance due to cluster effects
+print(f"Estimated variance: σ² = {sigma2:.3f}")
+print("Use compound symmetry when cluster members are exchangeable")
+print("(e.g., students in same school, patients in same hospital)")
+```
+
 ### Making Predictions
 
 ```python
