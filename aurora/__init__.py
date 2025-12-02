@@ -53,8 +53,14 @@ from .distributions.links import (
 # Base classes
 from .distributions.base import Family, LinkFunction
 
-# Random effects
-from .models.gamm import RandomEffect
+# Random effects and covariance structures
+from .models.gamm import (
+    RandomEffect,
+    AR1Covariance,
+    CompoundSymmetryCovariance,
+    ExponentialSpatialCovariance,
+    MaternCovariance,
+)
 
 # Inference utilities
 from .inference import (
@@ -134,6 +140,11 @@ __all__ = [
     "PowerLink",
     # Random effects
     "RandomEffect",
+    # Covariance structures
+    "AR1Covariance",
+    "CompoundSymmetryCovariance",
+    "ExponentialSpatialCovariance",
+    "MaternCovariance",
     # Inference
     "confidence_intervals",
     "glm_diagnostics",
