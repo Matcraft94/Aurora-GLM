@@ -6,6 +6,7 @@ from .irls import irls
 from .lbfgs import lbfgs
 from .newton import newton_raphson, modified_newton
 from .result import OptimizationResult
+from .sparse_solvers import solve_sparse_penalized_ls
 
 __all__ = [
 	"OptimizationResult",
@@ -15,6 +16,7 @@ __all__ = [
 	"irls",
 	"lbfgs",
 	"optimize",
+	"solve_sparse_penalized_ls",
 ]
 
 
