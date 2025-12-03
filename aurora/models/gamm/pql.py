@@ -861,6 +861,7 @@ def fit_pql_gamm(
         beta_smooth={},  # Phase 2
         random_effects=random_effects,
         variance_components=[pql_result.psi],
+        covariance_params=None,  # PQL doesn't use structured covariance (yet)
         residual_variance=pql_result.sigma2,
         smoothing_parameters=None,
         edf_total=edf_total,
