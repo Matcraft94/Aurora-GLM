@@ -21,13 +21,28 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy import special
 
 from aurora.distributions.base import Family
 from aurora.distributions.links import LogLink, IdentityLink, SqrtLink
+from aurora.distributions._utils import (
+    namespace,
+    as_namespace_array,
+    log_gamma,
+    digamma,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+try:  # pragma: no cover - optional dependency
+    import torch
+except ImportError:  # pragma: no cover - optional dependency
+    torch = None  # type: ignore[assignment]
+
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
 
 class NegativeBinomialFamily(Family):
@@ -157,8 +172,10 @@ class NegativeBinomialFamily(Family):
         theta = params.get('theta', self._theta)
         if theta is None:
             raise ValueError("theta must be specified or estimated")
-        
-        return mu + mu**2 / theta
+
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+        return mu_arr + mu_arr**2 / theta
 
     def initialize(self, y: NDArray) -> NDArray:
         """Initialize mean with sample mean + small constant.
@@ -173,13 +190,25 @@ class NegativeBinomialFamily(Family):
         ndarray
             Initial mean estimates
         """
-        mu = np.mean(y)
-        return np.full_like(y, max(mu, 0.1), dtype=float)
+        xp = namespace(y)
+        y_arr = as_namespace_array(y, xp, like=y)
+        mu = xp.mean(y_arr)
+
+        # Convert mu to scalar for max comparison
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_val = max(float(mu.item() if hasattr(mu, 'item') else mu), 0.1)
+            return torch.full_like(y_arr, mu_val, dtype=torch.float32)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_val = max(float(mu), 0.1)
+            return jnp.full_like(y_arr, mu_val, dtype=jnp.float32)
+        else:
+            mu_val = max(float(mu), 0.1)
+            return np.full_like(y_arr, mu_val, dtype=float)
 
     def log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> float:
         """Log-likelihood for Negative Binomial.
@@ -201,27 +230,35 @@ class NegativeBinomialFamily(Family):
         theta = params.get('theta', self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
-        
-        # Ensure y and mu are valid
-        y = np.asarray(y, dtype=float)
-        mu = np.maximum(mu, 1e-10)
-        
-        # Log-likelihood: 
+
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Clip mu to avoid log(0)
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
+        # Log-likelihood:
         # log Γ(y+θ) - log Γ(θ) - log(y!) + θ log(θ/(θ+μ)) + y log(μ/(θ+μ))
         log_lik = (
-            special.gammaln(y + theta) - 
-            special.gammaln(theta) - 
-            special.gammaln(y + 1) +
-            theta * np.log(theta / (theta + mu)) +
-            y * np.log(mu / (theta + mu))
+            log_gamma(y_arr + theta, xp) -
+            log_gamma(xp.full_like(y_arr, theta) if hasattr(xp, 'full_like') else theta, xp) -
+            log_gamma(y_arr + 1, xp) +
+            theta * xp.log(theta / (theta + mu_arr)) +
+            y_arr * xp.log(mu_arr / (theta + mu_arr))
         )
-        
-        return np.sum(log_lik)
+
+        return float(xp.sum(log_lik))
 
     def deviance(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> float:
         """Deviance for Negative Binomial.
@@ -243,21 +280,33 @@ class NegativeBinomialFamily(Family):
         theta = params.get('theta', self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
-        
-        y = np.asarray(y, dtype=float)
-        mu = np.maximum(mu, 1e-10)
-        
+
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Clip mu to avoid division by zero
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+            zeros = torch.zeros_like(y_arr)
+            term1 = torch.where(y_arr > 0, y_arr * torch.log(y_arr / mu_arr), zeros)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+            zeros = jnp.zeros_like(y_arr)
+            term1 = jnp.where(y_arr > 0, y_arr * jnp.log(y_arr / mu_arr), zeros)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+            zeros = np.zeros_like(y_arr)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                term1 = np.where(y_arr > 0, y_arr * np.log(y_arr / mu_arr), zeros)
+
         # Unit deviance
         # d_i = 2[y log(y/μ) - (y+θ) log((y+θ)/(μ+θ))]
-        
-        # Handle y=0 case
-        with np.errstate(divide='ignore', invalid='ignore'):
-            term1 = np.where(y > 0, y * np.log(y / mu), 0)
-            term2 = (y + theta) * np.log((y + theta) / (mu + theta))
-        
+        term2 = (y_arr + theta) * xp.log((y_arr + theta) / (mu_arr + theta))
+
         d = 2 * (term1 - term2)
-        
-        return np.sum(d)
+
+        return float(xp.sum(d))
 
     def estimate_theta(
         self, 
@@ -291,8 +340,8 @@ class NegativeBinomialFamily(Family):
             raise ValueError(f"Unknown method: {method}")
 
     def _estimate_theta_moments(
-        self, 
-        y: NDArray, 
+        self,
+        y: NDArray,
         mu: NDArray
     ) -> float:
         """Method of moments estimator for theta.
@@ -300,75 +349,81 @@ class NegativeBinomialFamily(Family):
         Based on: Var(Y) = μ + μ²/θ
         Rearranging: θ = μ² / (Var(Y) - μ)
         """
-        y = np.asarray(y, dtype=float)
-        mu = np.asarray(mu, dtype=float)
-        
-        # Pearson residuals squared
-        var_y = np.var(y)
-        mean_y = np.mean(y)
-        
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Compute mean and variance
+        mean_y = float(xp.mean(y_arr))
+        var_y = float(xp.var(y_arr))
+
         # Var = μ + μ²/θ => θ = μ²/(Var - μ)
         excess_var = var_y - mean_y
-        
+
         if excess_var <= 0:
             # No overdispersion detected, return large theta (near Poisson)
             return 1e6
-        
+
         theta = mean_y**2 / excess_var
-        
+
         # Ensure reasonable bounds
-        return np.clip(theta, 0.01, 1e6)
+        return float(np.clip(theta, 0.01, 1e6))
 
     def _estimate_theta_ml(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         maxiter: int = 50
     ) -> float:
         """Maximum likelihood estimator for theta.
 
         Uses Newton-Raphson on the profile log-likelihood.
+
+        Note: This method converts inputs to NumPy since it uses
+        scipy.optimize which requires NumPy arrays.
         """
         from scipy.optimize import brentq
-        
-        y = np.asarray(y, dtype=float)
-        mu = np.asarray(mu, dtype=float)
-        n = len(y)
-        
+        from scipy import special
+
+        # Convert to NumPy for scipy.optimize
+        y_np = np.asarray(y, dtype=float)
+        mu_np = np.asarray(mu, dtype=float)
+        n = len(y_np)
+
         def score(theta):
             """Score function for theta."""
             if theta <= 0:
                 return np.inf
-            
+
             # d/dθ log L
-            psi_deriv = special.digamma(y + theta) - special.digamma(theta)
+            psi_deriv = special.digamma(y_np + theta) - special.digamma(theta)
             term1 = np.sum(psi_deriv)
-            term2 = n * np.log(theta / (theta + mu)).mean()
-            term3 = n * (1 - mu / (theta + mu)).mean()
-            
+            term2 = n * np.log(theta / (theta + mu_np)).mean()
+            term3 = n * (1 - mu_np / (theta + mu_np)).mean()
+
             return term1 + term2 + term3
 
         # Initial estimate from moments
         theta_init = self._estimate_theta_moments(y, mu)
-        
+
         # Bracket search
         try:
             theta_lo, theta_hi = 0.01, 1000.0
-            
+
             # Check if solution exists in bracket
             if score(theta_lo) * score(theta_hi) > 0:
                 # Use moments estimate if no root in bracket
                 return theta_init
-            
+
             theta_ml = brentq(score, theta_lo, theta_hi, maxiter=maxiter)
-            return theta_ml
+            return float(theta_ml)
         except (ValueError, RuntimeError):
             return theta_init
 
     def d_log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> NDArray:
         """First derivative of log-likelihood w.r.t. μ.
@@ -388,18 +443,28 @@ class NegativeBinomialFamily(Family):
         theta = params.get('theta', self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
-        
-        mu = np.maximum(mu, 1e-10)
-        
+
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Clip mu to avoid division by zero
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         # d/dμ log L = y/μ - (y+θ)/(μ+θ)
-        grad = y / mu - (y + theta) / (mu + theta)
-        
+        grad = y_arr / mu_arr - (y_arr + theta) / (mu_arr + theta)
+
         return grad
 
     def d2_log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> NDArray:
         """Second derivative of log-likelihood w.r.t. μ.
@@ -419,12 +484,22 @@ class NegativeBinomialFamily(Family):
         theta = params.get('theta', self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
-        
-        mu = np.maximum(mu, 1e-10)
-        
+
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Clip mu to avoid division by zero
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         # d²/dμ² log L = -y/μ² + (y+θ)/(μ+θ)²
-        hess = -y / mu**2 + (y + theta) / (mu + theta)**2
-        
+        hess = -y_arr / mu_arr**2 + (y_arr + theta) / (mu_arr + theta)**2
+
         return hess
 
     def __repr__(self) -> str:
