@@ -141,9 +141,22 @@ def log_gamma(value, xp):
     return np.vectorize(math.lgamma)(value)
 
 
+def digamma(value, xp):
+    """Digamma function (derivative of log-gamma) across backends."""
+    if xp is torch:  # type: ignore[comparison-overlap]
+        return torch.digamma(value)
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        from jax.scipy.special import digamma as jax_digamma
+        return jax_digamma(value)
+    # NumPy
+    from scipy import special
+    return special.digamma(value)
+
+
 __all__ = [
     "as_namespace_array",
     "clip_probability",
+    "digamma",
     "is_jax",
     "is_torch",
     "log_factorial",
