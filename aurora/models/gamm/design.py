@@ -120,7 +120,23 @@ def construct_Z_matrix(
         # Get unique groups and indices
         unique_groups, group_indices = get_group_indices(groups)
         n_groups = len(unique_groups)
-        n_effects = re.n_effects
+
+        # Determine if this is a temporal covariance structure
+        is_temporal = re.covariance in ('ar1', 'compound_symmetry', 'cs')
+
+        if is_temporal:
+            # For temporal covariance, each observation within a group gets its own random effect
+            # This requires balanced design (same number of observations per group)
+            group_sizes = [len(group_indices[g]) for g in unique_groups]
+            if len(set(group_sizes)) > 1:
+                raise ValueError(
+                    f"Temporal covariance '{re.covariance}' requires balanced design. "
+                    f"Found varying group sizes: {set(group_sizes)}. "
+                    f"All groups in '{re.grouping}' must have the same number of observations."
+                )
+            n_effects = group_sizes[0]  # Number of time points per group
+        else:
+            n_effects = re.n_effects  # Standard: intercept + slopes
 
         # Construct Z block for this random effect term
         Z_block = np.zeros((n, n_groups * n_effects))
@@ -131,30 +147,36 @@ def construct_Z_matrix(
             col_start = g_idx * n_effects
             col_end = col_start + n_effects
 
-            # Build columns for this group
-            col_idx = 0
+            if is_temporal:
+                # Temporal: each observation gets indicator in its temporal position
+                # Assumes observations are ordered temporally within each group
+                for t_idx, obs_idx in enumerate(obs_indices):
+                    Z_block[obs_idx, col_start + t_idx] = 1.0
+            else:
+                # Standard: intercept + slopes
+                col_idx = 0
 
-            # Random intercept
-            if re.include_intercept:
-                Z_block[obs_indices, col_start + col_idx] = 1.0
-                col_idx += 1
+                # Random intercept
+                if re.include_intercept:
+                    Z_block[obs_indices, col_start + col_idx] = 1.0
+                    col_idx += 1
 
-            # Random slopes
-            for var_idx in re.variables:
-                # Extract variable values from X
-                if isinstance(var_idx, int):
-                    if var_idx >= X.shape[1]:
-                        raise ValueError(
-                            f"Variable index {var_idx} out of bounds for X with {X.shape[1]} columns"
+                # Random slopes
+                for var_idx in re.variables:
+                    # Extract variable values from X
+                    if isinstance(var_idx, int):
+                        if var_idx >= X.shape[1]:
+                            raise ValueError(
+                                f"Variable index {var_idx} out of bounds for X with {X.shape[1]} columns"
+                            )
+                        var_values = X[:, var_idx]
+                    else:
+                        raise TypeError(
+                            f"Variable index must be int when using design matrix X, got {type(var_idx)}"
                         )
-                    var_values = X[:, var_idx]
-                else:
-                    raise TypeError(
-                        f"Variable index must be int when using design matrix X, got {type(var_idx)}"
-                    )
 
-                Z_block[obs_indices, col_start + col_idx] = var_values[obs_indices]
-                col_idx += 1
+                    Z_block[obs_indices, col_start + col_idx] = var_values[obs_indices]
+                    col_idx += 1
 
         # Store info
         Z_blocks.append(Z_block)
@@ -165,6 +187,7 @@ def construct_Z_matrix(
             'groups': unique_groups,
             'start_col': current_col,
             'end_col': current_col + n_groups * n_effects,
+            'covariance': re.covariance,  # Store covariance structure type
         })
         current_col += n_groups * n_effects
 
