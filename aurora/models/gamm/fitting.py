@@ -390,6 +390,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy import linalg
 
+from aurora.models.gamm.covariance import get_covariance_structure
 from aurora.models.gamm.estimation import (
     REMLResult,
     estimate_fixed_effects,
@@ -418,6 +419,11 @@ class GAMMResult:
     variance_components : list[ndarray]
         List of variance-covariance matrices Ψ, one per random effect term.
         For single term models, this is a list with one element.
+    covariance_params : list[ndarray] | None
+        List of raw covariance parameters for each random effect term.
+        For structured covariance (AR1, CS, etc.), contains transformed parameters.
+        For example, AR1 params are [log(σ²), arctanh(ρ)].
+        None for unstructured covariance.
     residual_variance : float
         Residual variance σ².
     smoothing_parameters : dict[str, float] | None
@@ -455,6 +461,7 @@ class GAMMResult:
     beta_smooth: dict[str, NDArray[np.floating]]
     random_effects: dict[str, NDArray[np.floating]]
     variance_components: list[NDArray[np.floating]]
+    covariance_params: list[NDArray[np.floating]] | None
     residual_variance: float
     smoothing_parameters: dict[str, float] | None
     edf_total: float
@@ -831,6 +838,8 @@ def fit_gamm_gaussian(
                 device = "cuda" if torch.cuda.is_available() else "cpu"
             torch_device = torch.device(device)
 
+            from scipy.sparse import issparse
+
             # Convert to torch tensors
             X_parametric_t = torch.tensor(X_parametric, dtype=torch.float64, device=torch_device)
             Z_t = torch.tensor(Z, dtype=torch.float64, device=torch_device)
@@ -842,8 +851,13 @@ def fit_gamm_gaussian(
             y = y_t.cpu().numpy()
 
             if X_smooth is not None:
-                X_smooth = {k: torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
-                           for k, v in X_smooth.items()}
+                # Handle sparse matrices
+                X_smooth = {
+                    k: (torch.tensor(v.toarray(), dtype=torch.float64, device=torch_device).cpu().numpy()
+                        if issparse(v) else
+                        torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy())
+                    for k, v in X_smooth.items()
+                }
             if S_smooth is not None:
                 S_smooth = {k: torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
                            for k, v in S_smooth.items()}
@@ -853,6 +867,7 @@ def fit_gamm_gaussian(
     elif backend == "jax":
         try:
             import jax.numpy as jnp
+            from scipy.sparse import issparse
 
             # Convert to JAX arrays
             X_parametric_j = jnp.array(X_parametric)
@@ -865,7 +880,11 @@ def fit_gamm_gaussian(
             y = np.asarray(y_j)
 
             if X_smooth is not None:
-                X_smooth = {k: np.asarray(jnp.array(v)) for k, v in X_smooth.items()}
+                # Handle sparse matrices
+                X_smooth = {
+                    k: np.asarray(jnp.array(v.toarray())) if issparse(v) else np.asarray(jnp.array(v))
+                    for k, v in X_smooth.items()
+                }
             if S_smooth is not None:
                 S_smooth = {k: np.asarray(jnp.array(v)) for k, v in S_smooth.items()}
         except ImportError:
@@ -882,13 +901,20 @@ def fit_gamm_gaussian(
     smooth_end_cols = {}
 
     if X_smooth is not None:
+        from scipy.sparse import issparse
+
         col_idx = p_parametric
         for term_name, X_term in X_smooth.items():
             smooth_term_names.append(term_name)
             smooth_start_cols[term_name] = col_idx
             smooth_end_cols[term_name] = col_idx + X_term.shape[1]
             col_idx = smooth_end_cols[term_name]
-            X_list.append(X_term)
+
+            # Convert sparse to dense for GAMM (mixed model equations require dense)
+            if issparse(X_term):
+                X_list.append(X_term.toarray())
+            else:
+                X_list.append(X_term)
 
     X_combined = np.column_stack(X_list)
     p_combined = X_combined.shape[1]
@@ -996,6 +1022,28 @@ def fit_gamm_gaussian(
             variance_components_list.append(psi_term)
             offset += n_effects
 
+    # Step 4c: Extract raw covariance parameters from theta
+    # theta contains: [params_term1, params_term2, ..., log(sigma2)]
+    # Split theta by number of parameters per term
+    from aurora.models.gamm.covariance import get_covariance_structure
+
+    covariance_params_list = []
+    theta = reml_result.theta
+    param_idx = 0
+
+    for info in Z_info:
+        cov_type = info.get('covariance', 'unstructured')
+        n_effects = info['n_effects']
+        cov_structure = get_covariance_structure(cov_type)
+        n_params = cov_structure.n_parameters(n_effects)
+
+        # Extract parameters for this term
+        params_term = theta[param_idx:param_idx + n_params]
+        covariance_params_list.append(params_term)
+        param_idx += n_params
+
+    # Note: theta also contains log(sigma2) at the end, but we store sigma2 separately
+
     # Step 5: Compute fitted values and residuals
     fitted_values = X_combined @ beta_combined + Z @ b
     residuals = y - fitted_values
@@ -1016,7 +1064,7 @@ def fit_gamm_gaussian(
             start = smooth_start_cols[term_name]
             end = smooth_end_cols[term_name]
             p_term = end - start
-            if term_name in S_smooth and term_name in lambda_smooth:
+            if term_name in S_smooth and lambda_smooth is not None and term_name in lambda_smooth:
                 # EDF ≈ tr[(X_k'X_k + λS)⁻¹ X_k'X_k]
                 X_term = X_smooth[term_name]
                 S_term = S_smooth[term_name]
@@ -1036,8 +1084,24 @@ def fit_gamm_gaussian(
     # Step 7: Compute information criteria
     log_likelihood = reml_result.log_likelihood
 
-    # AIC = -2*log(L) + 2*k where k = effective parameters
-    k_params = edf_total
+    # For marginal likelihood (REML), AIC should count:
+    # - Fixed effects (use EDF for penalized terms like smooths)
+    # - Variance component parameters (NOT random effects themselves)
+    # - Residual variance
+    #
+    # Count variance component parameters
+    n_variance_params = 0
+    for info in Z_info:
+        cov_type = info.get('covariance', covariance)
+        n_effects = info['n_effects']
+        cov_structure = get_covariance_structure(cov_type)
+        n_variance_params += cov_structure.n_parameters(n_effects)
+
+    # Add residual variance parameter
+    n_variance_params += 1
+
+    # AIC = -2*log(L) + 2*k where k = fixed effects (EDF) + variance parameters
+    k_params = edf_fixed + n_variance_params
     aic = -2 * log_likelihood + 2 * k_params
 
     # BIC = -2*log(L) + k*log(n)
@@ -1055,6 +1119,7 @@ def fit_gamm_gaussian(
         beta_smooth=beta_smooth,
         random_effects=random_effects,
         variance_components=variance_components_list,
+        covariance_params=covariance_params_list,
         residual_variance=sigma2,
         smoothing_parameters=smoothing_params,
         edf_total=edf_total,
