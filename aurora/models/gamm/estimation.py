@@ -386,10 +386,12 @@ def estimate_variance_components(
     if n_terms == 0:
         raise ValueError("No random effects specified in Z_info")
 
-    # Get covariance structure(s)
-    # For now, use same structure for all terms
-    # Future: could support different structures per term
-    cov_structures = [get_covariance_structure(covariance) for _ in range(n_terms)]
+    # Get covariance structure(s) from Z_info (can be different per term)
+    # Fall back to covariance parameter if not specified in Z_info
+    cov_structures = []
+    for info in Z_info:
+        cov_type = info.get('covariance', covariance)
+        cov_structures.append(get_covariance_structure(cov_type))
     n_effects_list = [info["n_effects"] for info in Z_info]
 
     # Initialize parameters
