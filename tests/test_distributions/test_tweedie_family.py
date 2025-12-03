@@ -59,6 +59,19 @@ from aurora.distributions.families.tweedie import (
     CompoundPoissonGammaFamily,
 )
 
+# Multi-backend support
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+
+try:
+    import jax.numpy as jnp
+    HAS_JAX = True
+except ImportError:
+    HAS_JAX = False
+
 
 class TestTweedieFamilyBasic:
     """Basic functionality tests for TweedieFamily."""
@@ -517,6 +530,185 @@ class TestTweedieEdgeCases:
         assert np.isfinite(dev)
         assert dev > 0
         assert 0 < p_zero < 1
+
+
+class TestTweedieMultiBackend:
+    """Test Tweedie family with multiple backends (NumPy, PyTorch, JAX)."""
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_variance_multi_backend(self, backend):
+        """Test variance calculation across backends."""
+        family = TweedieFamily(power=1.5)
+
+        if backend == "numpy":
+            mu = np.array([1.0, 2.0, 5.0])
+        elif backend == "torch":
+            mu = torch.tensor([1.0, 2.0, 5.0])
+        else:  # jax
+            mu = jnp.array([1.0, 2.0, 5.0])
+
+        var = family.variance(mu)
+
+        # Expected: V(μ) = μ^p
+        if backend == "numpy":
+            expected = np.array([1.0**1.5, 2.0**1.5, 5.0**1.5])
+            np.testing.assert_allclose(var, expected, rtol=1e-8)
+        elif backend == "torch":
+            expected = torch.tensor([1.0**1.5, 2.0**1.5, 5.0**1.5])
+            assert torch.allclose(var, expected, rtol=1e-6)
+        else:  # jax
+            expected = jnp.array([1.0**1.5, 2.0**1.5, 5.0**1.5])
+            assert jnp.allclose(var, expected, rtol=1e-6)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_deviance_multi_backend(self, backend):
+        """Test deviance calculation across backends."""
+        family = TweedieFamily(power=1.6)
+
+        if backend == "numpy":
+            y = np.array([0.0, 1.5, 3.0])
+            mu = np.array([1.0, 2.0, 2.8])
+        elif backend == "torch":
+            y = torch.tensor([0.0, 1.5, 3.0])
+            mu = torch.tensor([1.0, 2.0, 2.8])
+        else:  # jax
+            y = jnp.array([0.0, 1.5, 3.0])
+            mu = jnp.array([1.0, 2.0, 2.8])
+
+        dev = family.deviance(y, mu)
+
+        # Verify it's a scalar float
+        assert isinstance(dev, float)
+        # Deviance should be non-negative
+        assert dev >= 0
+
+        # Compare with NumPy reference if not numpy backend
+        if backend != "numpy":
+            y_np = np.array([0.0, 1.5, 3.0])
+            mu_np = np.array([1.0, 2.0, 2.8])
+            dev_np = family.deviance(y_np, mu_np)
+            np.testing.assert_allclose(dev, dev_np, rtol=1e-4)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_initialize_multi_backend(self, backend):
+        """Test initialization across backends."""
+        family = TweedieFamily(power=1.5)
+
+        if backend == "numpy":
+            y = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        elif backend == "torch":
+            y = torch.tensor([0.0, 1.0, 2.0, 3.0, 4.0])
+        else:  # jax
+            y = jnp.array([0.0, 1.0, 2.0, 3.0, 4.0])
+
+        mu_init = family.initialize(y)
+
+        # Should return same type as input
+        if backend == "numpy":
+            assert isinstance(mu_init, np.ndarray)
+            assert mu_init.shape == y.shape
+            # Should be close to mean of positive values (2.5)
+            assert 2.0 < mu_init[0] < 3.0
+        elif backend == "torch":
+            assert isinstance(mu_init, torch.Tensor)
+            assert mu_init.shape == y.shape
+            assert 2.0 < mu_init[0].item() < 3.0
+        else:  # jax
+            assert hasattr(mu_init, 'shape')  # JAX array
+            assert mu_init.shape == y.shape
+            assert 2.0 < float(mu_init[0]) < 3.0
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_gradients_multi_backend(self, backend):
+        """Test gradient calculation across backends."""
+        family = TweedieFamily(power=1.5, phi=1.0)
+
+        if backend == "numpy":
+            y = np.array([1.0, 2.0, 3.0])
+            mu = np.array([1.5, 2.5, 2.8])
+        elif backend == "torch":
+            y = torch.tensor([1.0, 2.0, 3.0])
+            mu = torch.tensor([1.5, 2.5, 2.8])
+        else:  # jax
+            y = jnp.array([1.0, 2.0, 3.0])
+            mu = jnp.array([1.5, 2.5, 2.8])
+
+        # First derivative
+        grad = family.d_log_likelihood(y, mu)
+        assert grad.shape == mu.shape
+
+        # Second derivative
+        hess = family.d2_log_likelihood(y, mu)
+        assert hess.shape == mu.shape
+
+        # Compare with NumPy reference if not numpy backend
+        if backend != "numpy":
+            y_np = np.array([1.0, 2.0, 3.0])
+            mu_np = np.array([1.5, 2.5, 2.8])
+            grad_np = family.d_log_likelihood(y_np, mu_np)
+            hess_np = family.d2_log_likelihood(y_np, mu_np)
+
+            if backend == "torch":
+                np.testing.assert_allclose(grad.numpy(), grad_np, rtol=1e-6)
+                np.testing.assert_allclose(hess.numpy(), hess_np, rtol=1e-6)
+            else:  # jax
+                np.testing.assert_allclose(np.array(grad), grad_np, rtol=1e-6)
+                np.testing.assert_allclose(np.array(hess), hess_np, rtol=1e-6)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_probability_zero_multi_backend(self, backend):
+        """Test probability of zero calculation across backends."""
+        family = TweedieFamily(power=1.5, phi=1.0)
+
+        if backend == "numpy":
+            mu = np.array([1.0, 2.0, 3.0])
+        elif backend == "torch":
+            mu = torch.tensor([1.0, 2.0, 3.0])
+        else:  # jax
+            mu = jnp.array([1.0, 2.0, 3.0])
+
+        p_zero = family.probability_zero(mu)
+
+        # Should be probabilities (0 to 1)
+        if backend == "numpy":
+            assert np.all(p_zero >= 0)
+            assert np.all(p_zero <= 1)
+        elif backend == "torch":
+            assert torch.all(p_zero >= 0)
+            assert torch.all(p_zero <= 1)
+        else:  # jax
+            assert jnp.all(p_zero >= 0)
+            assert jnp.all(p_zero <= 1)
+
+        # Compare with NumPy reference if not numpy backend
+        if backend != "numpy":
+            mu_np = np.array([1.0, 2.0, 3.0])
+            p_zero_np = family.probability_zero(mu_np)
+
+            if backend == "torch":
+                np.testing.assert_allclose(p_zero.numpy(), p_zero_np, rtol=1e-6)
+            else:  # jax
+                np.testing.assert_allclose(np.array(p_zero), p_zero_np, rtol=1e-6)
 
 
 if __name__ == '__main__':
