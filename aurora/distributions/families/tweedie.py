@@ -28,9 +28,23 @@ from scipy import special
 
 from aurora.distributions.base import Family
 from aurora.distributions.links import LogLink, IdentityLink, PowerLink
+from aurora.distributions._utils import (
+    namespace,
+    as_namespace_array,
+)
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+try:  # pragma: no cover - optional dependency
+    import torch
+except ImportError:  # pragma: no cover - optional dependency
+    torch = None  # type: ignore[assignment]
+
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
 
 class TweedieFamily(Family):
@@ -156,8 +170,18 @@ class TweedieFamily(Family):
         ndarray
             Variance at each observation (without phi factor)
         """
-        mu = np.maximum(mu, 1e-10)
-        return mu ** self.power
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+
+        # Clip mu to avoid log(0)
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
+        return mu_arr ** self.power
 
     def initialize(self, y: NDArray) -> NDArray:
         """Initialize mean using positive values.
@@ -172,30 +196,45 @@ class TweedieFamily(Family):
         ndarray
             Initial mean estimates
         """
-        y = np.asarray(y, dtype=float)
-        
+        xp = namespace(y)
+        y_arr = as_namespace_array(y, xp, like=y)
+
         # Use mean of positive values, or small value if all zeros
-        positive_y = y[y > 0]
+        # Convert to numpy for indexing, then determine mu_init
+        if xp is torch:  # type: ignore[comparison-overlap]
+            y_np = y_arr.cpu().numpy() if y_arr.is_cuda else y_arr.numpy()
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            y_np = np.array(y_arr)
+        else:
+            y_np = np.asarray(y_arr, dtype=float)
+
+        positive_y = y_np[y_np > 0]
         if len(positive_y) > 0:
-            mu_init = np.mean(positive_y)
+            mu_init = float(np.mean(positive_y))
         else:
             mu_init = 0.1
-        
-        return np.full_like(y, mu_init, dtype=float)
+
+        # Return with correct backend
+        if xp is torch:  # type: ignore[comparison-overlap]
+            return torch.full_like(y_arr, mu_init, dtype=torch.float32)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            return jnp.full_like(y_arr, mu_init, dtype=jnp.float32)
+        else:
+            return np.full_like(y_arr, mu_init, dtype=float)
 
     def deviance(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> float:
         """Deviance for Tweedie distribution.
 
         The unit deviance for Tweedie with power p is:
-        
+
         For p ∈ (1, 2):
             d(y, μ) = 2 × [y^(2-p)/((1-p)(2-p)) - y×μ^(1-p)/(1-p) + μ^(2-p)/(2-p)]
-        
+
         For y = 0:
             d(0, μ) = 2 × μ^(2-p) / (2-p)
 
@@ -213,26 +252,54 @@ class TweedieFamily(Family):
         float
             Total deviance
         """
-        y = np.asarray(y, dtype=float)
-        mu = np.maximum(mu, 1e-10)
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Clip mu to avoid issues
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         p = self.power
-        
+
         # Unit deviance
         # For y > 0
-        with np.errstate(divide='ignore', invalid='ignore'):
+        if xp is torch:  # type: ignore[comparison-overlap]
             d_pos = 2 * (
-                y**(2-p) / ((1-p) * (2-p)) -
-                y * mu**(1-p) / (1-p) +
-                mu**(2-p) / (2-p)
+                y_arr**(2-p) / ((1-p) * (2-p)) -
+                y_arr * mu_arr**(1-p) / (1-p) +
+                mu_arr**(2-p) / (2-p)
             )
-        
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            d_pos = 2 * (
+                y_arr**(2-p) / ((1-p) * (2-p)) -
+                y_arr * mu_arr**(1-p) / (1-p) +
+                mu_arr**(2-p) / (2-p)
+            )
+        else:
+            with np.errstate(divide='ignore', invalid='ignore'):
+                d_pos = 2 * (
+                    y_arr**(2-p) / ((1-p) * (2-p)) -
+                    y_arr * mu_arr**(1-p) / (1-p) +
+                    mu_arr**(2-p) / (2-p)
+                )
+
         # For y = 0
-        d_zero = 2 * mu**(2-p) / (2-p)
-        
+        d_zero = 2 * mu_arr**(2-p) / (2-p)
+
         # Select based on y
-        d = np.where(y == 0, d_zero, d_pos)
-        
-        return np.sum(d)
+        if xp is torch:  # type: ignore[comparison-overlap]
+            d = torch.where(y_arr == 0, d_zero, d_pos)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            d = jnp.where(y_arr == 0, d_zero, d_pos)
+        else:
+            d = np.where(y_arr == 0, d_zero, d_pos)
+
+        return float(xp.sum(d))
 
     def log_likelihood(
         self, 
@@ -374,9 +441,9 @@ class TweedieFamily(Family):
         return max(phi, 1e-8)
 
     def d_log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> NDArray:
         """First derivative of quasi-log-likelihood w.r.t. μ.
@@ -394,18 +461,29 @@ class TweedieFamily(Family):
             Gradient
         """
         phi = params.get('phi', self.phi)
-        mu = np.maximum(mu, 1e-10)
+        xp = namespace(y, mu)
+        y_arr = as_namespace_array(y, xp, like=mu)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+
+        # Clip mu to avoid division by zero
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         p = self.power
-        
+
         # d/dμ (-D/2φ) = (y - μ) / (φ μ^p)
-        grad = (y - mu) / (phi * mu**p)
-        
+        grad = (y_arr - mu_arr) / (phi * mu_arr**p)
+
         return grad
 
     def d2_log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         **params
     ) -> NDArray:
         """Second derivative of quasi-log-likelihood w.r.t. μ.
@@ -423,13 +501,23 @@ class TweedieFamily(Family):
             Negative Hessian diagonal (Fisher information)
         """
         phi = params.get('phi', self.phi)
-        mu = np.maximum(mu, 1e-10)
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+
+        # Clip mu to avoid division by zero
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         p = self.power
-        
+
         # Expected Fisher information: -E[d²/dμ²] = 1/(φ μ^p)
         # (using expected information for stability)
-        info = -1.0 / (phi * mu**p)
-        
+        info = -1.0 / (phi * mu_arr**p)
+
         return info
 
     def probability_zero(self, mu: NDArray, **params) -> NDArray:
@@ -437,7 +525,7 @@ class TweedieFamily(Family):
 
         For Tweedie with 1 < p < 2:
             P(Y=0) = exp(-λ)
-        
+
         where λ = μ^(2-p) / [φ(2-p)]
 
         Parameters
@@ -451,13 +539,23 @@ class TweedieFamily(Family):
             Probability of zero at each observation
         """
         phi = params.get('phi', self.phi)
-        mu = np.maximum(mu, 1e-10)
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+
+        # Clip mu to avoid issues
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         p = self.power
-        
+
         # Poisson rate parameter
-        lambda_ = mu**(2-p) / (phi * (2-p))
-        
-        return np.exp(-lambda_)
+        lambda_ = mu_arr**(2-p) / (phi * (2-p))
+
+        return xp.exp(-lambda_)
 
     def __repr__(self) -> str:
         """String representation."""
@@ -499,10 +597,20 @@ class CompoundPoissonGammaFamily(TweedieFamily):
             Poisson rate for event count
         """
         phi = params.get('phi', self.phi)
-        mu = np.maximum(mu, 1e-10)
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+
+        # Clip mu to avoid issues
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         p = self.power
-        
-        return mu**(2-p) / (phi * (2-p))
+
+        return mu_arr**(2-p) / (phi * (2-p))
 
     def get_gamma_shape(self) -> float:
         """Get the Gamma shape parameter α."""
@@ -522,10 +630,20 @@ class CompoundPoissonGammaFamily(TweedieFamily):
             Gamma rate for event magnitude
         """
         phi = params.get('phi', self.phi)
-        mu = np.maximum(mu, 1e-10)
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+
+        # Clip mu to avoid issues
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.clip(mu_arr, 1e-10, None)
+
         p = self.power
-        
-        return phi * (p - 1) * mu**(p-1)
+
+        return phi * (p - 1) * mu_arr**(p-1)
 
 
 __all__ = ['TweedieFamily', 'CompoundPoissonGammaFamily']
