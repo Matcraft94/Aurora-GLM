@@ -52,6 +52,19 @@ from aurora.distributions.families.negative_binomial import (
     NegBinFamily,
 )
 
+# Multi-backend support
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+
+try:
+    import jax.numpy as jnp
+    HAS_JAX = True
+except ImportError:
+    HAS_JAX = False
+
 
 class TestNegativeBinomialFamilyBasic:
     """Basic functionality tests for NegativeBinomialFamily."""
@@ -514,6 +527,212 @@ class TestNegativeBinomialVsPoisson:
         dev_negbin = negbin.deviance(y, mu)
 
         np.testing.assert_allclose(dev_negbin, dev_poisson, rtol=1e-4)
+
+
+class TestNegativeBinomialMultiBackend:
+    """Test Negative Binomial family with multiple backends (NumPy, PyTorch, JAX)."""
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_variance_multi_backend(self, backend):
+        """Test variance calculation across backends."""
+        family = NegativeBinomialFamily(theta=2.0)
+
+        if backend == "numpy":
+            mu = np.array([1.0, 2.0, 5.0])
+        elif backend == "torch":
+            mu = torch.tensor([1.0, 2.0, 5.0])
+        else:  # jax
+            mu = jnp.array([1.0, 2.0, 5.0])
+
+        var = family.variance(mu)
+
+        # Expected: V(μ) = μ + μ²/θ
+        if backend == "numpy":
+            expected = np.array([1.0 + 1.0**2/2.0, 2.0 + 2.0**2/2.0, 5.0 + 5.0**2/2.0])
+            np.testing.assert_allclose(var, expected, rtol=1e-8)
+        elif backend == "torch":
+            expected = torch.tensor([1.0 + 1.0**2/2.0, 2.0 + 2.0**2/2.0, 5.0 + 5.0**2/2.0])
+            assert torch.allclose(var, expected, rtol=1e-6)
+        else:  # jax
+            expected = jnp.array([1.0 + 1.0**2/2.0, 2.0 + 2.0**2/2.0, 5.0 + 5.0**2/2.0])
+            assert jnp.allclose(var, expected, rtol=1e-6)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_log_likelihood_multi_backend(self, backend):
+        """Test log-likelihood calculation across backends."""
+        family = NegativeBinomialFamily(theta=3.0)
+
+        if backend == "numpy":
+            y = np.array([1.0, 2.0, 3.0])
+            mu = np.array([1.5, 2.0, 2.8])
+        elif backend == "torch":
+            y = torch.tensor([1.0, 2.0, 3.0])
+            mu = torch.tensor([1.5, 2.0, 2.8])
+        else:  # jax
+            y = jnp.array([1.0, 2.0, 3.0])
+            mu = jnp.array([1.5, 2.0, 2.8])
+
+        log_lik = family.log_likelihood(y, mu)
+
+        # Verify it's a scalar float
+        assert isinstance(log_lik, float)
+        # Should be negative (it's a log probability)
+        assert log_lik < 0
+
+        # Compare with NumPy reference if not numpy backend
+        if backend != "numpy":
+            y_np = np.array([1.0, 2.0, 3.0])
+            mu_np = np.array([1.5, 2.0, 2.8])
+            log_lik_np = family.log_likelihood(y_np, mu_np)
+            np.testing.assert_allclose(log_lik, log_lik_np, rtol=1e-5)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_deviance_multi_backend(self, backend):
+        """Test deviance calculation across backends."""
+        family = NegativeBinomialFamily(theta=2.5)
+
+        if backend == "numpy":
+            y = np.array([2.0, 3.0, 5.0])
+            mu = np.array([2.1, 3.5, 4.8])
+        elif backend == "torch":
+            y = torch.tensor([2.0, 3.0, 5.0])
+            mu = torch.tensor([2.1, 3.5, 4.8])
+        else:  # jax
+            y = jnp.array([2.0, 3.0, 5.0])
+            mu = jnp.array([2.1, 3.5, 4.8])
+
+        dev = family.deviance(y, mu)
+
+        # Verify it's a scalar float
+        assert isinstance(dev, float)
+        # Deviance should be non-negative
+        assert dev >= 0
+
+        # Compare with NumPy reference if not numpy backend
+        if backend != "numpy":
+            y_np = np.array([2.0, 3.0, 5.0])
+            mu_np = np.array([2.1, 3.5, 4.8])
+            dev_np = family.deviance(y_np, mu_np)
+            # Use relaxed tolerance for PyTorch/JAX numerical differences
+            np.testing.assert_allclose(dev, dev_np, rtol=1e-4)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_initialize_multi_backend(self, backend):
+        """Test initialization across backends."""
+        family = NegativeBinomialFamily(theta=2.0)
+
+        if backend == "numpy":
+            y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        elif backend == "torch":
+            y = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])
+        else:  # jax
+            y = jnp.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        mu_init = family.initialize(y)
+
+        # Should return same type as input
+        if backend == "numpy":
+            assert isinstance(mu_init, np.ndarray)
+            assert mu_init.shape == y.shape
+            # Should be close to mean (3.0)
+            assert 2.5 < mu_init[0] < 3.5
+        elif backend == "torch":
+            assert isinstance(mu_init, torch.Tensor)
+            assert mu_init.shape == y.shape
+            assert 2.5 < mu_init[0].item() < 3.5
+        else:  # jax
+            assert hasattr(mu_init, 'shape')  # JAX array
+            assert mu_init.shape == y.shape
+            assert 2.5 < float(mu_init[0]) < 3.5
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_gradients_multi_backend(self, backend):
+        """Test gradient calculation across backends."""
+        family = NegativeBinomialFamily(theta=3.0)
+
+        if backend == "numpy":
+            y = np.array([1.0, 3.0, 5.0])
+            mu = np.array([1.5, 2.5, 4.5])
+        elif backend == "torch":
+            y = torch.tensor([1.0, 3.0, 5.0])
+            mu = torch.tensor([1.5, 2.5, 4.5])
+        else:  # jax
+            y = jnp.array([1.0, 3.0, 5.0])
+            mu = jnp.array([1.5, 2.5, 4.5])
+
+        # First derivative
+        grad = family.d_log_likelihood(y, mu)
+        assert grad.shape == mu.shape
+
+        # Second derivative
+        hess = family.d2_log_likelihood(y, mu)
+        assert hess.shape == mu.shape
+
+        # Compare with NumPy reference if not numpy backend
+        if backend != "numpy":
+            y_np = np.array([1.0, 3.0, 5.0])
+            mu_np = np.array([1.5, 2.5, 4.5])
+            grad_np = family.d_log_likelihood(y_np, mu_np)
+            hess_np = family.d2_log_likelihood(y_np, mu_np)
+
+            if backend == "torch":
+                np.testing.assert_allclose(grad.numpy(), grad_np, rtol=1e-6)
+                np.testing.assert_allclose(hess.numpy(), hess_np, rtol=1e-6)
+            else:  # jax
+                np.testing.assert_allclose(np.array(grad), grad_np, rtol=1e-6)
+                np.testing.assert_allclose(np.array(hess), hess_np, rtol=1e-6)
+
+    @pytest.mark.parametrize("backend", [
+        "numpy",
+        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
+        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
+    ])
+    def test_theta_estimation_multi_backend(self, backend):
+        """Test theta estimation works with different backends."""
+        family = NegativeBinomialFamily(theta='estimate')
+
+        # Generate overdispersed count data
+        np.random.seed(42)
+        y_np = np.random.negative_binomial(n=5, p=0.5, size=100).astype(float)
+        mu_np = np.full_like(y_np, y_np.mean())
+
+        if backend == "numpy":
+            y = y_np
+            mu = mu_np
+        elif backend == "torch":
+            y = torch.from_numpy(y_np)
+            mu = torch.from_numpy(mu_np)
+        else:  # jax
+            y = jnp.array(y_np)
+            mu = jnp.array(mu_np)
+
+        # Estimate theta using moments method
+        theta_est = family.estimate_theta(y, mu, method='moments')
+
+        assert isinstance(theta_est, float)
+        assert theta_est > 0
+        # Should be reasonable (between 0.01 and 1e6)
+        assert 0.01 <= theta_est <= 1e6
 
 
 if __name__ == '__main__':
