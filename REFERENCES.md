@@ -549,5 +549,5 @@ If you use Aurora-GLM in your research, please cite:
 
 ---
 
-*Last updated: 2025-11-27*
-*Aurora-GLM Version: 0.5.0-dev*
+*Last updated: 2025-12-03*
+*Aurora-GLM Version: 0.6.1*
