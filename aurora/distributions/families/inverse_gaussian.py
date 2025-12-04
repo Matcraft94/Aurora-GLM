@@ -49,7 +49,7 @@ import math
 import numpy as np
 
 from ..base import Family, LinkFunction
-from .._utils import as_namespace_array, namespace
+from .._utils import as_namespace_array, ensure_positive, namespace
 from ..links import InverseSquareLink
 
 try:  # pragma: no cover - optional dependency
@@ -57,13 +57,10 @@ try:  # pragma: no cover - optional dependency
 except ImportError:  # pragma: no cover - optional dependency
     torch = None  # type: ignore[assignment]
 
-
-def _positive(value, xp, eps: float = 1e-10):
-    """Ensure values are positive."""
-    if xp is torch:  # type: ignore[comparison-overlap]
-        eps_tensor = torch.tensor(eps, dtype=value.dtype, device=value.device)
-        return torch.clamp(value, min=eps_tensor)
-    return np.clip(value, eps, None)
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
 
 class InverseGaussianFamily(Family):
@@ -163,7 +160,7 @@ class InverseGaussianFamily(Family):
         if isinstance(lambda_param, str):
             lambda_param = 1.0
 
-        return _positive(as_namespace_array(lambda_param, xp, like=like), xp)
+        return ensure_positive(as_namespace_array(lambda_param, xp, like=like), xp)
 
     def _estimate_lambda_mm(self, y, mu, xp):
         """Estimate lambda via method-of-moments.
@@ -181,6 +178,10 @@ class InverseGaussianFamily(Family):
             y_arr = y
             mu_arr = mu
             n = y.shape[0]
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            y_arr = y
+            mu_arr = mu
+            n = y.shape[0]
         else:
             y_arr = np.asarray(y)
             mu_arr = np.asarray(mu)
@@ -189,13 +190,17 @@ class InverseGaussianFamily(Family):
         # Deviance-based estimator
         # From McCullagh & Nelder: φ = (1/n) Σ[(y-μ)² / (μ²y)]
         # λ = 1/φ
-        mu_safe = _positive(mu_arr, xp)
-        y_safe = _positive(y_arr, xp)
+        mu_safe = ensure_positive(mu_arr, xp)
+        y_safe = ensure_positive(y_arr, xp)
 
         dev_contrib = (y_safe - mu_safe)**2 / (mu_safe**2 * y_safe)
 
         if xp is torch:  # type: ignore[comparison-overlap]
             phi_est = torch.mean(dev_contrib)
+            lambda_est = 1.0 / phi_est
+            return max(float(lambda_est), 0.01)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            phi_est = jnp.mean(dev_contrib)
             lambda_est = 1.0 / phi_est
             return max(float(lambda_est), 0.01)
         else:
@@ -227,8 +232,8 @@ class InverseGaussianFamily(Family):
         """
         xp = namespace(y, mu)
 
-        y_arr = _positive(as_namespace_array(y, xp, like=mu), xp)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=y_arr), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
 
         lambda_val = self._get_lambda(xp, mu_arr, y=y_arr, mu=mu_arr, **params)
 
@@ -277,8 +282,8 @@ class InverseGaussianFamily(Family):
         """
         xp = namespace(y, mu)
 
-        y_arr = _positive(as_namespace_array(y, xp, like=mu), xp)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=y_arr), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
 
         # Unit deviance: (y - μ)² / (μ² y)
         unit_dev = (y_arr - mu_arr)**2 / (mu_arr**2 * y_arr)
@@ -308,7 +313,7 @@ class InverseGaussianFamily(Family):
         (without dispersion) is V(μ) = μ³.
         """
         xp = namespace(mu)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
 
         return mu_arr**3
 
@@ -330,7 +335,7 @@ class InverseGaussianFamily(Family):
             Full variance values.
         """
         xp = namespace(mu)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         lambda_val = self._get_lambda(xp, mu_arr, **params)
 
         return mu_arr**3 / lambda_val
@@ -354,7 +359,7 @@ class InverseGaussianFamily(Family):
         choice for positive data.
         """
         xp = namespace(y)
-        y_arr = _positive(as_namespace_array(y, xp, like=y), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=y), xp)
 
         if xp is torch:  # type: ignore[comparison-overlap]
             mean_val = torch.mean(y_arr)
@@ -379,8 +384,8 @@ class InverseGaussianFamily(Family):
             Estimated shape parameter λ.
         """
         xp = namespace(y, mu)
-        y_arr = _positive(as_namespace_array(y, xp, like=mu), xp)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=y_arr), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
 
         return self._estimate_lambda_mm(y_arr, mu_arr, xp)
 
