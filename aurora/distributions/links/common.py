@@ -4,19 +4,17 @@ from __future__ import annotations
 import numpy as np
 
 from ..base import LinkFunction
-from .._utils import as_namespace_array, clip_probability, namespace, ones_like
+from .._utils import as_namespace_array, clip_probability, ensure_positive, namespace, ones_like
 
 try:  # pragma: no cover - optional dependency
     import torch
 except ImportError:  # pragma: no cover - optional dependency
     torch = None  # type: ignore[assignment]
 
-
-def _ensure_positive(value, xp, eps: float = 1e-12):
-    if xp is torch:  # type: ignore[comparison-overlap]
-        eps_tensor = torch.tensor(eps, dtype=value.dtype, device=value.device)
-        return torch.clamp(value, min=eps_tensor)
-    return np.clip(value, eps, None)
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
 
 class IdentityLink(LinkFunction):
@@ -40,7 +38,7 @@ class LogLink(LinkFunction):
 
     def link(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return xp.log(mu_arr)
 
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
@@ -57,7 +55,7 @@ class LogLink(LinkFunction):
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return 1.0 / mu_arr
 
 
@@ -85,17 +83,17 @@ class InverseLink(LinkFunction):
 
     def link(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return 1.0 / mu_arr
 
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
         xp = namespace(eta)
-        eta_arr = _ensure_positive(as_namespace_array(eta, xp, like=eta), xp)
+        eta_arr = ensure_positive(as_namespace_array(eta, xp, like=eta), xp)
         return 1.0 / eta_arr
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return -1.0 / (mu_arr**2)
 
 
@@ -106,7 +104,7 @@ class CLogLogLink(LinkFunction):
         xp = namespace(mu)
         mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
         one_minus = 1.0 - mu_arr
-        one_minus = _ensure_positive(one_minus, xp)
+        one_minus = ensure_positive(one_minus, xp)
         return xp.log(-xp.log(one_minus))
 
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
@@ -118,7 +116,7 @@ class CLogLogLink(LinkFunction):
         xp = namespace(mu)
         mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
         one_minus = 1.0 - mu_arr
-        one_minus = _ensure_positive(one_minus, xp)
+        one_minus = ensure_positive(one_minus, xp)
         log_term = -xp.log(one_minus)
         return 1.0 / (log_term * one_minus)
 
@@ -132,7 +130,7 @@ class SqrtLink(LinkFunction):
 
     def link(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return xp.sqrt(mu_arr)
 
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
@@ -142,7 +140,7 @@ class SqrtLink(LinkFunction):
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return 0.5 / xp.sqrt(mu_arr)
 
 
@@ -181,7 +179,7 @@ class PowerLink(LinkFunction):
 
     def link(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         
         if abs(self.power) < 1e-10:
             # Use log for power ≈ 0
@@ -199,13 +197,13 @@ class PowerLink(LinkFunction):
         
         # Ensure result is positive
         if self.power > 0:
-            eta_arr = _ensure_positive(eta_arr, xp)
+            eta_arr = ensure_positive(eta_arr, xp)
         
         return eta_arr ** (1.0 / self.power)
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         
         if abs(self.power) < 1e-10:
             # Log link derivative: 1/μ
@@ -222,17 +220,17 @@ class InverseSquareLink(LinkFunction):
 
     def link(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return 1.0 / (mu_arr ** 2)
 
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
         xp = namespace(eta)
-        eta_arr = _ensure_positive(as_namespace_array(eta, xp, like=eta), xp)
+        eta_arr = ensure_positive(as_namespace_array(eta, xp, like=eta), xp)
         return 1.0 / xp.sqrt(eta_arr)
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
-        mu_arr = _ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         return -2.0 / (mu_arr ** 3)
 
 

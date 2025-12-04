@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..base import Family, LinkFunction
-from .._utils import as_namespace_array, log_gamma, namespace
+from .._utils import as_namespace_array, ensure_positive, log_gamma, namespace
 from ..links import InverseLink
 
 try:  # pragma: no cover - optional dependency
@@ -12,12 +12,10 @@ try:  # pragma: no cover - optional dependency
 except ImportError:  # pragma: no cover - optional dependency
     torch = None  # type: ignore[assignment]
 
-
-def _positive(value, xp, eps: float = 1e-12):
-    if xp is torch:  # type: ignore[comparison-overlap]
-        eps_tensor = torch.tensor(eps, dtype=value.dtype, device=value.device)
-        return torch.clamp(value, min=eps_tensor)
-    return np.clip(value, eps, None)
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
 
 class GammaFamily(Family):
@@ -31,14 +29,14 @@ class GammaFamily(Family):
 
     def _shape_array(self, xp, like):
         shape_param = self._shape
-        return _positive(as_namespace_array(shape_param, xp, like=like), xp)
+        return ensure_positive(as_namespace_array(shape_param, xp, like=like), xp)
 
     def log_likelihood(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
-        y_arr = _positive(as_namespace_array(y, xp, like=mu), xp)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=y_arr), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
         shape_param = params.get("shape", self._shape)
-        shape_arr = _positive(as_namespace_array(shape_param, xp, like=mu_arr), xp)
+        shape_arr = ensure_positive(as_namespace_array(shape_param, xp, like=mu_arr), xp)
         term1 = shape_arr * (xp.log(shape_arr) - xp.log(mu_arr))
         term2 = (shape_arr - 1.0) * xp.log(y_arr)
         term3 = -shape_arr * y_arr / mu_arr
@@ -47,21 +45,21 @@ class GammaFamily(Family):
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
-        y_arr = _positive(as_namespace_array(y, xp, like=mu), xp)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=y_arr), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
         ratio = y_arr / mu_arr
         return (2.0 * ((y_arr - mu_arr) / mu_arr - xp.log(ratio))).sum()
 
     def variance(self, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(mu)
-        mu_arr = _positive(as_namespace_array(mu, xp, like=mu), xp)
+        mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         shape_param = params.get("shape", self._shape)
-        shape_arr = _positive(as_namespace_array(shape_param, xp, like=mu_arr), xp)
+        shape_arr = ensure_positive(as_namespace_array(shape_param, xp, like=mu_arr), xp)
         return (mu_arr**2) / shape_arr
 
     def initialize(self, y):  # noqa: ANN001 - match Family signature
         xp = namespace(y)
-        y_arr = _positive(as_namespace_array(y, xp, like=y), xp)
+        y_arr = ensure_positive(as_namespace_array(y, xp, like=y), xp)
         return y_arr
 
     @property

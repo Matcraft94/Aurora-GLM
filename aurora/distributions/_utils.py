@@ -129,16 +129,85 @@ def clip_probability(prob, xp, eps: float = 1e-9):
     return np.clip(prob, eps, 1.0 - eps)
 
 
+def ensure_positive(value, xp, eps: float = 1e-12):
+    """Ensure values are positive by clipping to [eps, inf).
+
+    Parameters
+    ----------
+    value : array
+        Input values to clip
+    xp : module
+        Array namespace (np, torch, or jnp)
+    eps : float, default=1e-12
+        Minimum value (must be positive)
+
+    Returns
+    -------
+    array
+        Clipped values with minimum eps
+
+    Notes
+    -----
+    This is the centralized helper for ensuring positive values across
+    all backends. Use this instead of defining local _positive() functions
+    in individual modules.
+    """
+    if xp is torch:  # type: ignore[comparison-overlap]
+        eps_tensor = torch.tensor(eps, dtype=value.dtype, device=value.device)
+        return torch.clamp(value, min=eps_tensor)
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        return jnp.clip(value, eps, None)
+    return np.clip(value, eps, None)
+
+
 def log_factorial(value, xp):
+    """Compute log(n!) = log(Gamma(n+1)) across backends.
+
+    Parameters
+    ----------
+    value : array
+        Non-negative values (typically integers for factorial)
+    xp : module
+        Array namespace (np, torch, or jnp)
+
+    Returns
+    -------
+    array
+        Log-factorial values
+    """
     if xp is torch:  # type: ignore[comparison-overlap]
         return torch.lgamma(value + 1.0)
-    return np.vectorize(lambda v: np.math.lgamma(v + 1.0))(value)
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        from jax.scipy.special import gammaln
+        return gammaln(value + 1.0)
+    # NumPy - use scipy for vectorized operation
+    from scipy.special import gammaln
+    return gammaln(np.asarray(value) + 1.0)
 
 
 def log_gamma(value, xp):
+    """Compute log(Gamma(x)) across backends.
+
+    Parameters
+    ----------
+    value : array
+        Positive values
+    xp : module
+        Array namespace (np, torch, or jnp)
+
+    Returns
+    -------
+    array
+        Log-gamma values
+    """
     if xp is torch:  # type: ignore[comparison-overlap]
         return torch.lgamma(value)
-    return np.vectorize(math.lgamma)(value)
+    elif xp is jnp:  # type: ignore[comparison-overlap]
+        from jax.scipy.special import gammaln
+        return gammaln(value)
+    # NumPy - use scipy for vectorized operation
+    from scipy.special import gammaln
+    return gammaln(np.asarray(value))
 
 
 def digamma(value, xp):
@@ -157,6 +226,7 @@ __all__ = [
     "as_namespace_array",
     "clip_probability",
     "digamma",
+    "ensure_positive",
     "is_jax",
     "is_torch",
     "log_factorial",

@@ -44,7 +44,7 @@ import math
 import numpy as np
 
 from ..base import Family, LinkFunction
-from .._utils import as_namespace_array, clip_probability, namespace, log_gamma
+from .._utils import as_namespace_array, clip_probability, ensure_positive, namespace, log_gamma
 from ..links import LogitLink
 
 try:  # pragma: no cover - optional dependency
@@ -52,13 +52,10 @@ try:  # pragma: no cover - optional dependency
 except ImportError:  # pragma: no cover - optional dependency
     torch = None  # type: ignore[assignment]
 
-
-def _positive(value, xp, eps: float = 1e-10):
-    """Ensure values are positive."""
-    if xp is torch:  # type: ignore[comparison-overlap]
-        eps_tensor = torch.tensor(eps, dtype=value.dtype, device=value.device)
-        return torch.clamp(value, min=eps_tensor)
-    return np.clip(value, eps, None)
+try:  # pragma: no cover - optional dependency
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover - optional dependency
+    jnp = None  # type: ignore[assignment]
 
 
 def _log_beta(a, b, xp):
@@ -158,7 +155,7 @@ class BetaFamily(Family):
             # Fallback if estimation not possible
             phi_param = 1.0
 
-        return _positive(as_namespace_array(phi_param, xp, like=like), xp)
+        return ensure_positive(as_namespace_array(phi_param, xp, like=like), xp)
 
     def _estimate_phi_mm(self, y, xp):
         """Estimate phi via method-of-moments.
@@ -172,13 +169,16 @@ class BetaFamily(Family):
         if xp is torch:  # type: ignore[comparison-overlap]
             y_mean = torch.mean(y)
             y_var = torch.var(y)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            y_mean = jnp.mean(y)
+            y_var = jnp.var(y)
         else:
             y_mean = np.mean(y)
             y_var = np.var(y)
 
-        # Clamp mean away from boundaries
-        mu_est = float(np.clip(y_mean, 0.01, 0.99))
-        var_est = float(max(y_var, 1e-10))
+        # Clamp mean away from boundaries (convert to float for computation)
+        mu_est = float(np.clip(float(y_mean), 0.01, 0.99))
+        var_est = float(max(float(y_var), 1e-10))
 
         # phi = mu(1-mu)/var - 1
         phi_est = mu_est * (1 - mu_est) / var_est - 1
@@ -223,8 +223,8 @@ class BetaFamily(Family):
         beta_param = (1.0 - mu_arr) * phi
 
         # Ensure positive
-        alpha = _positive(alpha, xp)
-        beta_param = _positive(beta_param, xp)
+        alpha = ensure_positive(alpha, xp)
+        beta_param = ensure_positive(beta_param, xp)
 
         # Log-likelihood: log f(y; α, β)
         # = log Γ(α+β) - log Γ(α) - log Γ(β) + (α-1)log(y) + (β-1)log(1-y)
