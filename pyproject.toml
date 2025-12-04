@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aurora-glm"
-version = "0.6.0"
+version = "0.6.1"
 description = "Aurora-GLM: generalized linear modeling toolkit with multi-backend support"
 authors = [{name = "Lucy E. Arias", email = "mat.eduardo.arias@outlook.com"}]
 readme = "README.md"

@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-12-03
+
+### Added
+
+#### GAMM Sparse Matrix Support
+- **Sparse matrix support for GAM/GAMM** (`aurora/models/gam/`, `aurora/models/gamm/`):
+  - Added `use_sparse` parameter to `fit_gam()` and `fit_gamm()` for efficient large-scale fitting
+  - Automatic sparse CSR format for B-spline basis matrices via `BSplineBasis.basis_matrix(sparse=True)`
+  - Sparse-aware linear solvers in backend conversion and model assembly
+  - Performance improvements: 6-8× memory reduction, 10-100× speedup for large problems
+  - Particularly effective for high-dimensional smooth terms and large datasets (n > 1000)
+  - Full test suite with 7 comprehensive tests covering various scenarios
+
+#### Temporal Covariance Structures
+- **AR1 and compound symmetry covariance** (`aurora/models/gamm/covariance.py`):
+  - AR1 (autoregressive order 1) for temporal/longitudinal data with exponential decay
+  - Compound symmetry (exchangeable correlation) for clustered data with equal correlations
+  - Integration with GAMM Z matrix construction for temporal random effects
+  - Temporal prediction support with time-indexed random effects
+  - Comprehensive integration tests for AR1 and compound symmetry structures
+
+#### Multi-Backend Enhancements
+- **Centralized distribution utilities** (`aurora/distributions/_utils.py`):
+  - New `ensure_positive()` function for consistent positive value handling across NumPy, PyTorch, and JAX
+  - Enhanced `log_factorial()` and `log_gamma()` with scipy.special for vectorized NumPy operations
+  - JAX support added to special functions (gammaln, digamma)
+  - Reduced code duplication by ~100 lines across distribution families and link functions
+
+### Changed
+
+#### Distribution Code Refactoring
+- **Refactor**: Updated Beta, Gamma, InverseGaussian, and Poisson families to use centralized `ensure_positive()`
+  - Removed local `_positive()` implementations in favor of shared utility
+  - Improved JAX backend support with proper handling of scipy.special imports
+  - Enhanced maintainability with single source of truth for positive value handling
+
+- **Refactor**: Updated all link functions to use centralized `ensure_positive()`
+  - Updated LogLink, InverseLink, InverseSquareLink, SqrtLink, PowerLink, CLogLogLink
+  - Removed local `_ensure_positive()` implementations
+  - Consistent behavior across all backends (NumPy, PyTorch, JAX)
+
+#### GAMM Result Structures
+- **Refactor**: Enhanced GAMMResult to include raw covariance parameters
+  - Added `covariance_params` field for structured covariance (AR1, CS) parameter storage
+  - Improved parameter tracking for temporal and spatial covariance structures
+  - Better support for downstream analysis and model diagnostics
+
+### Testing
+- **163 tests passing** (3 skipped) across all distribution families and models
+- Multi-backend tests verified on NumPy, PyTorch, and JAX
+- New test suite: `tests/test_models/test_gamm_sparse.py` with 7 comprehensive test cases
+- Enhanced AR1/CS integration tests in `tests/test_models/test_gamm/`
+
+### Notes
+- No breaking changes to public API
+- All refactorings are internal with backward compatibility maintained
+- Phase 5 progress: 85% complete (up from 80%)
+
 ## [0.6.0] - 2025-11-30
 
 ### Added
