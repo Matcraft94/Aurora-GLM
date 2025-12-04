@@ -64,6 +64,7 @@ def generate_random_slope_data(
     psi: np.ndarray = None,
     sigma2: float = 0.5,
     seed: int = 42,
+    covariance: str = 'unstructured',
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[dict]]:
     """Generate data from random intercept + slope model."""
     if beta is None:
@@ -84,7 +85,7 @@ def generate_random_slope_data(
 
     # Random effects design
     groups_data = {'subject': groups}
-    re = RandomEffect(grouping='subject', variables=(1,))
+    re = RandomEffect(grouping='subject', variables=(1,), covariance=covariance)
     Z, Z_info = construct_Z_matrix(X, [re], groups_data)
 
     # Generate random effects (intercept + slope per group)
@@ -251,6 +252,7 @@ def test_estimate_variance_components_random_slope():
         psi=np.array([[1.0, 0.0], [0.0, 0.5]]),
         sigma2=0.5,
         seed=42,
+        covariance='diagonal',  # Use diagonal covariance in RandomEffect
     )
 
     result = estimate_variance_components(
@@ -260,7 +262,7 @@ def test_estimate_variance_components_random_slope():
     assert result.psi.shape == (2, 2)
     assert result.converged
 
-    # Check diagonal structure
+    # Check diagonal structure (should have zero off-diagonals since diagonal covariance is used)
     off_diag = result.psi - np.diag(np.diag(result.psi))
     np.testing.assert_allclose(off_diag, 0, atol=1e-10)
 
