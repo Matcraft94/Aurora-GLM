@@ -853,6 +853,152 @@ class MaternCovariance(CovarianceStructure):
         return params
 
 
+class ToeplitzCovariance(CovarianceStructure):
+    """Toeplitz (banded) covariance structure for temporal data.
+
+    Toeplitz matrices have constant values along diagonals, meaning the
+    covariance between observations depends only on their lag |t-s|:
+
+    Cov(b_t, b_s) = r_{|t-s|}
+
+    This is a generalization of AR(1) that allows arbitrary values at
+    each lag, rather than assuming exponential decay.
+
+    For q random effects (time points), requires (band+1) parameters where
+    band is the number of non-zero off-diagonal bands:
+    - params[0]: log(r_0) - log-variance
+    - params[k]: arctanh(r_k / r_0) for k = 1, ..., band (transformed correlations)
+
+    Parameters
+    ----------
+    band : int, default=2
+        Number of off-diagonal bands to include. Higher values allow
+        more complex temporal patterns but require more parameters.
+        - band=1: First-order correlations only (like AR(1) but with free parameter)
+        - band=2: First and second-order correlations
+
+    References
+    ----------
+    .. [1] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS. Ch. 5.
+    .. [2] Pourahmadi (1999). "Joint mean-covariance models with applications
+           to longitudinal data." Biometrika, 86(3), 677-690.
+
+    Examples
+    --------
+    >>> cov = ToeplitzCovariance(band=2)
+    >>> cov.n_parameters(5)
+    3
+
+    >>> params = np.array([0.0, 0.3, 0.1])  # log(σ²)=0, r_1/σ²≈0.29, r_2/σ²≈0.10
+    >>> psi = cov.construct_psi(params, n_effects=4)
+
+    Notes
+    -----
+    Toeplitz covariance is appropriate for:
+    - Equally-spaced longitudinal data
+    - Time series where correlations don't follow AR(p) exactly
+    - Exploratory analysis before fitting structured models
+
+    The Toeplitz structure is a special case of a block structure and
+    allows efficient computation using banded matrix algorithms.
+    """
+
+    def __init__(self, band: int = 2):
+        """Initialize Toeplitz covariance.
+
+        Parameters
+        ----------
+        band : int, default=2
+            Number of off-diagonal bands (lags) to model.
+        """
+        if band < 1:
+            raise ValueError("band must be >= 1")
+        self.band = band
+
+    def n_parameters(self, n_effects: int) -> int:
+        """Number of parameters = min(band, n_effects-1) + 1."""
+        # Can't have more bands than n_effects - 1
+        effective_band = min(self.band, n_effects - 1)
+        return effective_band + 1  # variance + correlations
+
+    def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
+        """Construct Toeplitz covariance matrix.
+
+        Parameters
+        ----------
+        params : ndarray
+            [log(σ²), arctanh(ρ_1), arctanh(ρ_2), ...] - transformed parameters
+        n_effects : int
+            Number of time points/random effects
+
+        Returns
+        -------
+        psi : ndarray (n_effects, n_effects)
+            Toeplitz covariance matrix
+        """
+        n_params = self.n_parameters(n_effects)
+        if len(params) != n_params:
+            raise ValueError(f"Expected {n_params} parameters, got {len(params)}")
+
+        # Extract variance and correlations
+        sigma2 = np.exp(params[0])
+
+        # Build correlation vector
+        # Use tanh to ensure correlations in (-1, 1)
+        correlations = np.tanh(params[1:])
+
+        # Build first row of Toeplitz matrix (defines the structure)
+        first_row = np.zeros(n_effects)
+        first_row[0] = sigma2
+
+        effective_band = len(correlations)
+        for k in range(effective_band):
+            first_row[k + 1] = sigma2 * correlations[k]
+
+        # Construct symmetric Toeplitz matrix from first row
+        from scipy.linalg import toeplitz
+        psi = toeplitz(first_row)
+
+        # Ensure positive definiteness by checking eigenvalues
+        # If not positive definite, add small regularization
+        eigvals = np.linalg.eigvalsh(psi)
+        if np.min(eigvals) < 1e-10:
+            # Add regularization to make positive definite
+            psi += (1e-8 - np.min(eigvals) + 1e-10) * np.eye(n_effects)
+
+        return psi
+
+    def extract_params(self, psi: np.ndarray) -> np.ndarray:
+        """Extract parameters from Toeplitz covariance matrix.
+
+        Estimates variance from diagonal and correlations from off-diagonals.
+        """
+        if psi.shape[0] != psi.shape[1]:
+            raise ValueError("psi must be square")
+
+        n = psi.shape[0]
+        n_params = self.n_parameters(n)
+
+        # Extract variance from diagonal
+        sigma2 = np.mean(np.diag(psi))
+
+        # Extract correlations from off-diagonals
+        params = [np.log(sigma2)]
+        effective_band = n_params - 1
+
+        for k in range(1, effective_band + 1):
+            if k < n:
+                # Average correlation at lag k
+                diag_k = np.diag(psi, k)
+                corr_k = np.mean(diag_k) / sigma2
+                corr_k = np.clip(corr_k, -0.999, 0.999)
+                params.append(np.arctanh(corr_k))
+            else:
+                params.append(0.0)
+
+        return np.array(params)
+
+
 def get_covariance_structure(
     structure: str,
     **kwargs
@@ -911,6 +1057,11 @@ def get_covariance_structure(
     if structure in simple_structures:
         return simple_structures[structure]()
 
+    # Toeplitz with optional band parameter
+    if structure == 'toeplitz':
+        band = kwargs.get('band', 2)
+        return ToeplitzCovariance(band=band)
+
     # Structures with coordinates
     if structure == 'exponential':
         return ExponentialSpatialCovariance(
@@ -924,7 +1075,7 @@ def get_covariance_structure(
         )
 
     # Unknown structure
-    all_structures = list(simple_structures.keys()) + ['exponential', 'matern']
+    all_structures = list(simple_structures.keys()) + ['toeplitz', 'exponential', 'matern']
     raise ValueError(
         f"Unknown covariance structure: '{structure}'. "
         f"Must be one of {all_structures}"
@@ -938,6 +1089,7 @@ __all__ = [
     'IdentityCovariance',
     'AR1Covariance',
     'CompoundSymmetryCovariance',
+    'ToeplitzCovariance',
     'ExponentialSpatialCovariance',
     'MaternCovariance',
     'get_covariance_structure',
