@@ -461,6 +461,7 @@ def fit_gamm(
                 random_effects={f"re_{i}": result_dict['random_effects'][i:i+1]
                                for i in range(len(result_dict['random_effects']))},
                 variance_components=result_dict['variance_components'],
+                covariance_params=result_dict.get('covariance_params'),  # May be None for PQL smooth
                 residual_variance=np.var(residuals),  # Approximate for non-Gaussian
                 smoothing_parameters=result_dict['smoothing_parameters'],
                 edf_total=sum(result_dict['edf_smooth'].values()) + len(result_dict['beta_parametric']),
