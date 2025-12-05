@@ -10,6 +10,7 @@ Wood, S.N. (2011). Fast stable restricted maximum likelihood and marginal
     likelihood estimation of semiparametric generalized linear models.
     Journal of the Royal Statistical Society: Series B, 73(1), 3-36.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -192,7 +193,7 @@ def select_smoothing_parameter_reml(
         raise ValueError(f"S must have shape ({p}, {p}), got {S.shape}")
 
     if lambda_min <= 0 or lambda_max <= lambda_min:
-        raise ValueError(f"Must have 0 < lambda_min < lambda_max")
+        raise ValueError("Must have 0 < lambda_min < lambda_max")
 
     # Objective function (on log scale for numerical stability)
     def objective(log_lambda: float) -> float:
@@ -208,7 +209,11 @@ def select_smoothing_parameter_reml(
         # Golden section needs bracket, not bounds
         result = minimize_scalar(
             objective,
-            bracket=(log_lambda_min, (log_lambda_min + log_lambda_max) / 2, log_lambda_max),
+            bracket=(
+                log_lambda_min,
+                (log_lambda_min + log_lambda_max) / 2,
+                log_lambda_max,
+            ),
             method="golden",
         )
     else:
@@ -236,12 +241,23 @@ def select_smoothing_parameter_reml(
     XtWy = X.T @ W @ y
     A = XtWX + lambda_opt * S
 
-    coefficients = np.linalg.solve(A, XtWy)
+    # Solve with ridge regularization fallback for singular matrices
+    try:
+        coefficients = np.linalg.solve(A, XtWy)
+    except np.linalg.LinAlgError:
+        # Add small ridge regularization for numerical stability
+        ridge = 1e-8 * np.eye(A.shape[0])
+        coefficients = np.linalg.solve(A + ridge, XtWy)
+
     fitted_values = X @ coefficients
 
     # Compute effective degrees of freedom
     # EDF = trace(X (X'WX + λS)^(-1) X'W)
-    A_inv = np.linalg.inv(A)
+    try:
+        A_inv = np.linalg.inv(A)
+    except np.linalg.LinAlgError:
+        # Use pseudo-inverse for singular matrices
+        A_inv = np.linalg.pinv(A)
     edf = float(np.trace(A_inv @ XtWX))
 
     return {
@@ -323,14 +339,18 @@ def select_multiple_smoothing_parameters_reml(
     m = len(X_list)  # Number of smooth terms
 
     if len(S_list) != m:
-        raise ValueError(f"X_list and S_list must have same length, got {m} and {len(S_list)}")
+        raise ValueError(
+            f"X_list and S_list must have same length, got {m} and {len(S_list)}"
+        )
 
     # Initialize lambdas
     if lambda_init is None:
         lambdas = [1.0] * m
     else:
         if len(lambda_init) != m:
-            raise ValueError(f"lambda_init must have length {m}, got {len(lambda_init)}")
+            raise ValueError(
+                f"lambda_init must have length {m}, got {len(lambda_init)}"
+            )
         lambdas = list(lambda_init)
 
     # Build full design matrix
@@ -347,14 +367,19 @@ def select_multiple_smoothing_parameters_reml(
             # S_full = block_diag(λ₁S₁, λ₂S₂, ..., λₘSₘ)
             from scipy.linalg import block_diag
 
-            S_blocks = [lambdas[i] * S_list[i] if i != j else S_list[i] for i in range(m)]
+            S_blocks = [
+                lambdas[i] * S_list[i] if i != j else S_list[i] for i in range(m)
+            ]
             S_full = block_diag(*S_blocks)
 
             # Optimize λⱼ
             def objective(log_lambda: float) -> float:
                 lambda_j = np.exp(log_lambda)
                 # Update jth block
-                S_blocks_temp = [lambdas[i] * S_list[i] if i != j else lambda_j * S_list[i] for i in range(m)]
+                S_blocks_temp = [
+                    lambdas[i] * S_list[i] if i != j else lambda_j * S_list[i]
+                    for i in range(m)
+                ]
                 S_temp = block_diag(*S_blocks_temp)
                 return reml_score(y, X_full, S_temp, 1.0, weights=weights)
 
@@ -370,7 +395,10 @@ def select_multiple_smoothing_parameters_reml(
             lambdas[j] = np.exp(opt_result.x)
 
         # Check convergence
-        rel_change = np.max(np.abs(np.array(lambdas) - np.array(lambdas_old)) / (np.array(lambdas_old) + 1e-10))
+        rel_change = np.max(
+            np.abs(np.array(lambdas) - np.array(lambdas_old))
+            / (np.array(lambdas_old) + 1e-10)
+        )
         if rel_change < tol:
             converged = True
             break
