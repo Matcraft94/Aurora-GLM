@@ -196,19 +196,13 @@ def fit_laplace(
         psi_old = psi.copy()
 
         # Step 1: Find conditional mode b̂ given β, θ
-        b, hessian = _find_conditional_mode(
-            X, Z, y, beta, psi, n_effects, family
-        )
+        b, hessian = _find_conditional_mode(X, Z, y, beta, psi, n_effects, family)
 
         # Step 2: Update β given b̂
-        beta = _update_fixed_effects(
-            X, Z, y, b, psi, n_effects, family, S, lambda_
-        )
+        beta = _update_fixed_effects(X, Z, y, b, psi, n_effects, family, S, lambda_)
 
         # Step 3: Update θ (variance components) given β, b̂, H
-        psi = _update_variance_laplace(
-            b, hessian, n_effects
-        )
+        psi = _update_variance_laplace(b, hessian, n_effects)
 
         # Update predictions
         eta = X @ beta + Z @ b
@@ -219,14 +213,12 @@ def fit_laplace(
         delta_b = np.max(np.abs(b - b_old))
         delta_psi = np.max(np.abs(psi - psi_old))
 
-        if (delta_beta < tol and delta_b < tol and delta_psi < tol):
+        if delta_beta < tol and delta_b < tol and delta_psi < tol:
             converged = True
             break
 
     # Compute approximate marginal log-likelihood
-    log_lik = _compute_laplace_log_likelihood(
-        y, mu, b, psi, hessian, n_effects, family
-    )
+    log_lik = _compute_laplace_log_likelihood(y, mu, b, psi, hessian, n_effects, family)
 
     # Residual variance (Gaussian only)
     if isinstance(family, GaussianFamily):
@@ -335,16 +327,14 @@ def _find_conditional_mode(
         neg_log_conditional,
         x0=np.zeros(q),
         jac=grad_neg_log_conditional,
-        method='L-BFGS-B',
-        options={'maxiter': 100, 'ftol': 1e-8}
+        method="L-BFGS-B",
+        options={"maxiter": 100, "ftol": 1e-8},
     )
 
     b_mode = result.x
 
     # Compute Hessian at mode numerically
-    hessian = _compute_hessian(
-        X, Z, y, beta, b_mode, psi_inv_block, family
-    )
+    hessian = _compute_hessian(X, Z, y, beta, b_mode, psi_inv_block, family)
 
     return b_mode, hessian
 
@@ -480,7 +470,7 @@ def _update_fixed_effects(
         rhs = X_w.T @ z_w
 
         try:
-            beta_new = linalg.solve(A, rhs, assume_a='pos')
+            beta_new = linalg.solve(A, rhs, assume_a="pos")
         except linalg.LinAlgError:
             beta_new = linalg.solve(A + 1e-6 * np.eye(p), rhs)
 
@@ -585,7 +575,7 @@ def _compute_laplace_log_likelihood(
         psi_inv_b = linalg.cho_solve((L, True), b_matrix.T).T
     except linalg.LinAlgError:
         log_det_psi = np.linalg.slogdet(psi)[1]
-        psi_inv_b = linalg.solve(psi, b_matrix.T, assume_a='pos').T
+        psi_inv_b = linalg.solve(psi, b_matrix.T, assume_a="pos").T
 
     log_prior = -0.5 * (
         n_groups * (n_effects * np.log(2 * np.pi) + log_det_psi)
@@ -595,7 +585,7 @@ def _compute_laplace_log_likelihood(
     # Laplace correction (log determinant of Hessian)
     try:
         _, log_det_hess = np.linalg.slogdet(hessian)
-    except:
+    except np.linalg.LinAlgError:
         log_det_hess = 0.0  # Fallback
 
     laplace_correction = -0.5 * log_det_hess
@@ -622,15 +612,14 @@ def _get_family(family_name: str) -> Family:
         If family name not recognized
     """
     families = {
-        'gaussian': GaussianFamily,
-        'poisson': PoissonFamily,
-        'binomial': BinomialFamily,
+        "gaussian": GaussianFamily,
+        "poisson": PoissonFamily,
+        "binomial": BinomialFamily,
     }
 
     if family_name.lower() not in families:
         raise ValueError(
-            f"Unknown family '{family_name}'. "
-            f"Must be one of {list(families.keys())}"
+            f"Unknown family '{family_name}'. Must be one of {list(families.keys())}"
         )
 
     return families[family_name.lower()]()
