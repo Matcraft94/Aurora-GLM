@@ -1,4 +1,5 @@
 """Generalized Additive Mixed Model routines."""
+
 from __future__ import annotations
 
 from aurora.models.gamm.covariance import (
@@ -10,6 +11,7 @@ from aurora.models.gamm.covariance import (
     CompoundSymmetryCovariance,
     ExponentialSpatialCovariance,
     MaternCovariance,
+    ToeplitzCovariance,
     get_covariance_structure,
 )
 from aurora.models.gamm.design import construct_Z_matrix, extract_random_effects
@@ -70,6 +72,7 @@ __all__ = [
     "CompoundSymmetryCovariance",
     "ExponentialSpatialCovariance",
     "MaternCovariance",
+    "ToeplitzCovariance",
     "get_covariance_structure",
     # Design matrices
     "construct_Z_matrix",
