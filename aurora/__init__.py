@@ -18,6 +18,7 @@ Aurora supports NumPy, PyTorch, and JAX backends:
 ['numpy', 'pytorch', 'jax']
 >>> aurora.get_backend('pytorch')
 """
+
 from __future__ import annotations
 
 # Core backend functionality
@@ -34,7 +35,11 @@ from .distributions.families import (
     BinomialFamily,
     PoissonFamily,
     GammaFamily,
+    BetaFamily,
+    InverseGaussianFamily,
+    WaldFamily,
     StudentTFamily,
+    CauchyFamily,
     NegativeBinomialFamily,
     TweedieFamily,
 )
@@ -46,8 +51,10 @@ from .distributions.links import (
     LogitLink,
     InverseLink,
     CLogLogLink,
+    ProbitLink,
     SqrtLink,
     PowerLink,
+    InverseSquareLink,
 )
 
 # Base classes
@@ -60,6 +67,7 @@ from .models.gamm import (
     CompoundSymmetryCovariance,
     ExponentialSpatialCovariance,
     MaternCovariance,
+    ToeplitzCovariance,
 )
 
 # Inference utilities
@@ -92,7 +100,11 @@ Gaussian = GaussianFamily
 Binomial = BinomialFamily
 Poisson = PoissonFamily
 Gamma = GammaFamily
+Beta = BetaFamily
+InverseGaussian = InverseGaussianFamily
+Wald = WaldFamily
 StudentT = StudentTFamily
+Cauchy = CauchyFamily
 NegBin = NegativeBinomialFamily
 Tweedie = TweedieFamily
 
@@ -118,7 +130,11 @@ __all__ = [
     "BinomialFamily",
     "PoissonFamily",
     "GammaFamily",
+    "BetaFamily",
+    "InverseGaussianFamily",
+    "WaldFamily",
     "StudentTFamily",
+    "CauchyFamily",
     "NegativeBinomialFamily",
     "TweedieFamily",
     # Family aliases (convenience)
@@ -126,7 +142,11 @@ __all__ = [
     "Binomial",
     "Poisson",
     "Gamma",
+    "Beta",
+    "InverseGaussian",
+    "Wald",
     "StudentT",
+    "Cauchy",
     "NegBin",
     "Tweedie",
     # Link functions
@@ -136,8 +156,10 @@ __all__ = [
     "LogitLink",
     "InverseLink",
     "CLogLogLink",
+    "ProbitLink",
     "SqrtLink",
     "PowerLink",
+    "InverseSquareLink",
     # Random effects
     "RandomEffect",
     # Covariance structures
@@ -145,6 +167,7 @@ __all__ = [
     "CompoundSymmetryCovariance",
     "ExponentialSpatialCovariance",
     "MaternCovariance",
+    "ToeplitzCovariance",
     # Inference
     "confidence_intervals",
     "glm_diagnostics",
