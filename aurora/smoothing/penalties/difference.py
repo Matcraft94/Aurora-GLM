@@ -4,6 +4,7 @@ Difference penalties approximate integrated squared derivatives by penalizing
 differences in adjacent coefficients. They are computationally efficient and
 work well with B-spline bases.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -57,9 +58,7 @@ def difference_penalty(n_basis: int, order: int = 2) -> np.ndarray:
         raise ValueError("order must be positive")
 
     if order >= n_basis:
-        raise ValueError(
-            f"order {order} must be less than n_basis {n_basis}"
-        )
+        raise ValueError(f"order {order} must be less than n_basis {n_basis}")
 
     # Create difference matrix using numpy's diff
     # Start with identity matrix
@@ -122,7 +121,7 @@ def weighted_difference_penalty(
         raise ValueError("Need at least n_basis knots")
 
     # Compute knot spacing
-    h = np.diff(knots_arr[:n_basis + order])
+    h = np.diff(knots_arr[: n_basis + order])
 
     if np.any(h <= 0):
         raise ValueError("knots must be strictly increasing")

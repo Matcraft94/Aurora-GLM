@@ -1,4 +1,5 @@
 """PyTorch numerical backend implementation."""
+
 from __future__ import annotations
 
 from functools import partial
@@ -57,9 +58,13 @@ class PyTorchBackend:
             if not isinstance(result, torch.Tensor):
                 result = torch.as_tensor(result, device=self._device, dtype=self._dtype)
             if result.ndim != 0:
-                raise ValueError("Gradient can only be computed for scalar-valued functions.")
+                raise ValueError(
+                    "Gradient can only be computed for scalar-valued functions."
+                )
 
-            grad_tensor = torch.autograd.grad(result, params, create_graph=False, retain_graph=False)[0]
+            grad_tensor = torch.autograd.grad(
+                result, params, create_graph=False, retain_graph=False
+            )[0]
             return grad_tensor.detach()
 
         return grad_fn

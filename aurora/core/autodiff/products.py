@@ -3,6 +3,7 @@
 These functions compute products without forming full matrices,
 providing O(p) memory complexity vs O(p²) for full matrices.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Any, Tuple
@@ -17,13 +18,7 @@ ScalarFunc = Callable[..., float]
 VectorFunc = Callable[..., ArrayLike]
 
 
-def hvp(
-    func: ScalarFunc,
-    x: ArrayLike,
-    v: ArrayLike,
-    *args,
-    **kwargs
-) -> ArrayLike:
+def hvp(func: ScalarFunc, x: ArrayLike, v: ArrayLike, *args, **kwargs) -> ArrayLike:
     """Compute Hessian-vector product H @ v without forming full Hessian.
 
     This is memory efficient for large problems: O(p) vs O(p²) for full Hessian.
@@ -48,9 +43,9 @@ def hvp(
     """
     backend = detect_backend(x)
 
-    if backend == 'jax':
+    if backend == "jax":
         return _hvp_jax(func, x, v, *args, **kwargs)
-    elif backend == 'torch':
+    elif backend == "torch":
         return _hvp_torch(func, x, v, *args, **kwargs)
     else:
         return _hvp_numerical(func, x, v, *args, **kwargs)
@@ -83,7 +78,7 @@ def _hvp_numerical(func, x, v, *args, **kwargs):
     x = np.asarray(x, dtype=np.float64)
     v = np.asarray(v, dtype=np.float64)
 
-    grad_fn = gradient(func, backend='numpy')
+    grad_fn = gradient(func, backend="numpy")
 
     eps = np.finfo(np.float64).eps
     h = np.sqrt(eps) * max(np.linalg.norm(x), 1.0)
@@ -95,11 +90,7 @@ def _hvp_numerical(func, x, v, *args, **kwargs):
 
 
 def jvp(
-    func: VectorFunc,
-    x: ArrayLike,
-    v: ArrayLike,
-    *args,
-    **kwargs
+    func: VectorFunc, x: ArrayLike, v: ArrayLike, *args, **kwargs
 ) -> Tuple[ArrayLike, ArrayLike]:
     """Compute Jacobian-vector product (forward mode).
 
@@ -124,10 +115,11 @@ def jvp(
     """
     backend = detect_backend(x)
 
-    if backend == 'jax':
+    if backend == "jax":
         import jax
+
         return jax.jvp(lambda p: func(p, *args, **kwargs), (x,), (v,))
-    elif backend == 'torch':
+    elif backend == "torch":
         J = _jacobian_torch(func, 0, x, *args, **kwargs)
         f_x = func(x, *args, **kwargs)
         return f_x, J @ v
@@ -146,11 +138,7 @@ def jvp(
 
 
 def vjp(
-    func: VectorFunc,
-    x: ArrayLike,
-    v: ArrayLike,
-    *args,
-    **kwargs
+    func: VectorFunc, x: ArrayLike, v: ArrayLike, *args, **kwargs
 ) -> Tuple[ArrayLike, ArrayLike]:
     """Compute vector-Jacobian product (reverse mode).
 
@@ -175,13 +163,14 @@ def vjp(
     """
     backend = detect_backend(x)
 
-    if backend == 'jax':
+    if backend == "jax":
         import jax
+
         primals, vjp_fn = jax.vjp(lambda p: func(p, *args, **kwargs), x)
         cotangents = vjp_fn(v)[0]
         return primals, cotangents
-    elif backend == 'torch':
-        import torch
+    elif backend == "torch":
+
         x_t = x.clone().detach().requires_grad_(True)
         f_x = func(x_t, *args, **kwargs)
         f_x.backward(v)

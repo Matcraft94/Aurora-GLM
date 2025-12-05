@@ -1,4 +1,5 @@
 """Hessian computation for scalar-valued functions."""
+
 from __future__ import annotations
 
 from typing import Callable, Any
@@ -41,13 +42,14 @@ def hessian(
     For large p, consider using `hvp` (Hessian-vector product) instead,
     which has O(p) memory complexity vs O(p²) for full Hessian.
     """
+
     def hess_func(*args, **kwargs):
         x = args[argnums]
         detected_backend = backend or detect_backend(x)
 
-        if detected_backend == 'jax':
+        if detected_backend == "jax":
             return _hessian_jax(func, argnums, *args, **kwargs)
-        elif detected_backend == 'torch':
+        elif detected_backend == "torch":
             return _hessian_torch(func, argnums, *args, **kwargs)
         else:
             return _hessian_numerical(func, argnums, *args, **kwargs)
@@ -65,7 +67,6 @@ def _hessian_jax(func: ScalarFunc, argnums: int, *args, **kwargs) -> ArrayLike:
 
 def _hessian_torch(func: ScalarFunc, argnums: int, *args, **kwargs) -> ArrayLike:
     """Compute Hessian using PyTorch autograd."""
-    import torch
     from torch.autograd.functional import hessian as torch_hessian
 
     args = list(args)
@@ -79,12 +80,7 @@ def _hessian_torch(func: ScalarFunc, argnums: int, *args, **kwargs) -> ArrayLike
     return torch_hessian(wrapped_func, x)
 
 
-def _hessian_numerical(
-    func: ScalarFunc,
-    argnums: int,
-    *args,
-    **kwargs
-) -> np.ndarray:
+def _hessian_numerical(func: ScalarFunc, argnums: int, *args, **kwargs) -> np.ndarray:
     """Compute Hessian using finite differences on the gradient.
 
     Uses central differences on the gradient to get second derivatives.
@@ -93,12 +89,12 @@ def _hessian_numerical(
     x = np.asarray(args[argnums], dtype=np.float64)
     n = x.size
 
-    grad_fn = gradient(func, argnums=argnums, backend='numpy')
+    grad_fn = gradient(func, argnums=argnums, backend="numpy")
 
     args[argnums] = x
 
     eps = np.finfo(np.float64).eps
-    h_base = eps ** (1/3)
+    h_base = eps ** (1 / 3)
 
     H = np.zeros((n, n), dtype=np.float64)
     x_flat = x.ravel()

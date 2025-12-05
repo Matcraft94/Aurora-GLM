@@ -3,6 +3,7 @@
 GCV provides a computationally efficient approximation to leave-one-out
 cross-validation without actually fitting n different models.
 """
+
 from __future__ import annotations
 
 from typing import Any

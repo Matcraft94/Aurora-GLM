@@ -1,4 +1,5 @@
 """Data structures for GAM smooth terms specification."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -164,7 +165,7 @@ class TensorTerm:
         n_vars = len(self.variables)
 
         if self.basis_types is None:
-            self.basis_types = ('bspline',) * n_vars
+            self.basis_types = ("bspline",) * n_vars
         elif len(self.basis_types) != n_vars:
             raise ValueError(
                 f"basis_types must have same length as variables, "
@@ -187,7 +188,7 @@ class TensorTerm:
 
         # Validate basis types
         for bt in self.basis_types:
-            if bt not in ['bspline', 'cubic']:
+            if bt not in ["bspline", "cubic"]:
                 raise NotImplementedError(
                     f"basis_type='{bt}' not supported in tensor products yet. "
                     f"Use 'bspline' or 'cubic'."

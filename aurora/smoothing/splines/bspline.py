@@ -347,6 +347,7 @@ B-splines combine mathematical elegance (compact support, partition of unity)
 with computational efficiency (stable recursion, sparse matrices). They are
 the workhorse basis for modern statistical smoothing.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -474,7 +475,7 @@ class BSplineBasis:
         # Check if sparse output is requested and available
         if sparse:
             # Sparse output only for NumPy backend
-            if xp.__name__ != 'numpy':
+            if xp.__name__ != "numpy":
                 raise ValueError(
                     f"Sparse output only supported for NumPy backend, got {xp.__name__}"
                 )
@@ -497,9 +498,7 @@ class BSplineBasis:
 
         return B
 
-    def _basis_matrix_sparse_numpy(
-        self, x_arr: np.ndarray, knots: np.ndarray
-    ) -> Any:
+    def _basis_matrix_sparse_numpy(self, x_arr: np.ndarray, knots: np.ndarray) -> Any:
         """Efficiently compute sparse B-spline basis matrix (NumPy only).
 
         This method exploits the compact support property: for degree p,
@@ -594,9 +593,7 @@ class BSplineBasis:
 
         # Create CSR matrix
         B_sparse = csr_matrix(
-            (data, indices, indptr),
-            shape=(n, self.n_basis_),
-            dtype=x_arr.dtype
+            (data, indices, indptr), shape=(n, self.n_basis_), dtype=x_arr.dtype
         )
 
         return B_sparse
@@ -654,9 +651,7 @@ class BSplineBasis:
         # Should not reach here if knots are valid
         return -1
 
-    def _evaluate_basis(
-        self, x: Any, i: int, p: int, knots: Any, xp: Any
-    ) -> Any:
+    def _evaluate_basis(self, x: Any, i: int, p: int, knots: Any, xp: Any) -> Any:
         """Evaluate single B-spline basis function using Cox-de Boor recursion.
 
         Parameters
@@ -734,7 +729,9 @@ class BSplineBasis:
             raise ValueError("order must be positive")
 
         if order > self.n_basis_:
-            raise ValueError(f"order {order} too large for {self.n_basis_} basis functions")
+            raise ValueError(
+                f"order {order} too large for {self.n_basis_} basis functions"
+            )
 
         # Create difference matrix
         D = np.diff(np.eye(self.n_basis_), n=order, axis=0)
@@ -807,11 +804,13 @@ class BSplineBasis:
 
         # Create full knot vector with repeated boundaries
         # For open B-splines: repeat each boundary (degree + 1) times
-        knots = np.concatenate([
-            np.repeat(x_min, degree + 1),
-            interior_knots,
-            np.repeat(x_max, degree + 1),
-        ])
+        knots = np.concatenate(
+            [
+                np.repeat(x_min, degree + 1),
+                interior_knots,
+                np.repeat(x_max, degree + 1),
+            ]
+        )
 
         return knots
 

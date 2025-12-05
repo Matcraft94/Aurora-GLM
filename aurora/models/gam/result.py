@@ -1,4 +1,5 @@
 """Result class for fitted GAM models."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -77,7 +78,7 @@ class GAMResult:
         rss = np.sum(self.residuals**2)
         if self.weights is not None:
             rss = np.sum(self.weights * self.residuals**2)
-        
+
         tss = np.sum((self.y - np.mean(self.y)) ** 2)
         return 1 - rss / tss
 

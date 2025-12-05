@@ -3,9 +3,10 @@
 This module provides plotting functions for visualizing fitted smooth
 functions from GAMs, including confidence bands and partial residuals.
 """
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -104,13 +105,11 @@ def plot_smooth(
     """
     if not HAS_MATPLOTLIB:
         raise ImportError(
-            "matplotlib is required for plotting. "
-            "Install with: pip install matplotlib"
+            "matplotlib is required for plotting. Install with: pip install matplotlib"
         )
 
     # Handle univariate vs multivariate GAM
     from aurora.models.gam.additive import AdditiveGAMResult
-    from aurora.models.gam.result import GAMResult
 
     is_additive = isinstance(result, AdditiveGAMResult)
 
@@ -179,11 +178,12 @@ def plot_smooth(
     B_train = basis.basis_matrix(x_data)
 
     # Get penalty matrix from basis
-    if hasattr(basis, 'penalty_matrix'):
+    if hasattr(basis, "penalty_matrix"):
         # Check if penalty_matrix accepts order parameter
         import inspect
+
         sig = inspect.signature(basis.penalty_matrix)
-        if 'order' in sig.parameters:
+        if "order" in sig.parameters:
             # B-spline basis - use second order penalty
             S = basis.penalty_matrix(order=2)
         else:
@@ -200,14 +200,18 @@ def plot_smooth(
     # Compute variance at each grid point
     try:
         precision_inv = np.linalg.inv(precision)
-        var_grid = np.array([
-            residual_var * (B_grid[i:i+1] @ precision_inv @ B_grid[i:i+1].T)[0, 0]
-            for i in range(len(x_grid))
-        ])
+        var_grid = np.array(
+            [
+                residual_var
+                * (B_grid[i : i + 1] @ precision_inv @ B_grid[i : i + 1].T)[0, 0]
+                for i in range(len(x_grid))
+            ]
+        )
         se_grid = np.sqrt(var_grid)
 
         # Confidence multiplier (approximate with normal)
         from scipy.stats import norm
+
         z_alpha = norm.ppf(1 - (1 - confidence_level) / 2)
         ci_lower = f_grid - z_alpha * se_grid
         ci_upper = f_grid + z_alpha * se_grid
@@ -243,24 +247,30 @@ def plot_smooth(
     # Plot confidence band
     if has_ci:
         ax.fill_between(
-            x_grid, ci_lower, ci_upper,
-            alpha=0.2, color='steelblue',
-            label=f'{int(confidence_level*100)}% CI'
+            x_grid,
+            ci_lower,
+            ci_upper,
+            alpha=0.2,
+            color="steelblue",
+            label=f"{int(confidence_level * 100)}% CI",
         )
 
     # Plot smooth curve
-    ax.plot(x_grid, f_grid, color='steelblue', linewidth=2, label='Smooth')
+    ax.plot(x_grid, f_grid, color="steelblue", linewidth=2, label="Smooth")
 
     # Plot partial residuals
     if partial_resid is not None:
         ax.scatter(
-            x_resid, partial_resid,
-            alpha=0.3, s=10, color='gray',
-            label='Partial residuals'
+            x_resid,
+            partial_resid,
+            alpha=0.3,
+            s=10,
+            color="gray",
+            label="Partial residuals",
         )
 
     # Add zero reference line
-    ax.axhline(0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
+    ax.axhline(0, color="black", linestyle="--", linewidth=0.8, alpha=0.5)
 
     # Labels and title
     if title is None:
@@ -281,7 +291,7 @@ def plot_smooth(
         ylabel = "f(x)"
     ax.set_ylabel(ylabel)
 
-    ax.legend(loc='best')
+    ax.legend(loc="best")
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
@@ -334,8 +344,7 @@ def plot_all_smooths(
     """
     if not HAS_MATPLOTLIB:
         raise ImportError(
-            "matplotlib is required for plotting. "
-            "Install with: pip install matplotlib"
+            "matplotlib is required for plotting. Install with: pip install matplotlib"
         )
 
     from aurora.models.gam.additive import AdditiveGAMResult
@@ -350,8 +359,7 @@ def plot_all_smooths(
     nrows = int(np.ceil(n_terms / ncols))
 
     fig, axes = plt.subplots(
-        nrows, ncols,
-        figsize=(figsize_per_plot[0] * ncols, figsize_per_plot[1] * nrows)
+        nrows, ncols, figsize=(figsize_per_plot[0] * ncols, figsize_per_plot[1] * nrows)
     )
 
     # Flatten axes for easier indexing

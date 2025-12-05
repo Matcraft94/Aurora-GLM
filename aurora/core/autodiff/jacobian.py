@@ -1,4 +1,5 @@
 """Jacobian computation for vector-valued functions."""
+
 from __future__ import annotations
 
 from typing import Callable, Any
@@ -42,13 +43,14 @@ def jacobian(
     - Forward mode (JVP): O(n) passes, efficient when m >> n
     - Reverse mode (VJP): O(m) passes, efficient when n >> m
     """
+
     def jac_func(*args, **kwargs):
         x = args[argnums]
         detected_backend = backend or detect_backend(x)
 
-        if detected_backend == 'jax':
+        if detected_backend == "jax":
             return _jacobian_jax(func, argnums, *args, **kwargs)
-        elif detected_backend == 'torch':
+        elif detected_backend == "torch":
             return _jacobian_torch(func, argnums, *args, **kwargs)
         else:
             return _jacobian_numerical(func, argnums, *args, **kwargs)
@@ -66,7 +68,6 @@ def _jacobian_jax(func: VectorFunc, argnums: int, *args, **kwargs) -> ArrayLike:
 
 def _jacobian_torch(func: VectorFunc, argnums: int, *args, **kwargs) -> ArrayLike:
     """Compute Jacobian using PyTorch autograd."""
-    import torch
     from torch.autograd.functional import jacobian as torch_jacobian
 
     args = list(args)
@@ -80,12 +81,7 @@ def _jacobian_torch(func: VectorFunc, argnums: int, *args, **kwargs) -> ArrayLik
     return torch_jacobian(wrapped_func, x)
 
 
-def _jacobian_numerical(
-    func: VectorFunc,
-    argnums: int,
-    *args,
-    **kwargs
-) -> np.ndarray:
+def _jacobian_numerical(func: VectorFunc, argnums: int, *args, **kwargs) -> np.ndarray:
     """Compute Jacobian using central finite differences."""
     args = list(args)
     x = np.asarray(args[argnums], dtype=np.float64)

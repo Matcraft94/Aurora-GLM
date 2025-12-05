@@ -1,4 +1,5 @@
 """Wald hypothesis testing utilities."""
+
 from __future__ import annotations
 
 import math
@@ -127,7 +128,9 @@ def _chi_square_sf(value: float, df: float) -> float:
     return sf
 
 
-def _regularized_gamma_p(a: float, x: float, *, tol: float = 1e-12, max_iter: int = 1_000) -> float:
+def _regularized_gamma_p(
+    a: float, x: float, *, tol: float = 1e-12, max_iter: int = 1_000
+) -> float:
     if a <= 0.0:
         raise ValueError("shape parameter a must be positive")
     if x < 0.0:

@@ -1,7 +1,12 @@
 """Generalized Additive Model routines."""
+
 from __future__ import annotations
 
-from aurora.models.gam.additive import AdditiveGAMResult, fit_additive_gam, fit_gam_formula
+from aurora.models.gam.additive import (
+    AdditiveGAMResult,
+    fit_additive_gam,
+    fit_gam_formula,
+)
 from aurora.models.gam.fitting import fit_gam
 from aurora.models.gam.formula import FormulaSpec, parse_formula
 from aurora.models.gam.plotting import plot_all_smooths, plot_smooth

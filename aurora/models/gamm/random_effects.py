@@ -8,6 +8,7 @@ References
 .. [1] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS.
 .. [2] Wood (2017). Generalized Additive Models: An Introduction with R, 2nd ed.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -98,7 +99,16 @@ class RandomEffect:
     grouping: str | int
     variables: tuple[str | int, ...] = field(default_factory=tuple)
     include_intercept: bool = True
-    covariance: Literal['unstructured', 'diagonal', 'identity', 'ar1', 'compound_symmetry', 'cs', 'exponential', 'matern'] = 'unstructured'
+    covariance: Literal[
+        "unstructured",
+        "diagonal",
+        "identity",
+        "ar1",
+        "compound_symmetry",
+        "cs",
+        "exponential",
+        "matern",
+    ] = "unstructured"
 
     def __post_init__(self):
         """Validate random effect specification."""
@@ -108,9 +118,14 @@ class RandomEffect:
 
         # Validate covariance structure
         valid_cov = {
-            'unstructured', 'diagonal', 'identity',
-            'ar1', 'compound_symmetry', 'cs',  # Temporal correlation
-            'exponential', 'matern'  # Spatial correlation
+            "unstructured",
+            "diagonal",
+            "identity",
+            "ar1",
+            "compound_symmetry",
+            "cs",  # Temporal correlation
+            "exponential",
+            "matern",  # Spatial correlation
         }
         if self.covariance not in valid_cov:
             raise ValueError(
@@ -156,13 +171,13 @@ class RandomEffect:
         # Build R-style formula representation
         parts = []
         if self.include_intercept:
-            parts.append('1')
+            parts.append("1")
         parts.extend(str(v) for v in self.variables)
 
-        formula = ' + '.join(parts)
+        formula = " + ".join(parts)
         result = f"({formula} | {self.grouping})"
 
-        if self.covariance != 'unstructured':
+        if self.covariance != "unstructured":
             result += f" [{self.covariance}]"
 
         return f"RandomEffect({result})"
@@ -203,9 +218,7 @@ def validate_random_effects(
     - Each RandomEffect is internally valid (via __post_init__)
     """
     if not isinstance(random_effects, list):
-        raise TypeError(
-            f"random_effects must be a list, got {type(random_effects)}"
-        )
+        raise TypeError(f"random_effects must be a list, got {type(random_effects)}")
 
     for i, re in enumerate(random_effects):
         if not isinstance(re, RandomEffect):
@@ -300,8 +313,8 @@ def count_random_effects(
 
 
 __all__ = [
-    'RandomEffect',
-    'validate_random_effects',
-    'get_group_indices',
-    'count_random_effects',
+    "RandomEffect",
+    "validate_random_effects",
+    "get_group_indices",
+    "count_random_effects",
 ]

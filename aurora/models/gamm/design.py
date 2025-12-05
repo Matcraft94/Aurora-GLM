@@ -8,12 +8,16 @@ References
 .. [1] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS.
 .. [2] Wood (2017). Generalized Additive Models: An Introduction with R, 2nd ed.
 """
+
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
-from aurora.models.gamm.random_effects import RandomEffect, get_group_indices, validate_random_effects
+from aurora.models.gamm.random_effects import (
+    RandomEffect,
+    get_group_indices,
+    validate_random_effects,
+)
 
 
 def construct_Z_matrix(
@@ -122,7 +126,7 @@ def construct_Z_matrix(
         n_groups = len(unique_groups)
 
         # Determine if this is a temporal covariance structure
-        is_temporal = re.covariance in ('ar1', 'compound_symmetry', 'cs')
+        is_temporal = re.covariance in ("ar1", "compound_symmetry", "cs")
 
         if is_temporal:
             # For temporal covariance, each observation within a group gets its own random effect
@@ -180,15 +184,17 @@ def construct_Z_matrix(
 
         # Store info
         Z_blocks.append(Z_block)
-        Z_info.append({
-            'grouping': re.grouping,
-            'n_effects': n_effects,
-            'n_groups': n_groups,
-            'groups': unique_groups,
-            'start_col': current_col,
-            'end_col': current_col + n_groups * n_effects,
-            'covariance': re.covariance,  # Store covariance structure type
-        })
+        Z_info.append(
+            {
+                "grouping": re.grouping,
+                "n_effects": n_effects,
+                "n_groups": n_groups,
+                "groups": unique_groups,
+                "start_col": current_col,
+                "end_col": current_col + n_groups * n_effects,
+                "covariance": re.covariance,  # Store covariance structure type
+            }
+        )
         current_col += n_groups * n_effects
 
     # Concatenate all Z blocks horizontally
@@ -250,14 +256,14 @@ def extract_random_effects(
     random_effects = {}
 
     for info in Z_info:
-        grouping = info['grouping']
-        n_effects = info['n_effects']
-        n_groups = info['n_groups']
-        groups = info['groups']
-        start_col = info['start_col']
+        grouping = info["grouping"]
+        n_effects = info["n_effects"]
+        n_groups = info["n_groups"]
+        groups = info["groups"]
+        start_col = info["start_col"]
 
         # Extract coefficients for this random effect term
-        b_term = b[start_col:start_col + n_groups * n_effects]
+        b_term = b[start_col : start_col + n_groups * n_effects]
 
         # Reshape to (n_groups, n_effects)
         b_reshaped = b_term.reshape(n_groups, n_effects)
@@ -271,6 +277,6 @@ def extract_random_effects(
 
 
 __all__ = [
-    'construct_Z_matrix',
-    'extract_random_effects',
+    "construct_Z_matrix",
+    "extract_random_effects",
 ]

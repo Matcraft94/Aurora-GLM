@@ -8,13 +8,13 @@ References
 ----------
 .. [1] Jørgensen, B. (1987). "Exponential dispersion models."
        Journal of the Royal Statistical Society: Series B, 49(2), 127-162.
-.. [2] Smyth, G. K., & Jørgensen, B. (2002). 
+.. [2] Smyth, G. K., & Jørgensen, B. (2002).
        "Fitting Tweedie's compound Poisson model to insurance claims data."
        ASTIN Bulletin, 32(1), 143-157.
-.. [3] Dunn, P. K., & Smyth, G. K. (2005). 
+.. [3] Dunn, P. K., & Smyth, G. K. (2005).
        "Series evaluation of Tweedie exponential dispersion model densities."
        Statistics and Computing, 15(4), 267-280.
-.. [4] Dunn, P. K., & Smyth, G. K. (2008). 
+.. [4] Dunn, P. K., & Smyth, G. K. (2008).
        "Evaluation of Tweedie exponential dispersion model densities by Fourier inversion."
        Statistics and Computing, 18(1), 73-86.
 """
@@ -24,7 +24,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy import special
 
 from aurora.distributions.base import Family
 from aurora.distributions.links import LogLink, IdentityLink, PowerLink
@@ -92,7 +91,7 @@ class TweedieFamily(Family):
     --------
     >>> from aurora.models.glm import fit_glm
     >>> # Insurance claims (many zeros, heavy right tail)
-    >>> result = fit_glm(X, claims, family='tweedie', 
+    >>> result = fit_glm(X, claims, family='tweedie',
     ...                  family_params={'power': 1.7})
 
     >>> # Rainfall amounts (zeros for dry days)
@@ -105,17 +104,12 @@ class TweedieFamily(Family):
     .. [2] Smyth & Jørgensen (2002). Fitting Tweedie's compound Poisson model.
     """
 
-    name = 'tweedie'
-    
+    name = "tweedie"
+
     # Valid range for responses (non-negative)
     valid_y_range = (0, np.inf)
 
-    def __init__(
-        self, 
-        power: float = 1.5, 
-        link: str = 'log',
-        phi: float = 1.0
-    ):
+    def __init__(self, power: float = 1.5, link: str = "log", phi: float = 1.0):
         """Initialize Tweedie family.
 
         Parameters
@@ -132,23 +126,25 @@ class TweedieFamily(Family):
                 f"For compound Poisson-Gamma Tweedie, power must be in (1, 2). "
                 f"Got power={power}. Use Gamma (power=2) or Poisson (power=1) instead."
             )
-        
+
         self.power = power
         self.phi = phi
-        
-        if link == 'log':
+
+        if link == "log":
             self._link = LogLink()
-        elif link == 'identity':
+        elif link == "identity":
             self._link = IdentityLink()
-        elif link.startswith('power'):
+        elif link.startswith("power"):
             # Parse power link, e.g., 'power0.5'
             try:
-                link_power = float(link.replace('power', ''))
+                link_power = float(link.replace("power", ""))
             except ValueError:
                 link_power = 1 - power / 2  # Canonical power
             self._link = PowerLink(link_power)
         else:
-            raise ValueError(f"Unsupported link: {link}. Use 'log', 'identity', or 'power'")
+            raise ValueError(
+                f"Unsupported link: {link}. Use 'log', 'identity', or 'power'"
+            )
 
     @property
     def default_link(self):
@@ -181,7 +177,7 @@ class TweedieFamily(Family):
         else:
             mu_arr = np.clip(mu_arr, 1e-10, None)
 
-        return mu_arr ** self.power
+        return mu_arr**self.power
 
     def initialize(self, y: NDArray) -> NDArray:
         """Initialize mean using positive values.
@@ -222,12 +218,7 @@ class TweedieFamily(Family):
         else:
             return np.full_like(y_arr, mu_init, dtype=float)
 
-    def deviance(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> float:
+    def deviance(self, y: NDArray, mu: NDArray, **params) -> float:
         """Deviance for Tweedie distribution.
 
         The unit deviance for Tweedie with power p is:
@@ -270,26 +261,26 @@ class TweedieFamily(Family):
         # For y > 0
         if xp is torch:  # type: ignore[comparison-overlap]
             d_pos = 2 * (
-                y_arr**(2-p) / ((1-p) * (2-p)) -
-                y_arr * mu_arr**(1-p) / (1-p) +
-                mu_arr**(2-p) / (2-p)
+                y_arr ** (2 - p) / ((1 - p) * (2 - p))
+                - y_arr * mu_arr ** (1 - p) / (1 - p)
+                + mu_arr ** (2 - p) / (2 - p)
             )
         elif xp is jnp:  # type: ignore[comparison-overlap]
             d_pos = 2 * (
-                y_arr**(2-p) / ((1-p) * (2-p)) -
-                y_arr * mu_arr**(1-p) / (1-p) +
-                mu_arr**(2-p) / (2-p)
+                y_arr ** (2 - p) / ((1 - p) * (2 - p))
+                - y_arr * mu_arr ** (1 - p) / (1 - p)
+                + mu_arr ** (2 - p) / (2 - p)
             )
         else:
-            with np.errstate(divide='ignore', invalid='ignore'):
+            with np.errstate(divide="ignore", invalid="ignore"):
                 d_pos = 2 * (
-                    y_arr**(2-p) / ((1-p) * (2-p)) -
-                    y_arr * mu_arr**(1-p) / (1-p) +
-                    mu_arr**(2-p) / (2-p)
+                    y_arr ** (2 - p) / ((1 - p) * (2 - p))
+                    - y_arr * mu_arr ** (1 - p) / (1 - p)
+                    + mu_arr ** (2 - p) / (2 - p)
                 )
 
         # For y = 0
-        d_zero = 2 * mu_arr**(2-p) / (2-p)
+        d_zero = 2 * mu_arr ** (2 - p) / (2 - p)
 
         # Select based on y
         if xp is torch:  # type: ignore[comparison-overlap]
@@ -301,17 +292,12 @@ class TweedieFamily(Family):
 
         return float(xp.sum(d))
 
-    def log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> float:
+    def log_likelihood(self, y: NDArray, mu: NDArray, **params) -> float:
         """Approximate log-likelihood for Tweedie.
 
         The Tweedie density has no closed form, but can be expressed
         as an infinite series or computed via Fourier inversion.
-        
+
         For fitting purposes, we use the quasi-likelihood relationship:
             -2 log L ≈ D/φ + constant
 
@@ -329,20 +315,15 @@ class TweedieFamily(Family):
         float
             Approximate log-likelihood
         """
-        phi = params.get('phi', self.phi)
-        
+        phi = params.get("phi", self.phi)
+
         # Quasi-likelihood approximation
         deviance = self.deviance(y, mu, **params)
-        
+
         # Approximate log-likelihood (ignoring constants)
         return -0.5 * deviance / phi
 
-    def weights(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> NDArray:
+    def weights(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """IRLS weights for Tweedie.
 
         Weights are 1/V(μ) = 1/μ^p.
@@ -363,11 +344,11 @@ class TweedieFamily(Family):
         return 1.0 / self.variance(mu)
 
     def estimate_power(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
+        self,
+        y: NDArray,
+        mu: NDArray,
         power_range: tuple[float, float] = (1.1, 1.9),
-        n_grid: int = 20
+        n_grid: int = 20,
     ) -> float:
         """Estimate optimal power parameter via profile likelihood.
 
@@ -389,27 +370,22 @@ class TweedieFamily(Family):
         """
         y = np.asarray(y, dtype=float)
         mu = np.maximum(mu, 1e-10)
-        
+
         powers = np.linspace(power_range[0], power_range[1], n_grid)
         deviances = []
-        
+
         for p in powers:
             self.power = p
             dev = self.deviance(y, mu)
             deviances.append(dev)
-        
+
         # Find minimum
         best_idx = np.argmin(deviances)
         best_power = powers[best_idx]
-        
+
         return best_power
 
-    def estimate_phi(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        ddof: int = 1
-    ) -> float:
+    def estimate_phi(self, y: NDArray, mu: NDArray, ddof: int = 1) -> float:
         """Estimate dispersion parameter.
 
         Uses Pearson estimator: φ = (1/n) Σ (y-μ)² / V(μ)
@@ -431,21 +407,16 @@ class TweedieFamily(Family):
         y = np.asarray(y, dtype=float)
         mu = np.maximum(mu, 1e-10)
         n = len(y)
-        
+
         # Pearson residuals
         resid = (y - mu) / np.sqrt(self.variance(mu))
-        
+
         # Estimate phi
         phi = np.sum(resid**2) / (n - ddof)
-        
+
         return max(phi, 1e-8)
 
-    def d_log_likelihood(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> NDArray:
+    def d_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """First derivative of quasi-log-likelihood w.r.t. μ.
 
         Parameters
@@ -460,7 +431,7 @@ class TweedieFamily(Family):
         ndarray
             Gradient
         """
-        phi = params.get('phi', self.phi)
+        phi = params.get("phi", self.phi)
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
         mu_arr = as_namespace_array(mu, xp, like=y_arr)
@@ -480,12 +451,7 @@ class TweedieFamily(Family):
 
         return grad
 
-    def d2_log_likelihood(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> NDArray:
+    def d2_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Second derivative of quasi-log-likelihood w.r.t. μ.
 
         Parameters
@@ -500,7 +466,7 @@ class TweedieFamily(Family):
         ndarray
             Negative Hessian diagonal (Fisher information)
         """
-        phi = params.get('phi', self.phi)
+        phi = params.get("phi", self.phi)
         xp = namespace(mu)
         mu_arr = as_namespace_array(mu, xp, like=mu)
 
@@ -538,7 +504,7 @@ class TweedieFamily(Family):
         ndarray
             Probability of zero at each observation
         """
-        phi = params.get('phi', self.phi)
+        phi = params.get("phi", self.phi)
         xp = namespace(mu)
         mu_arr = as_namespace_array(mu, xp, like=mu)
 
@@ -553,14 +519,14 @@ class TweedieFamily(Family):
         p = self.power
 
         # Poisson rate parameter
-        lambda_ = mu_arr**(2-p) / (phi * (2-p))
+        lambda_ = mu_arr ** (2 - p) / (phi * (2 - p))
 
         return xp.exp(-lambda_)
 
     def __repr__(self) -> str:
         """String representation."""
         # Get link name from class name (e.g., LogLink -> log)
-        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        link_name = self._link.__class__.__name__.replace("Link", "").lower()
         return f"TweedieFamily(power={self.power:.3g}, phi={self.phi:.3g}, link='{link_name}')"
 
 
@@ -581,7 +547,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
     - β = φ(p-1)μ^(p-1)  (Gamma rate)
     """
 
-    name = 'compound_poisson_gamma'
+    name = "compound_poisson_gamma"
 
     def get_poisson_rate(self, mu: NDArray, **params) -> NDArray:
         """Get the underlying Poisson rate λ.
@@ -596,7 +562,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
         ndarray
             Poisson rate for event count
         """
-        phi = params.get('phi', self.phi)
+        phi = params.get("phi", self.phi)
         xp = namespace(mu)
         mu_arr = as_namespace_array(mu, xp, like=mu)
 
@@ -610,7 +576,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
 
         p = self.power
 
-        return mu_arr**(2-p) / (phi * (2-p))
+        return mu_arr ** (2 - p) / (phi * (2 - p))
 
     def get_gamma_shape(self) -> float:
         """Get the Gamma shape parameter α."""
@@ -629,7 +595,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
         ndarray
             Gamma rate for event magnitude
         """
-        phi = params.get('phi', self.phi)
+        phi = params.get("phi", self.phi)
         xp = namespace(mu)
         mu_arr = as_namespace_array(mu, xp, like=mu)
 
@@ -643,7 +609,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
 
         p = self.power
 
-        return phi * (p - 1) * mu_arr**(p-1)
+        return phi * (p - 1) * mu_arr ** (p - 1)
 
 
-__all__ = ['TweedieFamily', 'CompoundPoissonGammaFamily']
+__all__ = ["TweedieFamily", "CompoundPoissonGammaFamily"]

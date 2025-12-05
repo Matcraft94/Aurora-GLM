@@ -28,7 +28,6 @@ from matplotlib.figure import Figure
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
-    from numpy.typing import NDArray
 
     from aurora.models.gamm.fitting import GAMMResult
 
@@ -101,7 +100,6 @@ def plot_caterpillar(
     Groups whose confidence intervals do not include zero have effects
     that are significantly different from the population mean.
     """
-    from aurora.models.gamm.design import extract_random_effects
 
     # Get random effects
     if result._Z_info is None or len(result._Z_info) == 0:
@@ -114,25 +112,25 @@ def plot_caterpillar(
                 f"Model has {len(result._Z_info)} grouping variables. "
                 "Please specify which one to plot using the 'grouping' parameter."
             )
-        grouping_to_plot = result._Z_info[0]['grouping']
+        grouping_to_plot = result._Z_info[0]["grouping"]
         info = result._Z_info[0]
     else:
         # Find the Z_info entry for this grouping
         info = None
         for z_info in result._Z_info:
-            if z_info['grouping'] == grouping:
+            if z_info["grouping"] == grouping:
                 info = z_info
                 grouping_to_plot = grouping
                 break
 
         if info is None:
-            available = [z['grouping'] for z in result._Z_info]
+            available = [z["grouping"] for z in result._Z_info]
             raise ValueError(
                 f"Grouping '{grouping}' not found in model. Available: {available}"
             )
 
     # Check effect_index is valid
-    if effect_index >= info['n_effects']:
+    if effect_index >= info["n_effects"]:
         raise ValueError(
             f"effect_index={effect_index} but grouping '{grouping_to_plot}' "
             f"only has {info['n_effects']} effects (0-indexed)"
@@ -143,7 +141,7 @@ def plot_caterpillar(
     random_effects = result.random_effects[grouping_to_plot]
 
     # Get groups and effects
-    groups = info['groups']
+    groups = info["groups"]
     n_groups = len(groups)
     effects = np.array([random_effects[g][effect_index] for g in groups])
 
@@ -187,25 +185,25 @@ def plot_caterpillar(
 
     # Plot horizontal lines for CIs
     y_positions = np.arange(n_groups)
-    ax.hlines(y_positions, ci_lower, ci_upper, color='gray', linewidth=1.5)
+    ax.hlines(y_positions, ci_lower, ci_upper, color="gray", linewidth=1.5)
 
     # Plot points for estimates
-    ax.plot(effects, y_positions, 'o', color='steelblue', markersize=6)
+    ax.plot(effects, y_positions, "o", color="steelblue", markersize=6)
 
     # Add reference line at zero
-    ax.axvline(0, color='red', linestyle='--', linewidth=1, alpha=0.7)
+    ax.axvline(0, color="red", linestyle="--", linewidth=1, alpha=0.7)
 
     # Labels
-    effect_names = ['Intercept'] + [f'Slope {i}' for i in range(1, info['n_effects'])]
-    ax.set_xlabel(f'Random Effect: {effect_names[effect_index]}')
-    ax.set_ylabel(f'Group ({grouping_to_plot})')
+    effect_names = ["Intercept"] + [f"Slope {i}" for i in range(1, info["n_effects"])]
+    ax.set_xlabel(f"Random Effect: {effect_names[effect_index]}")
+    ax.set_ylabel(f"Group ({grouping_to_plot})")
     ax.set_yticks(y_positions)
     ax.set_yticklabels([str(g) for g in groups])
     ax.set_title(
-        f'Caterpillar Plot: {effect_names[effect_index]} by {grouping_to_plot}\n'
-        f'{confidence*100:.0f}% Confidence Intervals'
+        f"Caterpillar Plot: {effect_names[effect_index]} by {grouping_to_plot}\n"
+        f"{confidence * 100:.0f}% Confidence Intervals"
     )
-    ax.grid(axis='x', alpha=0.3)
+    ax.grid(axis="x", alpha=0.3)
 
     fig.tight_layout()
 
@@ -262,7 +260,6 @@ def plot_random_effects_qq(
     - Systematic curve: Skewness
     - Points far from line: Individual outliers
     """
-    from aurora.models.gamm.design import extract_random_effects
 
     # Get random effects
     if result._Z_info is None or len(result._Z_info) == 0:
@@ -275,24 +272,22 @@ def plot_random_effects_qq(
                 "Model has multiple grouping variables. "
                 "Please specify which one to plot using the 'grouping' parameter."
             )
-        grouping_to_plot = result._Z_info[0]['grouping']
+        grouping_to_plot = result._Z_info[0]["grouping"]
         info = result._Z_info[0]
     else:
         info = None
         for z_info in result._Z_info:
-            if z_info['grouping'] == grouping:
+            if z_info["grouping"] == grouping:
                 info = z_info
                 grouping_to_plot = grouping
                 break
 
         if info is None:
-            available = [z['grouping'] for z in result._Z_info]
-            raise ValueError(
-                f"Grouping '{grouping}' not found. Available: {available}"
-            )
+            available = [z["grouping"] for z in result._Z_info]
+            raise ValueError(f"Grouping '{grouping}' not found. Available: {available}")
 
     # Check effect_index
-    if effect_index >= info['n_effects']:
+    if effect_index >= info["n_effects"]:
         raise ValueError(
             f"effect_index={effect_index} but grouping '{grouping_to_plot}' "
             f"only has {info['n_effects']} effects"
@@ -303,7 +298,7 @@ def plot_random_effects_qq(
     random_effects = result.random_effects[grouping_to_plot]
 
     # Get effects for this index
-    groups = info['groups']
+    groups = info["groups"]
     effects = np.array([random_effects[g][effect_index] for g in groups])
 
     # Standardize effects
@@ -319,13 +314,13 @@ def plot_random_effects_qq(
     stats.probplot(effects_std, dist="norm", plot=ax)
 
     # Styling
-    effect_names = ['Intercept'] + [f'Slope {i}' for i in range(1, info['n_effects'])]
+    effect_names = ["Intercept"] + [f"Slope {i}" for i in range(1, info["n_effects"])]
     ax.set_title(
-        f'Q-Q Plot: {effect_names[effect_index]} by {grouping_to_plot}\n'
-        f'(Checking Normality Assumption)'
+        f"Q-Q Plot: {effect_names[effect_index]} by {grouping_to_plot}\n"
+        f"(Checking Normality Assumption)"
     )
-    ax.set_xlabel('Theoretical Quantiles')
-    ax.set_ylabel('Standardized Random Effects')
+    ax.set_xlabel("Theoretical Quantiles")
+    ax.set_ylabel("Standardized Random Effects")
     ax.grid(alpha=0.3)
 
     fig.tight_layout()
@@ -376,7 +371,6 @@ def plot_random_effects_density(
     while the overlaid curve shows the theoretical normal distribution
     N(0, Ψ) implied by the model.
     """
-    from aurora.models.gamm.design import extract_random_effects
 
     # Get random effects
     if result._Z_info is None or len(result._Z_info) == 0:
@@ -386,25 +380,24 @@ def plot_random_effects_density(
     if grouping is None:
         if len(result._Z_info) > 1:
             raise ValueError(
-                "Model has multiple grouping variables. "
-                "Please specify which one."
+                "Model has multiple grouping variables. Please specify which one."
             )
-        grouping_to_plot = result._Z_info[0]['grouping']
+        grouping_to_plot = result._Z_info[0]["grouping"]
         info = result._Z_info[0]
     else:
         info = None
         for z_info in result._Z_info:
-            if z_info['grouping'] == grouping:
+            if z_info["grouping"] == grouping:
                 info = z_info
                 grouping_to_plot = grouping
                 break
 
         if info is None:
-            available = [z['grouping'] for z in result._Z_info]
+            available = [z["grouping"] for z in result._Z_info]
             raise ValueError(f"Grouping '{grouping}' not found. Available: {available}")
 
     # Check effect_index
-    if effect_index >= info['n_effects']:
+    if effect_index >= info["n_effects"]:
         raise ValueError(
             f"effect_index={effect_index} invalid for {info['n_effects']} effects"
         )
@@ -413,7 +406,7 @@ def plot_random_effects_density(
     # GAMMResult already has random_effects in the correct format
     random_effects = result.random_effects[grouping_to_plot]
 
-    groups = info['groups']
+    groups = info["groups"]
     effects = np.array([random_effects[g][effect_index] for g in groups])
 
     # Create plot
@@ -423,8 +416,15 @@ def plot_random_effects_density(
         fig = ax.figure
 
     # Histogram
-    ax.hist(effects, bins=min(30, len(effects)//2), density=True,
-            alpha=0.6, color='steelblue', edgecolor='black', label='Observed')
+    ax.hist(
+        effects,
+        bins=min(30, len(effects) // 2),
+        density=True,
+        alpha=0.6,
+        color="steelblue",
+        edgecolor="black",
+        label="Observed",
+    )
 
     # Overlay normal if requested
     if show_normal:
@@ -436,19 +436,21 @@ def plot_random_effects_density(
             effect_var = var_component
 
         # Theoretical normal
-        x_range = np.linspace(effects.min() - 0.5*effects.std(),
-                               effects.max() + 0.5*effects.std(), 200)
+        x_range = np.linspace(
+            effects.min() - 0.5 * effects.std(),
+            effects.max() + 0.5 * effects.std(),
+            200,
+        )
         y_normal = stats.norm.pdf(x_range, loc=0, scale=np.sqrt(effect_var))
-        ax.plot(x_range, y_normal, 'r-', linewidth=2,
-                label=f'N(0, {effect_var:.3f})')
+        ax.plot(x_range, y_normal, "r-", linewidth=2, label=f"N(0, {effect_var:.3f})")
 
     # Labels
-    effect_names = ['Intercept'] + [f'Slope {i}' for i in range(1, info['n_effects'])]
-    ax.set_xlabel(f'Random Effect: {effect_names[effect_index]}')
-    ax.set_ylabel('Density')
+    effect_names = ["Intercept"] + [f"Slope {i}" for i in range(1, info["n_effects"])]
+    ax.set_xlabel(f"Random Effect: {effect_names[effect_index]}")
+    ax.set_ylabel("Density")
     ax.set_title(
-        f'Distribution of {effect_names[effect_index]} by {grouping_to_plot}\n'
-        f'({len(effects)} groups)'
+        f"Distribution of {effect_names[effect_index]} by {grouping_to_plot}\n"
+        f"({len(effects)} groups)"
     )
     ax.legend()
     ax.grid(alpha=0.3)
@@ -460,7 +462,7 @@ def plot_random_effects_density(
 
 def plot_diagnostics(
     result: GAMMResult,
-    plot_type: Literal['residuals', 'fitted', 'qq', 'scale-location'] = 'residuals',
+    plot_type: Literal["residuals", "fitted", "qq", "scale-location"] = "residuals",
     figsize: tuple[float, float] = (8, 6),
     ax: Axes | None = None,
 ) -> tuple[Figure, Axes]:
@@ -526,66 +528,72 @@ def plot_diagnostics(
     residuals = result.residuals
     fitted = result.fitted_values
 
-    if plot_type == 'residuals':
+    if plot_type == "residuals":
         # Residuals vs fitted
-        ax.scatter(fitted, residuals, alpha=0.5, edgecolor='black', linewidth=0.5)
-        ax.axhline(0, color='red', linestyle='--', linewidth=1)
+        ax.scatter(fitted, residuals, alpha=0.5, edgecolor="black", linewidth=0.5)
+        ax.axhline(0, color="red", linestyle="--", linewidth=1)
 
         # Add smooth line
         if len(fitted) > 10:
             from scipy.ndimage import gaussian_filter1d
+
             sort_idx = np.argsort(fitted)
             fitted_sorted = fitted[sort_idx]
             residuals_sorted = residuals[sort_idx]
-            smooth = gaussian_filter1d(residuals_sorted, sigma=max(1, len(fitted)//20))
-            ax.plot(fitted_sorted, smooth, 'b-', linewidth=2, alpha=0.7)
+            smooth = gaussian_filter1d(
+                residuals_sorted, sigma=max(1, len(fitted) // 20)
+            )
+            ax.plot(fitted_sorted, smooth, "b-", linewidth=2, alpha=0.7)
 
-        ax.set_xlabel('Fitted Values')
-        ax.set_ylabel('Residuals')
-        ax.set_title('Residuals vs Fitted\n(Should show random scatter around zero)')
+        ax.set_xlabel("Fitted Values")
+        ax.set_ylabel("Residuals")
+        ax.set_title("Residuals vs Fitted\n(Should show random scatter around zero)")
         ax.grid(alpha=0.3)
 
-    elif plot_type == 'fitted':
+    elif plot_type == "fitted":
         # Fitted vs observed
         observed = fitted + residuals
-        ax.scatter(fitted, observed, alpha=0.5, edgecolor='black', linewidth=0.5)
+        ax.scatter(fitted, observed, alpha=0.5, edgecolor="black", linewidth=0.5)
 
         # Add y=x line
         lims = [
             min(fitted.min(), observed.min()),
             max(fitted.max(), observed.max()),
         ]
-        ax.plot(lims, lims, 'r--', linewidth=1, label='y=x')
+        ax.plot(lims, lims, "r--", linewidth=1, label="y=x")
 
-        ax.set_xlabel('Fitted Values')
-        ax.set_ylabel('Observed Values')
-        ax.set_title('Fitted vs Observed\n(Points should cluster near y=x line)')
+        ax.set_xlabel("Fitted Values")
+        ax.set_ylabel("Observed Values")
+        ax.set_title("Fitted vs Observed\n(Points should cluster near y=x line)")
         ax.legend()
         ax.grid(alpha=0.3)
 
-    elif plot_type == 'qq':
+    elif plot_type == "qq":
         # Q-Q plot of residuals
         stats.probplot(residuals, dist="norm", plot=ax)
-        ax.set_title('Q-Q Plot of Residuals\n(Checking normality assumption)')
+        ax.set_title("Q-Q Plot of Residuals\n(Checking normality assumption)")
         ax.grid(alpha=0.3)
 
-    elif plot_type == 'scale-location':
+    elif plot_type == "scale-location":
         # Scale-location plot
         sqrt_std_resid = np.sqrt(np.abs(residuals / residuals.std()))
-        ax.scatter(fitted, sqrt_std_resid, alpha=0.5, edgecolor='black', linewidth=0.5)
+        ax.scatter(fitted, sqrt_std_resid, alpha=0.5, edgecolor="black", linewidth=0.5)
 
         # Add smooth line
         if len(fitted) > 10:
             from scipy.ndimage import gaussian_filter1d
+
             sort_idx = np.argsort(fitted)
             fitted_sorted = fitted[sort_idx]
             sqrt_std_resid_sorted = sqrt_std_resid[sort_idx]
-            smooth = gaussian_filter1d(sqrt_std_resid_sorted, sigma=max(1, len(fitted)//20))
-            ax.plot(fitted_sorted, smooth, 'r-', linewidth=2, alpha=0.7)
+            smooth = gaussian_filter1d(
+                sqrt_std_resid_sorted, sigma=max(1, len(fitted) // 20)
+            )
+            ax.plot(fitted_sorted, smooth, "r-", linewidth=2, alpha=0.7)
 
-        ax.set_xlabel('Fitted Values')
-        ax.set_ylabel('√|Standardized Residuals|')
-        ax.set_title('Scale-Location Plot\n(Check homoscedasticity)')
+        ax.set_xlabel("Fitted Values")
+        ax.set_ylabel("√|Standardized Residuals|")
+        ax.set_title("Scale-Location Plot\n(Check homoscedasticity)")
         ax.grid(alpha=0.3)
 
     else:
@@ -646,15 +654,19 @@ def plot_random_effects_summary(
     plot_caterpillar(result, grouping=grouping, effect_index=effect_index, ax=axes[0])
 
     # 2. Q-Q plot
-    plot_random_effects_qq(result, grouping=grouping, effect_index=effect_index, ax=axes[1])
+    plot_random_effects_qq(
+        result, grouping=grouping, effect_index=effect_index, ax=axes[1]
+    )
 
     # 3. Density plot
-    plot_random_effects_density(result, grouping=grouping, effect_index=effect_index, ax=axes[2])
+    plot_random_effects_density(
+        result, grouping=grouping, effect_index=effect_index, ax=axes[2]
+    )
 
     # 4. Residuals vs fitted
-    plot_diagnostics(result, plot_type='residuals', ax=axes[3])
+    plot_diagnostics(result, plot_type="residuals", ax=axes[3])
 
-    fig.suptitle('Random Effects Diagnostic Summary', fontsize=14, y=0.995)
+    fig.suptitle("Random Effects Diagnostic Summary", fontsize=14, y=0.995)
     fig.tight_layout()
 
     return fig
@@ -714,9 +726,9 @@ def plot_diagnostics_panel(
 
     References
     ----------
-    .. [1] Belsley, D. A., Kuh, E., & Welsch, R. E. (1980). 
+    .. [1] Belsley, D. A., Kuh, E., & Welsch, R. E. (1980).
            Regression Diagnostics. Wiley.
-    .. [2] Cook, R. D., & Weisberg, S. (1982). 
+    .. [2] Cook, R. D., & Weisberg, S. (1982).
            Residuals and Influence in Regression. Chapman and Hall.
     """
     fig, axes = plt.subplots(2, 2, figsize=figsize)
@@ -731,53 +743,55 @@ def plot_diagnostics_panel(
 
     # 1. Residuals vs Fitted (top-left)
     ax = axes[0, 0]
-    ax.scatter(fitted, residuals, alpha=0.6, edgecolor='black', linewidth=0.3)
-    ax.axhline(0, color='red', linestyle='--', linewidth=1)
+    ax.scatter(fitted, residuals, alpha=0.6, edgecolor="black", linewidth=0.3)
+    ax.axhline(0, color="red", linestyle="--", linewidth=1)
 
     # Add LOWESS smooth
     if n > 10:
         try:
             from scipy.ndimage import gaussian_filter1d
+
             sort_idx = np.argsort(fitted)
-            smooth = gaussian_filter1d(residuals[sort_idx], sigma=max(1, n//15))
-            ax.plot(fitted[sort_idx], smooth, 'b-', linewidth=2, alpha=0.7)
+            smooth = gaussian_filter1d(residuals[sort_idx], sigma=max(1, n // 15))
+            ax.plot(fitted[sort_idx], smooth, "b-", linewidth=2, alpha=0.7)
         except ImportError:
             pass
 
-    ax.set_xlabel('Fitted values')
-    ax.set_ylabel('Residuals')
-    ax.set_title('Residuals vs Fitted')
+    ax.set_xlabel("Fitted values")
+    ax.set_ylabel("Residuals")
+    ax.set_title("Residuals vs Fitted")
     ax.grid(alpha=0.3)
 
     # 2. Q-Q Plot (top-right)
     ax = axes[0, 1]
     stats.probplot(resid_std, dist="norm", plot=ax)
-    ax.get_lines()[0].set_markerfacecolor('steelblue')
-    ax.get_lines()[0].set_markeredgecolor('black')
+    ax.get_lines()[0].set_markerfacecolor("steelblue")
+    ax.get_lines()[0].set_markeredgecolor("black")
     ax.get_lines()[0].set_markersize(5)
-    ax.get_lines()[1].set_color('red')
-    ax.set_title('Normal Q-Q')
-    ax.set_xlabel('Theoretical Quantiles')
-    ax.set_ylabel('Standardized Residuals')
+    ax.get_lines()[1].set_color("red")
+    ax.set_title("Normal Q-Q")
+    ax.set_xlabel("Theoretical Quantiles")
+    ax.set_ylabel("Standardized Residuals")
     ax.grid(alpha=0.3)
 
     # 3. Scale-Location (bottom-left)
     ax = axes[1, 0]
     sqrt_abs_resid = np.sqrt(np.abs(resid_std))
-    ax.scatter(fitted, sqrt_abs_resid, alpha=0.6, edgecolor='black', linewidth=0.3)
+    ax.scatter(fitted, sqrt_abs_resid, alpha=0.6, edgecolor="black", linewidth=0.3)
 
     if n > 10:
         try:
             from scipy.ndimage import gaussian_filter1d
+
             sort_idx = np.argsort(fitted)
-            smooth = gaussian_filter1d(sqrt_abs_resid[sort_idx], sigma=max(1, n//15))
-            ax.plot(fitted[sort_idx], smooth, 'r-', linewidth=2, alpha=0.7)
+            smooth = gaussian_filter1d(sqrt_abs_resid[sort_idx], sigma=max(1, n // 15))
+            ax.plot(fitted[sort_idx], smooth, "r-", linewidth=2, alpha=0.7)
         except ImportError:
             pass
 
-    ax.set_xlabel('Fitted values')
-    ax.set_ylabel('√|Standardized residuals|')
-    ax.set_title('Scale-Location')
+    ax.set_xlabel("Fitted values")
+    ax.set_ylabel("√|Standardized residuals|")
+    ax.set_title("Scale-Location")
     ax.grid(alpha=0.3)
 
     # 4. Residuals vs Leverage with Cook's distance (bottom-right)
@@ -787,11 +801,11 @@ def plot_diagnostics_panel(
     # For now, use simplified version based on fitted values
     # Approximate leverage: h_ii ≈ 1/n + (x_i - x̄)²/SSx
     fitted_centered = fitted - np.mean(fitted)
-    leverage = 1/n + fitted_centered**2 / np.sum(fitted_centered**2)
+    leverage = 1 / n + fitted_centered**2 / np.sum(fitted_centered**2)
     leverage = np.clip(leverage, 0.01, 0.99)  # Ensure valid range
 
-    ax.scatter(leverage, resid_std, alpha=0.6, edgecolor='black', linewidth=0.3)
-    ax.axhline(0, color='gray', linestyle='--', linewidth=0.5)
+    ax.scatter(leverage, resid_std, alpha=0.6, edgecolor="black", linewidth=0.3)
+    ax.axhline(0, color="gray", linestyle="--", linewidth=0.5)
 
     # Add Cook's distance contours
     # Cook's D ≈ r²_i × h_i / (p × (1-h_i)²)
@@ -801,22 +815,24 @@ def plot_diagnostics_panel(
 
     for cook_d in [0.5, 1.0]:
         # r² = cook_d × p × (1-h)² / h
-        r_pos = np.sqrt(cook_d * p * (1 - h_range)**2 / h_range)
+        r_pos = np.sqrt(cook_d * p * (1 - h_range) ** 2 / h_range)
         r_neg = -r_pos
-        
-        ax.plot(h_range, r_pos, 'r--', alpha=0.5, linewidth=0.8)
-        ax.plot(h_range, r_neg, 'r--', alpha=0.5, linewidth=0.8)
-        
-        # Label
-        ax.text(h_range[-1], r_pos[-1], f'D={cook_d}', fontsize=8, color='red', alpha=0.7)
 
-    ax.set_xlabel('Leverage')
-    ax.set_ylabel('Standardized residuals')
+        ax.plot(h_range, r_pos, "r--", alpha=0.5, linewidth=0.8)
+        ax.plot(h_range, r_neg, "r--", alpha=0.5, linewidth=0.8)
+
+        # Label
+        ax.text(
+            h_range[-1], r_pos[-1], f"D={cook_d}", fontsize=8, color="red", alpha=0.7
+        )
+
+    ax.set_xlabel("Leverage")
+    ax.set_ylabel("Standardized residuals")
     ax.set_title("Residuals vs Leverage")
     ax.grid(alpha=0.3)
 
     # Add overall title
-    fig.suptitle('GAMM Diagnostic Plots', fontsize=14, y=0.995)
+    fig.suptitle("GAMM Diagnostic Plots", fontsize=14, y=0.995)
     fig.tight_layout()
 
     return fig
@@ -892,60 +908,57 @@ def plot_smooth_effect(
     .. [2] Hastie, T., & Tibshirani, R. (1990). GAMs. Chapman and Hall.
     """
     # Try to extract smooth term info
-    if not hasattr(result, 'smooth_terms') or result.smooth_terms is None:
+    if not hasattr(result, "smooth_terms") or result.smooth_terms is None:
         raise ValueError("Model does not contain smooth terms")
 
     # Find the smooth term
     smooth_info = None
     for term in result.smooth_terms:
-        if term.get('name') == term_name or term.get('variable') == term_name:
+        if term.get("name") == term_name or term.get("variable") == term_name:
             smooth_info = term
             break
         # Also check for 's(name)' format
-        if f"s({term_name})" == term.get('name'):
+        if f"s({term_name})" == term.get("name"):
             smooth_info = term
             break
 
     if smooth_info is None:
-        available = [t.get('name', t.get('variable', '?')) for t in result.smooth_terms]
-        raise ValueError(
-            f"Smooth term '{term_name}' not found. Available: {available}"
-        )
+        available = [t.get("name", t.get("variable", "?")) for t in result.smooth_terms]
+        raise ValueError(f"Smooth term '{term_name}' not found. Available: {available}")
 
     # Get x values for the smooth
-    var_name = smooth_info.get('variable', term_name)
+    var_name = smooth_info.get("variable", term_name)
 
     if data is not None:
-        if hasattr(data, 'values'):  # DataFrame
+        if hasattr(data, "values"):  # DataFrame
             x_data = data[var_name].values
         else:  # dict
             x_data = np.asarray(data[var_name])
-    elif hasattr(result, '_data') and result._data is not None:
+    elif hasattr(result, "_data") and result._data is not None:
         x_data = result._data[var_name]
     else:
         # Use range from smooth info if available
         x_data = np.linspace(
-            smooth_info.get('x_min', 0),
-            smooth_info.get('x_max', 1),
-            n_points
+            smooth_info.get("x_min", 0), smooth_info.get("x_max", 1), n_points
         )
 
     # Create evaluation grid
     x_grid = np.linspace(x_data.min(), x_data.max(), n_points)
 
     # Get smooth coefficients and basis
-    coef_start = smooth_info.get('coef_start', 0)
-    coef_end = smooth_info.get('coef_end', coef_start + smooth_info.get('n_basis', 10))
+    coef_start = smooth_info.get("coef_start", 0)
+    coef_end = smooth_info.get("coef_end", coef_start + smooth_info.get("n_basis", 10))
     smooth_coefs = result.coefficients[coef_start:coef_end]
 
     # Build basis matrix for grid points
-    basis_type = smooth_info.get('basis', 'cr')  # Default to cubic regression splines
-    n_basis = smooth_info.get('n_basis', 10)
-    knots = smooth_info.get('knots', None)
+    basis_type = smooth_info.get("basis", "cr")  # Default to cubic regression splines
+    n_basis = smooth_info.get("n_basis", 10)
+    knots = smooth_info.get("knots", None)
 
     # Simple B-spline basis construction
     try:
         from aurora.smoothing.splines.bspline import BSplineBasis
+
         basis = BSplineBasis(n_basis=n_basis, degree=3)
         X_grid = basis.design_matrix(x_grid)
     except ImportError:
@@ -957,7 +970,7 @@ def plot_smooth_effect(
 
     # Compute confidence intervals
     # Approximate variance: Var(f(x)) = B(x) @ Cov(β) @ B(x).T
-    if hasattr(result, 'covariance') and result.covariance is not None:
+    if hasattr(result, "covariance") and result.covariance is not None:
         cov_smooth = result.covariance[coef_start:coef_end, coef_start:coef_end]
         var_smooth = np.diag(X_grid @ cov_smooth @ X_grid.T)
         se_smooth = np.sqrt(np.maximum(var_smooth, 0))
@@ -977,11 +990,17 @@ def plot_smooth_effect(
         fig = ax.figure
 
     # Confidence band
-    ax.fill_between(x_grid, ci_lower, ci_upper, alpha=0.3, color='steelblue',
-                    label=f'{level*100:.0f}% CI')
+    ax.fill_between(
+        x_grid,
+        ci_lower,
+        ci_upper,
+        alpha=0.3,
+        color="steelblue",
+        label=f"{level * 100:.0f}% CI",
+    )
 
     # Smooth curve
-    ax.plot(x_grid, smooth_values, 'b-', linewidth=2, label='Smooth effect')
+    ax.plot(x_grid, smooth_values, "b-", linewidth=2, label="Smooth effect")
 
     # Partial residuals
     if show_residuals and data is not None:
@@ -995,19 +1014,26 @@ def plot_smooth_effect(
         smooth_at_data = X_data @ smooth_coefs
         partial_resid = smooth_at_data + result.residuals
 
-        ax.scatter(x_data, partial_resid, alpha=0.3, s=20, c='gray',
-                   label='Partial residuals')
+        ax.scatter(
+            x_data, partial_resid, alpha=0.3, s=20, c="gray", label="Partial residuals"
+        )
 
     # Rug plot
     if show_data:
-        ax.plot(x_data, np.full_like(x_data, ax.get_ylim()[0]), '|',
-                color='black', alpha=0.3, markersize=10)
+        ax.plot(
+            x_data,
+            np.full_like(x_data, ax.get_ylim()[0]),
+            "|",
+            color="black",
+            alpha=0.3,
+            markersize=10,
+        )
 
     # Labels
     ax.set_xlabel(var_name)
-    ax.set_ylabel(f's({var_name})')
+    ax.set_ylabel(f"s({var_name})")
     ax.set_title(f"Smooth Effect: s({var_name})")
-    ax.legend(loc='best')
+    ax.legend(loc="best")
     ax.grid(alpha=0.3)
 
     fig.tight_layout()
@@ -1020,7 +1046,7 @@ def plot_all_smooth_effects(
     data: dict | None = None,
     n_cols: int = 2,
     figsize_per_plot: tuple[float, float] = (5, 4),
-    **kwargs
+    **kwargs,
 ) -> Figure:
     """Plot all smooth effects in a grid layout.
 
@@ -1048,7 +1074,7 @@ def plot_all_smooth_effects(
     >>> fig = plot_all_smooth_effects(result, data=df)
     >>> plt.show()
     """
-    if not hasattr(result, 'smooth_terms') or result.smooth_terms is None:
+    if not hasattr(result, "smooth_terms") or result.smooth_terms is None:
         raise ValueError("Model does not contain smooth terms")
 
     n_smooths = len(result.smooth_terms)
@@ -1065,31 +1091,37 @@ def plot_all_smooth_effects(
     axes = axes.flatten()
 
     for i, term in enumerate(result.smooth_terms):
-        term_name = term.get('variable', term.get('name', f'term_{i}'))
+        term_name = term.get("variable", term.get("name", f"term_{i}"))
         try:
             plot_smooth_effect(result, term_name, data=data, ax=axes[i], **kwargs)
         except Exception as e:
-            axes[i].text(0.5, 0.5, f"Error: {str(e)[:30]}...",
-                        ha='center', va='center', transform=axes[i].transAxes)
-            axes[i].set_title(f's({term_name}) - Error')
+            axes[i].text(
+                0.5,
+                0.5,
+                f"Error: {str(e)[:30]}...",
+                ha="center",
+                va="center",
+                transform=axes[i].transAxes,
+            )
+            axes[i].set_title(f"s({term_name}) - Error")
 
     # Hide unused subplots
     for j in range(n_smooths, len(axes)):
         axes[j].set_visible(False)
 
-    fig.suptitle('Smooth Effect Plots', fontsize=14, y=1.02)
+    fig.suptitle("Smooth Effect Plots", fontsize=14, y=1.02)
     fig.tight_layout()
 
     return fig
 
 
 __all__ = [
-    'plot_caterpillar',
-    'plot_random_effects_qq',
-    'plot_random_effects_density',
-    'plot_diagnostics',
-    'plot_diagnostics_panel',
-    'plot_random_effects_summary',
-    'plot_smooth_effect',
-    'plot_all_smooth_effects',
+    "plot_caterpillar",
+    "plot_random_effects_qq",
+    "plot_random_effects_density",
+    "plot_diagnostics",
+    "plot_diagnostics_panel",
+    "plot_random_effects_summary",
+    "plot_smooth_effect",
+    "plot_all_smooth_effects",
 ]

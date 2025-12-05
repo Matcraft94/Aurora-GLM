@@ -7,6 +7,7 @@ Natural cubic splines are piecewise cubic polynomials that:
 
 This implementation follows the approach in Wood (2017) and R's splines package.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -160,7 +161,7 @@ class CubicSplineBasis:
 
             # Compute adjustment factors
             d_numer = (b - knot) ** 3 - (b - a) ** 3
-            d_denom = (b - a)
+            d_denom = b - a
 
             if abs(d_denom) > 1e-10:
                 d = d_numer / d_denom
@@ -238,19 +239,13 @@ class CubicSplineBasis:
         # Integral: x³/3 - (t_i+t_j)x²/2 + t_i*t_j*x
 
         def antiderivative(x: float) -> float:
-            return (
-                x**3 / 3.0
-                - (knot_i + knot_j) * x**2 / 2.0
-                + knot_i * knot_j * x
-            )
+            return x**3 / 3.0 - (knot_i + knot_j) * x**2 / 2.0 + knot_i * knot_j * x
 
         integral = antiderivative(upper) - antiderivative(lower)
         return 36.0 * integral
 
     @staticmethod
-    def create_knots(
-        x: Any, n_knots: int = 10, method: str = "quantile"
-    ) -> np.ndarray:
+    def create_knots(x: Any, n_knots: int = 10, method: str = "quantile") -> np.ndarray:
         """Create knot locations from data.
 
         Parameters

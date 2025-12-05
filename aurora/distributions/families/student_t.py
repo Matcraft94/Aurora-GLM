@@ -8,10 +8,10 @@ for data with outliers or when robustness is desired.
 
 References
 ----------
-.. [1] Lange, K. L., Little, R. J., & Taylor, J. M. (1989). 
-       "Robust statistical modeling using the t distribution." 
+.. [1] Lange, K. L., Little, R. J., & Taylor, J. M. (1989).
+       "Robust statistical modeling using the t distribution."
        Journal of the American Statistical Association, 84(408), 881-896.
-.. [2] Fernandez, C., & Steel, M. F. (1999). 
+.. [2] Fernandez, C., & Steel, M. F. (1999).
        "Multivariate Student-t regression models."
        Journal of the Royal Statistical Society: Series B, 61(3), 579-602.
 """
@@ -71,12 +71,12 @@ class StudentTFamily(Family):
     .. [1] Lange et al. (1989). Robust statistical modeling using the t distribution.
     """
 
-    name = 'student_t'
-    
+    name = "student_t"
+
     # Valid range for responses (no restrictions)
     valid_y_range = (-np.inf, np.inf)
 
-    def __init__(self, df: float = 5.0, link: str = 'identity'):
+    def __init__(self, df: float = 5.0, link: str = "identity"):
         """Initialize Student's t family.
 
         Parameters
@@ -88,13 +88,13 @@ class StudentTFamily(Family):
         """
         if df <= 0:
             raise ValueError("Degrees of freedom must be positive")
-        
+
         self.df = df
         self._scale = 1.0  # Scale parameter (estimated)
-        
-        if link == 'identity':
+
+        if link == "identity":
             self._link = IdentityLink()
-        elif link == 'log':
+        elif link == "log":
             self._link = LogLink()
         else:
             raise ValueError(f"Unsupported link: {link}. Use 'identity' or 'log'")
@@ -122,12 +122,12 @@ class StudentTFamily(Family):
         ndarray
             Variance at each observation
         """
-        scale = params.get('scale', self._scale)
-        
+        scale = params.get("scale", self._scale)
+
         if self.df <= 2:
             # Variance is infinite for df <= 2
             return np.full_like(mu, np.inf)
-        
+
         return np.full_like(mu, scale**2 * self.df / (self.df - 2))
 
     def initialize(self, y: NDArray) -> NDArray:
@@ -146,12 +146,7 @@ class StudentTFamily(Family):
         # Use median for robustness
         return np.full_like(y, np.median(y))
 
-    def log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> float:
+    def log_likelihood(self, y: NDArray, mu: NDArray, **params) -> float:
         """Log-likelihood for t-distribution.
 
         Parameters
@@ -168,32 +163,27 @@ class StudentTFamily(Family):
         float
             Total log-likelihood
         """
-        scale = params.get('scale', self._scale)
+        scale = params.get("scale", self._scale)
         df = self.df
-        
+
         # Standardized residuals
         z = (y - mu) / scale
-        
+
         # Log-likelihood: sum of log(f(y_i))
         # f(y) = Γ((ν+1)/2) / [√(νπ)σΓ(ν/2)] × (1 + z²/ν)^{-(ν+1)/2}
-        
+
         log_const = (
-            special.gammaln((df + 1) / 2) -
-            special.gammaln(df / 2) -
-            0.5 * np.log(df * np.pi) -
-            np.log(scale)
+            special.gammaln((df + 1) / 2)
+            - special.gammaln(df / 2)
+            - 0.5 * np.log(df * np.pi)
+            - np.log(scale)
         )
-        
+
         log_kernel = -(df + 1) / 2 * np.log(1 + z**2 / df)
-        
+
         return np.sum(log_const + log_kernel)
 
-    def deviance(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> float:
+    def deviance(self, y: NDArray, mu: NDArray, **params) -> float:
         """Deviance for t-distribution.
 
         The deviance is -2 × (log-likelihood - saturated log-likelihood).
@@ -215,15 +205,10 @@ class StudentTFamily(Family):
         """
         ll_model = self.log_likelihood(y, mu, **params)
         ll_saturated = self.log_likelihood(y, y, **params)
-        
+
         return -2 * (ll_model - ll_saturated)
 
-    def weights(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> NDArray:
+    def weights(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Compute IRLS weights for robust regression.
 
         The t-distribution uses adaptive weights that downweight outliers:
@@ -245,23 +230,18 @@ class StudentTFamily(Family):
         ndarray
             Weights for each observation
         """
-        scale = params.get('scale', self._scale)
+        scale = params.get("scale", self._scale)
         df = self.df
-        
+
         # Standardized residuals
         z = (y - mu) / scale
-        
+
         # Adaptive weights: downweight large residuals
         weights = (df + 1) / (df + z**2)
-        
+
         return weights
 
-    def estimate_scale(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        ddof: int = 1
-    ) -> float:
+    def estimate_scale(self, y: NDArray, mu: NDArray, ddof: int = 1) -> float:
         """Estimate scale parameter robustly.
 
         Uses the Median Absolute Deviation (MAD) for robustness.
@@ -281,29 +261,24 @@ class StudentTFamily(Family):
             Estimated scale parameter
         """
         residuals = y - mu
-        
+
         # MAD-based robust scale estimate
         # For t-distribution: σ = MAD / 0.6745 × correction_factor
         mad = np.median(np.abs(residuals - np.median(residuals)))
-        
+
         # Correction factor for t-distribution
         # Approximately 1 for large df, larger for small df
         if self.df > 2:
             correction = np.sqrt(self.df / (self.df - 2))
         else:
             correction = 1.0
-        
+
         scale = mad / 0.6745 * correction
-        
+
         # Ensure positive
         return max(scale, 1e-8)
 
-    def d_log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> NDArray:
+    def d_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """First derivative of log-likelihood w.r.t. μ.
 
         For Laplace approximation and gradient-based optimization.
@@ -320,22 +295,17 @@ class StudentTFamily(Family):
         ndarray
             Gradient of log-likelihood
         """
-        scale = params.get('scale', self._scale)
+        scale = params.get("scale", self._scale)
         df = self.df
-        
+
         z = (y - mu) / scale
-        
+
         # d/dμ log f = (ν+1) × z / (σ(ν + z²))
         grad = (df + 1) * z / (scale * (df + z**2))
-        
+
         return grad
 
-    def d2_log_likelihood(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        **params
-    ) -> NDArray:
+    def d2_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Second derivative of log-likelihood w.r.t. μ.
 
         For Hessian computation in Laplace approximation.
@@ -352,21 +322,21 @@ class StudentTFamily(Family):
         ndarray
             Negative Hessian (Fisher information approximation)
         """
-        scale = params.get('scale', self._scale)
+        scale = params.get("scale", self._scale)
         df = self.df
-        
+
         z = (y - mu) / scale
-        
+
         # d²/dμ² log f = -(ν+1) × (ν - z²) / (σ²(ν + z²)²)
-        denom = (df + z**2)**2
+        denom = (df + z**2) ** 2
         hess = -(df + 1) * (df - z**2) / (scale**2 * denom)
-        
+
         return hess
 
     def __repr__(self) -> str:
         """String representation."""
         # Get link name from class name (e.g., IdentityLink -> identity)
-        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        link_name = self._link.__class__.__name__.replace("Link", "").lower()
         return f"StudentTFamily(df={self.df}, link='{link_name}')"
 
 
@@ -384,9 +354,9 @@ class CauchyFamily(StudentTFamily):
     >>> result = fit_glm(X, y, family='cauchy')
     """
 
-    name = 'cauchy'
+    name = "cauchy"
 
-    def __init__(self, link: str = 'identity'):
+    def __init__(self, link: str = "identity"):
         """Initialize Cauchy family (t with df=1)."""
         super().__init__(df=1.0, link=link)
 
@@ -397,8 +367,8 @@ class CauchyFamily(StudentTFamily):
     def __repr__(self) -> str:
         """String representation."""
         # Get link name from class name (e.g., IdentityLink -> identity)
-        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        link_name = self._link.__class__.__name__.replace("Link", "").lower()
         return f"CauchyFamily(link='{link_name}')"
 
 
-__all__ = ['StudentTFamily', 'CauchyFamily']
+__all__ = ["StudentTFamily", "CauchyFamily"]

@@ -1,4 +1,5 @@
 """Regression metric utilities built on top of NumPy."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -52,7 +53,9 @@ def root_mean_squared_error(
 ) -> float:
     """Convenience wrapper computing the square root of the mean squared error."""
 
-    return mean_squared_error(y_true, y_pred, sample_weight=sample_weight, squared=False)
+    return mean_squared_error(
+        y_true, y_pred, sample_weight=sample_weight, squared=False
+    )
 
 
 def r_squared(
@@ -62,7 +65,7 @@ def r_squared(
     sample_weight: Any | None = None,
 ) -> float:
     """Calculate R-squared (coefficient of determination).
-    
+
     Parameters
     ----------
     y_true : array-like
@@ -71,7 +74,7 @@ def r_squared(
         Predicted values.
     sample_weight : array-like, optional
         Sample weights.
-        
+
     Returns
     -------
     float
@@ -81,7 +84,7 @@ def r_squared(
     y_true_np = _to_numpy(y_true)
     y_pred_np = _to_numpy(y_pred)
     _validate_shape(y_true_np, y_pred_np)
-    
+
     if sample_weight is None:
         y_mean = np.mean(y_true_np)
         ss_tot = np.sum((y_true_np - y_mean) ** 2)
@@ -96,11 +99,11 @@ def r_squared(
         y_mean = np.sum(weights * y_true_np) / total_weight
         ss_tot = np.sum(weights * (y_true_np - y_mean) ** 2)
         ss_res = np.sum(weights * (y_true_np - y_pred_np) ** 2)
-    
+
     if ss_tot == 0:
         # Constant model, R² is undefined, return 0
         return 0.0
-    
+
     return float(1.0 - (ss_res / ss_tot))
 
 

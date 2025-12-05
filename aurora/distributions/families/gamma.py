@@ -1,7 +1,7 @@
 """Gamma distribution family implementation."""
+
 from __future__ import annotations
 
-import numpy as np
 
 from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, ensure_positive, log_gamma, namespace
@@ -36,7 +36,9 @@ class GammaFamily(Family):
         y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
         mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
         shape_param = params.get("shape", self._shape)
-        shape_arr = ensure_positive(as_namespace_array(shape_param, xp, like=mu_arr), xp)
+        shape_arr = ensure_positive(
+            as_namespace_array(shape_param, xp, like=mu_arr), xp
+        )
         term1 = shape_arr * (xp.log(shape_arr) - xp.log(mu_arr))
         term2 = (shape_arr - 1.0) * xp.log(y_arr)
         term3 = -shape_arr * y_arr / mu_arr
@@ -54,7 +56,9 @@ class GammaFamily(Family):
         xp = namespace(mu)
         mu_arr = ensure_positive(as_namespace_array(mu, xp, like=mu), xp)
         shape_param = params.get("shape", self._shape)
-        shape_arr = ensure_positive(as_namespace_array(shape_param, xp, like=mu_arr), xp)
+        shape_arr = ensure_positive(
+            as_namespace_array(shape_param, xp, like=mu_arr), xp
+        )
         return (mu_arr**2) / shape_arr
 
     def initialize(self, y):  # noqa: ANN001 - match Family signature

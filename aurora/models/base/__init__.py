@@ -9,6 +9,7 @@ This module provides the unified result hierarchy for all model types:
     └── MixedModelResultBase
         └── GAMMResult, PQLResult, LaplaceResult (in aurora.models.gamm)
 """
+
 from __future__ import annotations
 
 from .result import GLMResult, ModelResult
@@ -32,4 +33,3 @@ __all__ = [
     "ResultProtocol",
     "MixedModelProtocol",
 ]
-

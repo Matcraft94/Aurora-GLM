@@ -18,6 +18,7 @@ Examples
 >>> # Predict on linear predictor scale
 >>> eta_pred = predict_glm(result, X_new, type='link')
 """
+
 from __future__ import annotations
 
 from ...core.types import ArrayLike

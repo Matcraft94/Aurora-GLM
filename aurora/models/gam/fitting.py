@@ -243,14 +243,14 @@ This implementation follows the penalized regression spline approach of
 Eilers & Marx (1996) combined with the computational strategies from
 Wood (2017).
 """
+
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 
 from aurora.models.gam.result import GAMResult
-from aurora.smoothing.penalties.difference import difference_penalty
 from aurora.smoothing.selection.gcv import select_smoothing_parameter
 from aurora.smoothing.splines.bspline import BSplineBasis
 from aurora.smoothing.splines.cubic import CubicSplineBasis
@@ -445,7 +445,9 @@ def fit_gam(
         # Solve penalized least squares
         if use_sparse:
             # Use sparse solver
-            from aurora.core.optimization.sparse_solvers import solve_sparse_penalized_ls
+            from aurora.core.optimization.sparse_solvers import (
+                solve_sparse_penalized_ls,
+            )
 
             if weights_arr is None:
                 weights_solve = np.ones(n)
@@ -453,7 +455,7 @@ def fit_gam(
                 weights_solve = weights_arr
 
             coefficients, solve_info = solve_sparse_penalized_ls(
-                X, y_arr, weights_solve, S, lambda_used, method='auto'
+                X, y_arr, weights_solve, S, lambda_used, method="auto"
             )
             fitted_values = X @ coefficients
 

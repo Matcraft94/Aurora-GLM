@@ -243,6 +243,7 @@ IRLS is the workhorse algorithm for GLM fitting, combining computational
 efficiency with statistical optimality (Fisher scoring achieves the
 Cramér-Rao lower bound asymptotically).
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -257,10 +258,12 @@ from .result import OptimizationResult
 # Sparse matrix utilities
 # =============================================================================
 
+
 def _is_sparse(X) -> bool:
     """Check if X is a scipy sparse matrix."""
     try:
         from scipy import sparse
+
         return sparse.issparse(X)
     except ImportError:
         return False
@@ -284,6 +287,7 @@ def _sparse_diag_matmul(X, w):
         Row-scaled matrix
     """
     from scipy import sparse
+
     # Create diagonal matrix and multiply
     W = sparse.diags(w)
     return W @ X
@@ -325,7 +329,6 @@ def _sparse_weighted_lstsq(X, w, z):
 
     Complexity: O(nnz × p + p³) where nnz = number of non-zeros in X
     """
-    from scipy import sparse
     from scipy.linalg import cho_factor, cho_solve
 
     n, p = X.shape
@@ -423,7 +426,7 @@ def _irls_sparse(
         var = variance_fn(mu)
 
         # Working weights: w = 1 / [V(μ) (g'(μ))²]
-        denom = var * (g_prime ** 2)
+        denom = var * (g_prime**2)
         denom = np.clip(denom, 1e-12, None)  # Numerical stability
         weights = 1.0 / denom
 
@@ -437,7 +440,7 @@ def _irls_sparse(
 
         # Check convergence
         delta = beta_new - beta
-        step_norm = np.sqrt(np.sum(delta ** 2))
+        step_norm = np.sqrt(np.sum(delta**2))
 
         beta = beta_new
 
@@ -481,6 +484,7 @@ def _irls_sparse(
 # =============================================================================
 # Main IRLS interface
 # =============================================================================
+
 
 def irls(
     loss_fn: Callable,
@@ -589,6 +593,7 @@ def irls(
     # Dense path - use backend abstraction
     if backend is None:
         from ..backends import get_backend
+
         backend = get_backend("jax")
 
     X = backend.array(design_matrix)
@@ -597,7 +602,9 @@ def irls(
     offset_arr = backend.array(offset) if offset is not None else y * 0
 
     converted_args = tuple(_convert_to_backend(backend, value) for value in args)
-    converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
+    converted_kwargs = {
+        key: _convert_to_backend(backend, value) for key, value in kwargs.items()
+    }
 
     nfev = 0
 
@@ -610,11 +617,15 @@ def irls(
         g_prime = link.derivative(mu)
         var = variance_fn(mu)
 
-        weights = _safe_divide(backend, 1.0, var * (g_prime ** 2))
+        weights = _safe_divide(backend, 1.0, var * (g_prime**2))
         z = eta + (y - mu) * g_prime
 
         sqrt_w = _sqrt(backend, weights)
-        WX = X * sqrt_w.unsqueeze(-1) if hasattr(sqrt_w, "unsqueeze") else X * sqrt_w[:, None]
+        WX = (
+            X * sqrt_w.unsqueeze(-1)
+            if hasattr(sqrt_w, "unsqueeze")
+            else X * sqrt_w[:, None]
+        )
         Wz = z * sqrt_w
 
         beta_new = None
@@ -648,7 +659,9 @@ def irls(
         loss_value = loss_fn(beta, *converted_args, **converted_kwargs)
 
         if callback is not None:
-            callback(iteration, backend.as_numpy(beta), float(backend.as_numpy(loss_value)))
+            callback(
+                iteration, backend.as_numpy(beta), float(backend.as_numpy(loss_value))
+            )
 
         if step_norm < tol:
             return OptimizationResult(

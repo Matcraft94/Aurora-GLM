@@ -1,7 +1,7 @@
 """Gaussian distribution family implementation."""
+
 from __future__ import annotations
 
-import numpy as np
 
 from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, namespace, ones_like

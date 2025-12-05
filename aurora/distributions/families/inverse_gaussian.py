@@ -42,9 +42,9 @@ aurora.distributions.links.common.InverseSquareLink : Canonical link
 aurora.distributions.links.common.LogLink : Common alternative
 aurora.distributions.links.common.InverseLink : Alternative link
 """
+
 from __future__ import annotations
 
-import math
 
 import numpy as np
 
@@ -118,9 +118,7 @@ class InverseGaussianFamily(Family):
     """
 
     def __init__(
-        self,
-        lambda_: float | str = 1.0,
-        link: LinkFunction | None = None
+        self, lambda_: float | str = 1.0, link: LinkFunction | None = None
     ) -> None:
         """Initialize Inverse Gaussian family.
 
@@ -132,7 +130,7 @@ class InverseGaussianFamily(Family):
             Link function (default: InverseSquareLink).
         """
         if isinstance(lambda_, str):
-            if lambda_ != 'estimate':
+            if lambda_ != "estimate":
                 raise ValueError("lambda_ must be a positive float or 'estimate'")
             self._lambda = lambda_
         else:
@@ -151,10 +149,10 @@ class InverseGaussianFamily(Family):
         """Get lambda value, estimating if needed."""
         lambda_param = params.get("lambda_", self._lambda)
 
-        if lambda_param == 'estimate' and y is not None and mu is not None:
+        if lambda_param == "estimate" and y is not None and mu is not None:
             # Method-of-moments estimation
             lambda_param = self._estimate_lambda_mm(y, mu, xp)
-        elif lambda_param == 'estimate':
+        elif lambda_param == "estimate":
             lambda_param = 1.0  # Fallback
 
         if isinstance(lambda_param, str):
@@ -193,7 +191,7 @@ class InverseGaussianFamily(Family):
         mu_safe = ensure_positive(mu_arr, xp)
         y_safe = ensure_positive(y_arr, xp)
 
-        dev_contrib = (y_safe - mu_safe)**2 / (mu_safe**2 * y_safe)
+        dev_contrib = (y_safe - mu_safe) ** 2 / (mu_safe**2 * y_safe)
 
         if xp is torch:  # type: ignore[comparison-overlap]
             phi_est = torch.mean(dev_contrib)
@@ -244,10 +242,9 @@ class InverseGaussianFamily(Family):
         # Use namespace-compatible constant for 2π
         two_pi = as_namespace_array(2 * np.pi, xp, like=y_arr)
 
-        log_lik = (
-            0.5 * (xp.log(lambda_val) - xp.log(two_pi) - 3 * xp.log(y_arr))
-            - lambda_val * (y_arr - mu_arr)**2 / (2 * mu_arr**2 * y_arr)
-        )
+        log_lik = 0.5 * (
+            xp.log(lambda_val) - xp.log(two_pi) - 3 * xp.log(y_arr)
+        ) - lambda_val * (y_arr - mu_arr) ** 2 / (2 * mu_arr**2 * y_arr)
 
         if xp is torch:  # type: ignore[comparison-overlap]
             return torch.sum(log_lik)
@@ -286,7 +283,7 @@ class InverseGaussianFamily(Family):
         mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
 
         # Unit deviance: (y - μ)² / (μ² y)
-        unit_dev = (y_arr - mu_arr)**2 / (mu_arr**2 * y_arr)
+        unit_dev = (y_arr - mu_arr) ** 2 / (mu_arr**2 * y_arr)
 
         if xp is torch:  # type: ignore[comparison-overlap]
             return torch.sum(unit_dev)

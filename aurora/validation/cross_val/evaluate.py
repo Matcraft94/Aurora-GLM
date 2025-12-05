@@ -1,4 +1,5 @@
 """Cross-validation scoring utilities."""
+
 from __future__ import annotations
 
 import copy
@@ -107,13 +108,17 @@ def _resolve_splitter(
         if key in {"kfold", "k-fold"}:
             return KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
         if key in {"stratified", "stratifiedkfold", "stratified-kfold"}:
-            return StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+            return StratifiedKFold(
+                n_splits=n_splits, shuffle=shuffle, random_state=random_state
+            )
         raise ValueError(f"Unknown splitter identifier: {splitter!r}")
 
     if hasattr(splitter, "split") and callable(splitter.split):
         return _clone_splitter(splitter)
 
-    raise TypeError("splitter must be None, a string identifier, or an object with a split() method")
+    raise TypeError(
+        "splitter must be None, a string identifier, or an object with a split() method"
+    )
 
 
 def _clone_splitter(splitter: Any) -> Any:

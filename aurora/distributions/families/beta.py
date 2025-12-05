@@ -37,14 +37,20 @@ See Also
 aurora.distributions.links.common.LogitLink : Canonical link function
 aurora.distributions.links.common.ProbitLink : Alternative link function
 """
+
 from __future__ import annotations
 
-import math
 
 import numpy as np
 
 from ..base import Family, LinkFunction
-from .._utils import as_namespace_array, clip_probability, ensure_positive, namespace, log_gamma
+from .._utils import (
+    as_namespace_array,
+    clip_probability,
+    ensure_positive,
+    namespace,
+    log_gamma,
+)
 from ..links import LogitLink
 
 try:  # pragma: no cover - optional dependency
@@ -114,9 +120,7 @@ class BetaFamily(Family):
     """
 
     def __init__(
-        self,
-        phi: float | str = 1.0,
-        link: LinkFunction | None = None
+        self, phi: float | str = 1.0, link: LinkFunction | None = None
     ) -> None:
         """Initialize Beta family.
 
@@ -128,7 +132,7 @@ class BetaFamily(Family):
             Link function (default: LogitLink).
         """
         if isinstance(phi, str):
-            if phi != 'estimate':
+            if phi != "estimate":
                 raise ValueError("phi must be a positive float or 'estimate'")
             self._phi = phi
         else:
@@ -147,7 +151,7 @@ class BetaFamily(Family):
         """Get phi value, estimating if needed."""
         phi_param = params.get("phi", self._phi)
 
-        if phi_param == 'estimate' and y is not None:
+        if phi_param == "estimate" and y is not None:
             # Method-of-moments estimation
             phi_param = self._estimate_phi_mm(y, xp)
 
@@ -272,16 +276,16 @@ class BetaFamily(Family):
 
         y_arr = clip_probability(as_namespace_array(y, xp, like=mu), xp, eps=eps)
         mu_arr = clip_probability(as_namespace_array(mu, xp, like=y_arr), xp, eps=eps)
-        
+
         phi = self._get_phi(xp, mu_arr, y=y_arr, **params)
 
         # Unit deviance for Beta: 2 × [y log(y/μ) + (1-y) log((1-y)/(1-μ))]
         # This is the KL divergence
         term1 = y_arr * xp.log(y_arr / mu_arr)
         term2 = (1.0 - y_arr) * xp.log((1.0 - y_arr) / (1.0 - mu_arr))
-        
+
         unit_dev = 2.0 * (term1 + term2)
-        
+
         if xp is torch:  # type: ignore[comparison-overlap]
             return phi * torch.sum(unit_dev)
         return phi * np.sum(unit_dev)
@@ -396,7 +400,9 @@ class BetaFamily(Family):
             else:
                 mu_val = np.mean(y_arr)
         else:
-            mu_arr = clip_probability(as_namespace_array(mu, xp, like=y_arr), xp, eps=0.01)
+            mu_arr = clip_probability(
+                as_namespace_array(mu, xp, like=y_arr), xp, eps=0.01
+            )
             if xp is torch:  # type: ignore[comparison-overlap]
                 mu_val = torch.mean(mu_arr)
             else:
