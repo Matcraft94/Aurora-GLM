@@ -12,6 +12,7 @@ Duchon, J. (1977). Splines minimizing rotation-invariant semi-norms in
     Sobolev spaces. Constructive Theory of Functions of Several Variables,
     85-100.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -64,18 +65,18 @@ def tps_basis(
     k = knots.shape[0]
 
     # Compute pairwise distances
-    distances = cdist(X, knots, metric='euclidean')
+    distances = cdist(X, knots, metric="euclidean")
 
     # Radial basis functions
     if d == 1:
         # For d=1: η(r) = r³
-        eta = distances ** 3
+        eta = distances**3
     elif d == 2:
         # For d=2: η(r) = r²log(r)
         # Handle r=0 case
         eta = np.zeros_like(distances)
         nonzero = distances > 0
-        r2 = distances ** 2
+        r2 = distances**2
         eta[nonzero] = r2[nonzero] * np.log(distances[nonzero])
     elif d == 3:
         # For d=3: η(r) = r
@@ -139,15 +140,15 @@ def tps_penalty(
     k = knots.shape[0]
 
     # Compute pairwise distances between knots
-    distances = cdist(knots, knots, metric='euclidean')
+    distances = cdist(knots, knots, metric="euclidean")
 
     # Radial basis at knots
     if d == 1:
-        E = distances ** 3
+        E = distances**3
     elif d == 2:
         E = np.zeros_like(distances)
         nonzero = distances > 0
-        r2 = distances ** 2
+        r2 = distances**2
         E[nonzero] = r2[nonzero] * np.log(distances[nonzero])
     elif d == 3:
         E = distances
@@ -268,20 +269,20 @@ def fit_tps(
         H = B @ A_inv @ B.T @ W
         edf = float(np.trace(H))
     except np.linalg.LinAlgError:
-        edf = float('nan')
+        edf = float("nan")
 
     return {
-        'coefficients': coefficients,
-        'fitted_values': fitted_values,
-        'knots': knots,
-        'edf': edf,
+        "coefficients": coefficients,
+        "fitted_values": fitted_values,
+        "knots": knots,
+        "edf": edf,
     }
 
 
 def select_knots(
     X: np.ndarray,
     n_knots: int | None = None,
-    method: str = 'uniform',
+    method: str = "uniform",
 ) -> np.ndarray:
     """Select knot locations for thin plate splines.
 
@@ -319,16 +320,16 @@ def select_knots(
     if n_knots > n:
         n_knots = n
 
-    if method == 'uniform':
+    if method == "uniform":
         # Every k-th point
         step = max(1, n // n_knots)
         indices = np.arange(0, n, step)[:n_knots]
         knots = X[indices]
-    elif method == 'random':
+    elif method == "random":
         # Random subset
         indices = np.random.choice(n, size=n_knots, replace=False)
         knots = X[indices]
-    elif method == 'kmeans':
+    elif method == "kmeans":
         raise NotImplementedError("kmeans knot selection not yet implemented")
     else:
         raise ValueError(f"Unknown method: {method}")
@@ -337,8 +338,8 @@ def select_knots(
 
 
 __all__ = [
-    'tps_basis',
-    'tps_penalty',
-    'fit_tps',
-    'select_knots',
+    "tps_basis",
+    "tps_penalty",
+    "fit_tps",
+    "select_knots",
 ]

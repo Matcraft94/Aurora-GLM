@@ -212,6 +212,7 @@ For detailed mathematical derivations, see REFERENCES.md in the repository root.
 The exponential family framework unifies many common distributions and provides
 a consistent theory for inference (MLE, Fisher information, asymptotic normality).
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

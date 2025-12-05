@@ -29,6 +29,7 @@ Examples
 >>> mse = mean_squared_error(y_true, y_pred)
 >>> r2 = r_squared(y_true, y_pred)
 """
+
 from .cross_val import CrossValResult, KFold, StratifiedKFold, cross_val_score
 from .metrics import mean_squared_error, accuracy_score, r_squared
 

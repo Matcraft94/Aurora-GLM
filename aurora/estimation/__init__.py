@@ -148,16 +148,16 @@ reml
 
 References
 ----------
-- Patterson, H. D., & Thompson, R. (1971). "Recovery of inter-block 
+- Patterson, H. D., & Thompson, R. (1971). "Recovery of inter-block
   information when block sizes are unequal." *Biometrika*, 58(3), 545-554.
-  
-- Harville, D. A. (1977). "Maximum likelihood approaches to variance 
+
+- Harville, D. A. (1977). "Maximum likelihood approaches to variance
   component estimation and to related problems." *JASA*, 72(358), 320-338.
 
 - Breslow, N. E., & Clayton, D. G. (1993). "Approximate inference in
   generalized linear mixed models." *JASA*, 88(421), 9-25.
 
-- Wood, S. N. (2011). "Fast stable restricted maximum likelihood and 
+- Wood, S. N. (2011). "Fast stable restricted maximum likelihood and
   marginal likelihood estimation of semiparametric generalized linear
   models." *Journal of the Royal Statistical Society: Series B*, 73(1), 3-36.
 
