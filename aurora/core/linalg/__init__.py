@@ -27,40 +27,39 @@ Matrix Operations
 Examples
 --------
 >>> from aurora.core.linalg import safe_cholesky, solve_cholesky
->>> 
+>>>
 >>> # Robust Cholesky with fallback
 >>> L = safe_cholesky(A)
 >>> x = solve_cholesky(L, b)
->>> 
+>>>
 >>> # QR for least squares
 >>> Q, R = qr_decomposition(X)
 >>> beta = solve_qr(Q, R, y)
 """
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Tuple
+from typing import Literal
 
 import numpy as np
-
-if TYPE_CHECKING:
-    from numpy.typing import NDArray
 
 
 # =============================================================================
 # Decompositions
 # =============================================================================
 
+
 def qr_decomposition(
     A: np.ndarray,
     *,
-    mode: Literal['reduced', 'complete', 'r', 'raw'] = 'reduced',
+    mode: Literal["reduced", "complete", "r", "raw"] = "reduced",
     pivoting: bool = False,
 ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
     """QR decomposition with optional column pivoting.
-    
+
     Decomposes A = QR where Q is orthogonal and R is upper triangular.
     With pivoting, AP = QR where P is a permutation matrix.
-    
+
     Parameters
     ----------
     A : ndarray of shape (m, n)
@@ -72,7 +71,7 @@ def qr_decomposition(
         - 'raw': Return (H, tau) for advanced use
     pivoting : bool, default=False
         If True, use column pivoting and return permutation indices.
-        
+
     Returns
     -------
     Q : ndarray
@@ -81,14 +80,14 @@ def qr_decomposition(
         Upper triangular matrix.
     P : ndarray (only if pivoting=True)
         Permutation indices such that A[:, P] = Q @ R.
-        
+
     Examples
     --------
     >>> A = np.array([[1, 2], [3, 4], [5, 6]])
     >>> Q, R = qr_decomposition(A)
     >>> np.allclose(A, Q @ R)
     True
-    
+
     >>> # With pivoting for rank-deficient matrices
     >>> Q, R, P = qr_decomposition(A, pivoting=True)
     >>> np.allclose(A[:, P], Q @ R)
@@ -96,7 +95,8 @@ def qr_decomposition(
     """
     if pivoting:
         from scipy.linalg import qr as scipy_qr
-        Q, R, P = scipy_qr(A, mode='economic', pivoting=True)
+
+        Q, R, P = scipy_qr(A, mode="economic", pivoting=True)
         return Q, R, P
     else:
         return np.linalg.qr(A, mode=mode)
@@ -110,10 +110,10 @@ def safe_cholesky(
     jitter: float = 1e-6,
 ) -> np.ndarray:
     """Cholesky decomposition with robustness to near-singular matrices.
-    
+
     Attempts standard Cholesky, and if it fails, adds progressively
     larger diagonal jitter until successful.
-    
+
     Parameters
     ----------
     A : ndarray of shape (n, n)
@@ -124,17 +124,17 @@ def safe_cholesky(
         Maximum number of attempts with increasing jitter.
     jitter : float, default=1e-6
         Initial diagonal jitter to add on failure.
-        
+
     Returns
     -------
     L : ndarray of shape (n, n)
         Cholesky factor such that A ≈ L @ L.T.
-        
+
     Raises
     ------
     np.linalg.LinAlgError
         If decomposition fails after max_tries attempts.
-        
+
     Examples
     --------
     >>> A = np.array([[4, 2], [2, 1.001]])  # Nearly singular
@@ -143,27 +143,27 @@ def safe_cholesky(
     True
     """
     A = np.asarray(A)
-    
+
     for i in range(max_tries):
         try:
             if i > 0:
                 # Add jitter to diagonal
                 A = A + (jitter * (10 ** (i - 1))) * np.eye(A.shape[0])
-            
+
             L = np.linalg.cholesky(A)
-            
+
             if not lower:
                 L = L.T
-            
+
             return L
-            
+
         except np.linalg.LinAlgError:
             if i == max_tries - 1:
                 raise np.linalg.LinAlgError(
                     f"Cholesky decomposition failed after {max_tries} attempts "
                     f"with jitter up to {jitter * (10 ** (i - 1)):.2e}"
                 )
-    
+
     # Should not reach here
     raise np.linalg.LinAlgError("Cholesky decomposition failed")
 
@@ -175,9 +175,9 @@ def svd(
     compute_uv: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | np.ndarray:
     """Singular Value Decomposition.
-    
+
     Decomposes A = U @ S @ V.T where U and V are orthogonal and S is diagonal.
-    
+
     Parameters
     ----------
     A : ndarray of shape (m, n)
@@ -187,7 +187,7 @@ def svd(
         If False, return reduced U (m, k) and Vh (k, n).
     compute_uv : bool, default=True
         If True, return U, S, Vh. If False, return only S.
-        
+
     Returns
     -------
     U : ndarray
@@ -196,7 +196,7 @@ def svd(
         Singular values (sorted in descending order).
     Vh : ndarray
         Right singular vectors transposed (if compute_uv=True).
-        
+
     Examples
     --------
     >>> A = np.random.randn(5, 3)
@@ -213,21 +213,21 @@ def eigh(
     subset_by_index: tuple[int, int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Eigendecomposition for symmetric/Hermitian matrices.
-    
+
     Parameters
     ----------
     A : ndarray of shape (n, n)
         Symmetric matrix.
     subset_by_index : tuple of (lo, hi), optional
         Only compute eigenvalues/vectors in index range [lo, hi].
-        
+
     Returns
     -------
     eigenvalues : ndarray of shape (n,) or (hi-lo+1,)
         Eigenvalues in ascending order.
     eigenvectors : ndarray of shape (n, n) or (n, hi-lo+1)
         Eigenvectors as columns.
-        
+
     Examples
     --------
     >>> A = np.array([[2, 1], [1, 2]])
@@ -237,6 +237,7 @@ def eigh(
     """
     if subset_by_index is not None:
         from scipy.linalg import eigh as scipy_eigh
+
         return scipy_eigh(A, subset_by_index=subset_by_index)
     else:
         return np.linalg.eigh(A)
@@ -246,6 +247,7 @@ def eigh(
 # Solvers
 # =============================================================================
 
+
 def solve_triangular(
     A: np.ndarray,
     b: np.ndarray,
@@ -254,7 +256,7 @@ def solve_triangular(
     trans: bool = False,
 ) -> np.ndarray:
     """Solve a triangular system Ax = b.
-    
+
     Parameters
     ----------
     A : ndarray of shape (n, n)
@@ -265,15 +267,15 @@ def solve_triangular(
         True if A is lower triangular, False if upper.
     trans : bool, default=False
         If True, solve A.T @ x = b instead.
-        
+
     Returns
     -------
     x : ndarray
         Solution to the system.
     """
     from scipy.linalg import solve_triangular as scipy_solve_tri
-    
-    trans_arg = 'T' if trans else 'N'
+
+    trans_arg = "T" if trans else "N"
     return scipy_solve_tri(A, b, lower=lower, trans=trans_arg)
 
 
@@ -284,9 +286,9 @@ def solve_cholesky(
     lower: bool = True,
 ) -> np.ndarray:
     """Solve a system using pre-computed Cholesky factor.
-    
+
     Solves A x = b where A = L @ L.T (lower=True) or A = U.T @ U (lower=False).
-    
+
     Parameters
     ----------
     L : ndarray of shape (n, n)
@@ -295,12 +297,12 @@ def solve_cholesky(
         Right-hand side.
     lower : bool, default=True
         True if L is lower triangular.
-        
+
     Returns
     -------
     x : ndarray
         Solution to the system.
-        
+
     Examples
     --------
     >>> A = np.array([[4, 2], [2, 5]])
@@ -312,10 +314,10 @@ def solve_cholesky(
     """
     # Solve L @ y = b
     y = solve_triangular(L, b, lower=lower, trans=False)
-    
+
     # Solve L.T @ x = y
     x = solve_triangular(L, y, lower=lower, trans=True)
-    
+
     return x
 
 
@@ -325,9 +327,9 @@ def solve_qr(
     b: np.ndarray,
 ) -> np.ndarray:
     """Solve a least squares problem using QR factors.
-    
+
     Solves min ||Ax - b||² where A = QR.
-    
+
     Parameters
     ----------
     Q : ndarray of shape (m, k)
@@ -336,7 +338,7 @@ def solve_qr(
         Upper triangular factor.
     b : ndarray of shape (m,)
         Right-hand side.
-        
+
     Returns
     -------
     x : ndarray of shape (n,)
@@ -355,7 +357,7 @@ def lstsq(
     rcond: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, int, np.ndarray]:
     """Least squares solution to Ax = b.
-    
+
     Parameters
     ----------
     A : ndarray of shape (m, n)
@@ -364,7 +366,7 @@ def lstsq(
         Right-hand side.
     rcond : float, optional
         Cutoff ratio for small singular values.
-        
+
     Returns
     -------
     x : ndarray
@@ -383,15 +385,16 @@ def lstsq(
 # Matrix Operations
 # =============================================================================
 
+
 def safe_inverse(
     A: np.ndarray,
     *,
     rcond: float = 1e-15,
 ) -> np.ndarray:
     """Compute matrix inverse with regularization for near-singular matrices.
-    
+
     Uses SVD-based pseudoinverse with condition number thresholding.
-    
+
     Parameters
     ----------
     A : ndarray of shape (n, n)
@@ -399,12 +402,12 @@ def safe_inverse(
     rcond : float, default=1e-15
         Cutoff for small singular values. Singular values smaller than
         rcond * largest_singular_value are set to zero.
-        
+
     Returns
     -------
     A_inv : ndarray of shape (n, n)
         (Pseudo)inverse of A.
-        
+
     Examples
     --------
     >>> A = np.array([[1, 2], [2, 4.001]])  # Nearly singular
@@ -420,12 +423,12 @@ def woodbury_inverse(
     V: np.ndarray,
 ) -> np.ndarray:
     """Woodbury matrix identity for efficient inverse updates.
-    
+
     Computes (A + UCV)^{-1} given A^{-1} efficiently.
-    
+
     The Woodbury identity states:
     (A + UCV)^{-1} = A^{-1} - A^{-1}U(C^{-1} + VA^{-1}U)^{-1}VA^{-1}
-    
+
     Parameters
     ----------
     A_inv : ndarray of shape (n, n)
@@ -436,12 +439,12 @@ def woodbury_inverse(
         Core matrix.
     V : ndarray of shape (k, n)
         Update matrix.
-        
+
     Returns
     -------
     result : ndarray of shape (n, n)
         (A + UCV)^{-1}
-        
+
     Examples
     --------
     >>> A = np.eye(3)
@@ -452,16 +455,16 @@ def woodbury_inverse(
     """
     # A^{-1}U
     AiU = A_inv @ U
-    
+
     # VA^{-1}
     VAi = V @ A_inv
-    
+
     # C^{-1} + VA^{-1}U
     inner = np.linalg.inv(C) + VAi @ U
-    
+
     # (C^{-1} + VA^{-1}U)^{-1}
     inner_inv = np.linalg.inv(inner)
-    
+
     # A^{-1} - A^{-1}U(...)VA^{-1}
     return A_inv - AiU @ inner_inv @ VAi
 
@@ -472,7 +475,7 @@ def quadratic_form(
     y: np.ndarray | None = None,
 ) -> float | np.ndarray:
     """Compute quadratic form x'Ay or x'Ax.
-    
+
     Parameters
     ----------
     x : ndarray of shape (n,)
@@ -481,7 +484,7 @@ def quadratic_form(
         Matrix.
     y : ndarray of shape (n,), optional
         Right vector. If None, computes x'Ax.
-        
+
     Returns
     -------
     result : float
@@ -495,22 +498,22 @@ def quadratic_form(
 def log_determinant(
     A: np.ndarray,
     *,
-    method: Literal['cholesky', 'svd', 'auto'] = 'auto',
+    method: Literal["cholesky", "svd", "auto"] = "auto",
 ) -> float:
     """Compute log of matrix determinant in a numerically stable way.
-    
+
     Parameters
     ----------
     A : ndarray of shape (n, n)
         Positive definite matrix.
     method : {'cholesky', 'svd', 'auto'}, default='auto'
         Method to use. 'auto' tries Cholesky first, falls back to SVD.
-        
+
     Returns
     -------
     logdet : float
         Log of determinant of A.
-        
+
     Examples
     --------
     >>> A = np.array([[2, 1], [1, 2]])
@@ -518,15 +521,15 @@ def log_determinant(
     >>> np.isclose(logdet, np.log(np.linalg.det(A)))
     True
     """
-    if method == 'cholesky' or method == 'auto':
+    if method == "cholesky" or method == "auto":
         try:
             L = np.linalg.cholesky(A)
             return 2 * np.sum(np.log(np.diag(L)))
         except np.linalg.LinAlgError:
-            if method == 'cholesky':
+            if method == "cholesky":
                 raise
             # Fall through to SVD
-    
+
     # SVD method
     _, s, _ = np.linalg.svd(A)
     return np.sum(np.log(s))
@@ -538,14 +541,14 @@ def matrix_rank(
     tol: float | None = None,
 ) -> int:
     """Compute matrix rank.
-    
+
     Parameters
     ----------
     A : ndarray
         Input matrix.
     tol : float, optional
         Threshold below which singular values are considered zero.
-        
+
     Returns
     -------
     rank : int
@@ -560,14 +563,14 @@ def condition_number(
     p: int | float | str = 2,
 ) -> float:
     """Compute matrix condition number.
-    
+
     Parameters
     ----------
     A : ndarray
         Input matrix.
     p : {1, 2, inf, 'fro'}, default=2
         Order of the norm.
-        
+
     Returns
     -------
     cond : float
