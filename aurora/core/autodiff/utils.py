@@ -1,4 +1,5 @@
 """Utility functions for autodiff."""
+
 from __future__ import annotations
 
 from typing import Callable, Any
@@ -17,7 +18,7 @@ def check_gradient(
     *args,
     rtol: float = 1e-4,
     atol: float = 1e-6,
-    **kwargs
+    **kwargs,
 ) -> dict:
     """Check gradient computation against numerical differentiation.
 
@@ -45,7 +46,7 @@ def check_gradient(
     grad_fn = gradient(func, backend=backend)
     g_analytic = np.asarray(grad_fn(x, *args, **kwargs))
 
-    grad_fn_num = gradient(func, backend='numpy')
+    grad_fn_num = gradient(func, backend="numpy")
     g_numerical = grad_fn_num(np.asarray(x), *args, **kwargs)
 
     abs_diff = np.abs(g_analytic - g_numerical)
@@ -59,9 +60,9 @@ def check_gradient(
     passed = max_abs_diff <= atol or max_rel_diff <= rtol
 
     return {
-        'analytic': g_analytic,
-        'numerical': g_numerical,
-        'max_abs_diff': max_abs_diff,
-        'max_rel_diff': max_rel_diff,
-        'passed': passed,
+        "analytic": g_analytic,
+        "numerical": g_numerical,
+        "max_abs_diff": max_abs_diff,
+        "max_rel_diff": max_rel_diff,
+        "passed": passed,
     }

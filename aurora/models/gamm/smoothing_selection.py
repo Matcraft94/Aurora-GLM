@@ -98,6 +98,7 @@ See Also
 aurora.models.gamm.pql_smooth : PQL with smooth terms
 aurora.smoothing.selection.gcv : GCV for Gaussian responses
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -186,8 +187,7 @@ def select_smoothing_gcv(
 
     # Initialize with middle of grid
     lambda_current = {
-        name: lambda_grid[name][len(lambda_grid[name]) // 2]
-        for name in smooth_names
+        name: lambda_grid[name][len(lambda_grid[name]) // 2] for name in smooth_names
     }
 
     # Coordinate descent over smooth terms
@@ -228,11 +228,14 @@ def select_smoothing_gcv(
             lambda_current[term_name] = lambda_grid[term_name][best_idx]
 
             if verbose:
-                print(f"  Best λ: {lambda_current[term_name]:.2e} (GCV: {gcv_scores[best_idx]:.4f})")
+                print(
+                    f"  Best λ: {lambda_current[term_name]:.2e} (GCV: {gcv_scores[best_idx]:.4f})"
+                )
 
         # Check convergence
-        change = max(abs(np.log(lambda_current[k]) - np.log(lambda_old[k]))
-                    for k in smooth_names)
+        change = max(
+            abs(np.log(lambda_current[k]) - np.log(lambda_old[k])) for k in smooth_names
+        )
         if change < 0.1:  # Converged in log scale
             break
 
@@ -302,10 +305,7 @@ def _compute_gcv_score(
     Xs_W_z = X_smooth.T @ W @ z
 
     # Solve for coefficients
-    A = np.block([
-        [XpWXp, XpWXs],
-        [XpWXs.T, XsWXs]
-    ])
+    A = np.block([[XpWXp, XpWXs], [XpWXs.T, XsWXs]])
     b_rhs = np.concatenate([Xp_W_z, Xs_W_z])
 
     try:
@@ -340,7 +340,7 @@ def _compute_gcv_score(
         # Degenerate case
         return np.inf
 
-    gcv = (n * RSS) / (n - edf)**2
+    gcv = (n * RSS) / (n - edf) ** 2
 
     return gcv
 
@@ -403,9 +403,9 @@ def select_smoothing_performance_iter(
 
     # Get family object
     family_map = {
-        'poisson': PoissonFamily(),
-        'binomial': BinomialFamily(),
-        'gamma': GammaFamily(),
+        "poisson": PoissonFamily(),
+        "binomial": BinomialFamily(),
+        "gamma": GammaFamily(),
     }
     family_obj = family_map[family]
     link = family_obj.default_link
@@ -434,7 +434,7 @@ def select_smoothing_performance_iter(
         )
 
         # Step 2: Update λ via GCV
-        Psi = linalg.block_diag(*result['variance_components'])
+        Psi = linalg.block_diag(*result["variance_components"])
         lambda_new = select_smoothing_gcv(
             X_parametric=X_parametric,
             X_smooth_dict=X_smooth_dict,
@@ -448,8 +448,10 @@ def select_smoothing_performance_iter(
         )
 
         # Check convergence
-        change = max(abs(np.log(lambda_new[k]) - np.log(lambda_current[k]))
-                    for k in lambda_new.keys())
+        change = max(
+            abs(np.log(lambda_new[k]) - np.log(lambda_current[k]))
+            for k in lambda_new.keys()
+        )
 
         if verbose:
             print(f"New λ: {lambda_new}")
@@ -458,8 +460,8 @@ def select_smoothing_performance_iter(
         if change < 0.05:  # Converged
             if verbose:
                 print("Converged!")
-            result['lambda_opt'] = lambda_new
-            result['converged'] = True
+            result["lambda_opt"] = lambda_new
+            result["converged"] = True
             return result
 
         lambda_current = lambda_new
@@ -478,13 +480,13 @@ def select_smoothing_performance_iter(
         maxiter_inner=10,
         verbose=False,
     )
-    result['lambda_opt'] = lambda_current
-    result['converged'] = False  # Did not converge in max_iter
+    result["lambda_opt"] = lambda_current
+    result["converged"] = False  # Did not converge in max_iter
 
     return result
 
 
 __all__ = [
-    'select_smoothing_gcv',
-    'select_smoothing_performance_iter',
+    "select_smoothing_gcv",
+    "select_smoothing_performance_iter",
 ]

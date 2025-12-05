@@ -330,6 +330,7 @@ where computing the Hessian is infeasible. Its combination of low memory
 requirements, superlinear convergence, and robustness makes it a workhorse
 algorithm in machine learning and statistics.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -361,7 +362,9 @@ def lbfgs(
         backend = get_backend("jax")
 
     converted_args = tuple(_convert_to_backend(backend, value) for value in args)
-    converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
+    converted_kwargs = {
+        key: _convert_to_backend(backend, value) for key, value in kwargs.items()
+    }
 
     grad_fn = backend.grad(loss_fn)
     x = backend.array(init_params)
@@ -634,12 +637,22 @@ def _strong_wolfe_line_search(
         if phi > armijo_threshold or (i > 0 and phi >= phi_prev):
             # Need to zoom in [alpha_prev, alpha]
             result = _zoom(
-                loss_fn, grad_fn, x, d, backend,
-                alpha_prev, alpha,
-                phi_prev, phi,
+                loss_fn,
+                grad_fn,
+                x,
+                d,
+                backend,
+                alpha_prev,
+                alpha,
+                phi_prev,
+                phi,
                 dphi_prev,
-                phi_0, dphi_0, c1, c2,
-                args=args, kwargs=kwargs
+                phi_0,
+                dphi_0,
+                c1,
+                c2,
+                args=args,
+                kwargs=kwargs,
             )
             return result[0], result[1], result[2], fev + result[3]
 
@@ -655,12 +668,22 @@ def _strong_wolfe_line_search(
         # If slope is non-negative, zoom in [alpha, alpha_prev]
         if dphi >= 0:
             result = _zoom(
-                loss_fn, grad_fn, x, d, backend,
-                alpha, alpha_prev,
-                phi, phi_prev,
+                loss_fn,
+                grad_fn,
+                x,
+                d,
+                backend,
+                alpha,
+                alpha_prev,
+                phi,
+                phi_prev,
                 dphi,
-                phi_0, dphi_0, c1, c2,
-                args=args, kwargs=kwargs
+                phi_0,
+                dphi_0,
+                c1,
+                c2,
+                args=args,
+                kwargs=kwargs,
             )
             return result[0], result[1], result[2], fev + result[3]
 
@@ -680,11 +703,20 @@ def _strong_wolfe_line_search(
 
 
 def _zoom(
-    loss_fn, grad_fn, x, d, backend,
-    alpha_lo, alpha_hi,
-    phi_lo, phi_hi,
+    loss_fn,
+    grad_fn,
+    x,
+    d,
+    backend,
+    alpha_lo,
+    alpha_hi,
+    phi_lo,
+    phi_hi,
     dphi_lo,
-    phi_0, dphi_0, c1, c2,
+    phi_0,
+    dphi_0,
+    c1,
+    c2,
     *,
     args=(),
     kwargs=None,
@@ -797,7 +829,7 @@ def _backtracking_line_search(
 
 def _to_scalar(value, backend):
     """Convert array scalar to Python float."""
-    if hasattr(backend, 'as_numpy'):
+    if hasattr(backend, "as_numpy"):
         return float(backend.as_numpy(value))
     return float(value)
 
@@ -812,5 +844,6 @@ def _convert_to_backend(backend, value):
         return backend.array(value)
     except Exception:  # pragma: no cover - fallback when conversion is not applicable
         return value
+
 
 __all__ = ["lbfgs"]

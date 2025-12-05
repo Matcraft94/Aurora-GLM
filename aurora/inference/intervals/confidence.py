@@ -1,4 +1,5 @@
 """Confidence interval utilities for GLM results."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -49,4 +50,6 @@ def confidence_intervals(
         intercept_upper = float(result.intercept_ + quantile * intercept_std)
         intercept_interval = (intercept_lower, intercept_upper)
 
-    return ConfidenceIntervalResult(lower=lower, upper=upper, intercept=intercept_interval)
+    return ConfidenceIntervalResult(
+        lower=lower, upper=upper, intercept=intercept_interval
+    )

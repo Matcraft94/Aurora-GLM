@@ -17,7 +17,7 @@ from aurora.models.gamm.fitting import GAMMResult, fit_gamm_gaussian, predict_ga
 from aurora.models.gamm.random_effects import RandomEffect
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
+    pass
 
 
 def fit_gamm(
@@ -204,7 +204,7 @@ def fit_gamm(
         # Build design matrix from parametric terms
         # Always include intercept
         X_cols = [np.ones(len(y))]
-        var_to_col_idx = {'intercept': 0}  # Map variable names to X column indices
+        var_to_col_idx = {"intercept": 0}  # Map variable names to X column indices
 
         for term in spec.parametric_terms:
             var_name = term.variable
@@ -288,7 +288,9 @@ def fit_gamm(
                 # Get the data for this variable
                 if isinstance(var_name, int):
                     if var_name >= len(data.columns):
-                        raise ValueError(f"Smooth variable index {var_name} out of range")
+                        raise ValueError(
+                            f"Smooth variable index {var_name} out of range"
+                        )
                     x_smooth = data.iloc[:, var_name].values
                 elif var_name in data.columns:
                     x_smooth = data[var_name].values
@@ -303,7 +305,10 @@ def fit_gamm(
 
                 # Create B-spline basis
                 knots = BSplineBasis.create_knots(
-                    x_smooth, n_basis=n_basis, degree=degree, method=smooth_term.knot_method
+                    x_smooth,
+                    n_basis=n_basis,
+                    degree=degree,
+                    method=smooth_term.knot_method,
                 )
                 basis = BSplineBasis(knots, degree=degree)
 
@@ -321,7 +326,9 @@ def fit_gamm(
                     lambda_smooth_dict[term_name] = lambda_val
 
         # Use lambda_smooth_dict only if some values were specified
-        if len(lambda_smooth_dict) > 0 and len(lambda_smooth_dict) == len(spec.smooth_terms):
+        if len(lambda_smooth_dict) > 0 and len(lambda_smooth_dict) == len(
+            spec.smooth_terms
+        ):
             lambda_smooth_final = lambda_smooth_dict
         else:
             lambda_smooth_final = None  # Will use automatic selection
@@ -342,8 +349,7 @@ def fit_gamm(
     valid_families = ["gaussian", "poisson", "binomial", "gamma"]
     if family not in valid_families:
         raise ValueError(
-            f"Family '{family}' not supported. "
-            f"Valid families: {valid_families}"
+            f"Family '{family}' not supported. Valid families: {valid_families}"
         )
 
     # Convert inputs to numpy arrays
@@ -446,36 +452,47 @@ def fit_gamm(
 
             # Convert to GAMMResult format
             # Calculate residuals and other diagnostics
-            mu = result_dict['fitted_values']
+            mu = result_dict["fitted_values"]
             residuals = y - mu
 
             result = GAMMResult(
-                coefficients=np.concatenate([
-                    result_dict['beta_parametric'],
-                    np.concatenate([result_dict['beta_smooth'][name]
-                                   for name in sorted(result_dict['beta_smooth'].keys())]),
-                    result_dict['random_effects']
-                ]),
-                beta_parametric=result_dict['beta_parametric'],
-                beta_smooth=result_dict['beta_smooth'],
-                random_effects={f"re_{i}": result_dict['random_effects'][i:i+1]
-                               for i in range(len(result_dict['random_effects']))},
-                variance_components=result_dict['variance_components'],
-                covariance_params=result_dict.get('covariance_params'),  # May be None for PQL smooth
+                coefficients=np.concatenate(
+                    [
+                        result_dict["beta_parametric"],
+                        np.concatenate(
+                            [
+                                result_dict["beta_smooth"][name]
+                                for name in sorted(result_dict["beta_smooth"].keys())
+                            ]
+                        ),
+                        result_dict["random_effects"],
+                    ]
+                ),
+                beta_parametric=result_dict["beta_parametric"],
+                beta_smooth=result_dict["beta_smooth"],
+                random_effects={
+                    f"re_{i}": result_dict["random_effects"][i : i + 1]
+                    for i in range(len(result_dict["random_effects"]))
+                },
+                variance_components=result_dict["variance_components"],
+                covariance_params=result_dict.get(
+                    "covariance_params"
+                ),  # May be None for PQL smooth
                 residual_variance=np.var(residuals),  # Approximate for non-Gaussian
-                smoothing_parameters=result_dict['smoothing_parameters'],
-                edf_total=sum(result_dict['edf_smooth'].values()) + len(result_dict['beta_parametric']),
-                edf_parametric=float(len(result_dict['beta_parametric'])),
-                edf_smooth=result_dict['edf_smooth'],
-                fitted_values=result_dict['fitted_values'],
+                smoothing_parameters=result_dict["smoothing_parameters"],
+                edf_total=sum(result_dict["edf_smooth"].values())
+                + len(result_dict["beta_parametric"]),
+                edf_parametric=float(len(result_dict["beta_parametric"])),
+                edf_smooth=result_dict["edf_smooth"],
+                fitted_values=result_dict["fitted_values"],
                 residuals=residuals,
                 log_likelihood=0.0,  # TODO: compute proper log-likelihood
                 aic=0.0,
                 bic=0.0,
-                converged=result_dict['converged'],
-                n_iterations=result_dict['n_iterations_outer'],
+                converged=result_dict["converged"],
+                n_iterations=result_dict["n_iterations_outer"],
                 n_obs=len(y),
-                n_groups=len(set(result_dict['random_effects'])),
+                n_groups=len(set(result_dict["random_effects"])),
                 family=family,
             )
 
@@ -704,19 +721,19 @@ def predict_from_gamm(
         # We need the random_effects specification from the original fit
         # For now, reconstruct based on Z_info
         Z_info = result._Z_info[0]  # Assuming single random effect term
-        n_effects = Z_info['n_effects']
-        grouping_var = Z_info['grouping']
+        n_effects = Z_info["n_effects"]
+        grouping_var = Z_info["grouping"]
 
         # Reconstruct Z for new data using construct_Z_matrix
         # But we need the original random_effects specification...
         # Simplification: build Z manually based on Z_info
         n_new = len(X_new)
-        q = Z_info['end_col'] - Z_info['start_col']
+        q = Z_info["end_col"] - Z_info["start_col"]
         Z_new = np.zeros((n_new, q))
 
         # Check if temporal covariance structure
-        cov_type = Z_info.get('covariance', 'unstructured')
-        is_temporal = cov_type in ('ar1', 'compound_symmetry', 'cs')
+        cov_type = Z_info.get("covariance", "unstructured")
+        is_temporal = cov_type in ("ar1", "compound_symmetry", "cs")
 
         # If n_effects == 1, it's just indicator matrix
         # If n_effects > 1, check if temporal or random slopes

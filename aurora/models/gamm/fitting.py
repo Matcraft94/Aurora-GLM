@@ -392,9 +392,6 @@ from scipy import linalg
 
 from aurora.models.gamm.covariance import get_covariance_structure
 from aurora.models.gamm.estimation import (
-    REMLResult,
-    estimate_fixed_effects,
-    estimate_random_effects,
     estimate_variance_components,
 )
 
@@ -566,11 +563,11 @@ class GAMMResult:
                 lines.append(f"  Std.Dev.: {np.sqrt(vc[0, 0]):.4f}")
             else:
                 # Multiple components (e.g., random intercept + slope)
-                lines.append(f"  Variance-Covariance Matrix:")
+                lines.append("  Variance-Covariance Matrix:")
                 for row in vc:
                     row_str = "    " + "  ".join([f"{val:>10.4f}" for val in row])
                     lines.append(row_str)
-                lines.append(f"  Standard Deviations:")
+                lines.append("  Standard Deviations:")
                 for j in range(vc.shape[0]):
                     lines.append(f"    Component {j}: {np.sqrt(vc[j, j]):.4f}")
                 # Correlation matrix if multivariate
@@ -581,13 +578,15 @@ class GAMMResult:
                             corr[ii, jj] = vc[ii, jj] / (
                                 np.sqrt(vc[ii, ii]) * np.sqrt(vc[jj, jj])
                             )
-                    lines.append(f"  Correlation Matrix:")
+                    lines.append("  Correlation Matrix:")
                     for row in corr:
                         row_str = "    " + "  ".join([f"{val:>10.4f}" for val in row])
                         lines.append(row_str)
             lines.append("")
 
-        lines.append(f"Residual Standard Deviation: {np.sqrt(self.residual_variance):.4f}")
+        lines.append(
+            f"Residual Standard Deviation: {np.sqrt(self.residual_variance):.4f}"
+        )
         lines.append("")
 
         # Model Fit
@@ -834,6 +833,7 @@ def fit_gamm_gaussian(
     if backend in ("torch", "pytorch"):
         try:
             import torch
+
             if device is None:
                 device = "cuda" if torch.cuda.is_available() else "cpu"
             torch_device = torch.device(device)
@@ -841,7 +841,9 @@ def fit_gamm_gaussian(
             from scipy.sparse import issparse
 
             # Convert to torch tensors
-            X_parametric_t = torch.tensor(X_parametric, dtype=torch.float64, device=torch_device)
+            X_parametric_t = torch.tensor(
+                X_parametric, dtype=torch.float64, device=torch_device
+            )
             Z_t = torch.tensor(Z, dtype=torch.float64, device=torch_device)
             y_t = torch.tensor(y, dtype=torch.float64, device=torch_device)
 
@@ -853,14 +855,26 @@ def fit_gamm_gaussian(
             if X_smooth is not None:
                 # Handle sparse matrices
                 X_smooth = {
-                    k: (torch.tensor(v.toarray(), dtype=torch.float64, device=torch_device).cpu().numpy()
-                        if issparse(v) else
-                        torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy())
+                    k: (
+                        torch.tensor(
+                            v.toarray(), dtype=torch.float64, device=torch_device
+                        )
+                        .cpu()
+                        .numpy()
+                        if issparse(v)
+                        else torch.tensor(v, dtype=torch.float64, device=torch_device)
+                        .cpu()
+                        .numpy()
+                    )
                     for k, v in X_smooth.items()
                 }
             if S_smooth is not None:
-                S_smooth = {k: torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
-                           for k, v in S_smooth.items()}
+                S_smooth = {
+                    k: torch.tensor(v, dtype=torch.float64, device=torch_device)
+                    .cpu()
+                    .numpy()
+                    for k, v in S_smooth.items()
+                }
         except ImportError:
             pass  # Fall back to numpy
 
@@ -882,7 +896,9 @@ def fit_gamm_gaussian(
             if X_smooth is not None:
                 # Handle sparse matrices
                 X_smooth = {
-                    k: np.asarray(jnp.array(v.toarray())) if issparse(v) else np.asarray(jnp.array(v))
+                    k: np.asarray(jnp.array(v.toarray()))
+                    if issparse(v)
+                    else np.asarray(jnp.array(v))
                     for k, v in X_smooth.items()
                 }
             if S_smooth is not None:
@@ -956,9 +972,9 @@ def fit_gamm_gaussian(
 
     # Expand psi to full block-diagonal form before inverting
     # psi from REML is per-group covariance structure
-    if len(Z_info) == 1 and psi.shape[0] == Z_info[0]['n_effects']:
+    if len(Z_info) == 1 and psi.shape[0] == Z_info[0]["n_effects"]:
         # Single random effect term, expand to block-diagonal
-        n_groups = Z_info[0]['n_groups']
+        n_groups = Z_info[0]["n_groups"]
         psi_full = linalg.block_diag(*([psi] * n_groups))
     elif len(Z_info) > 1:
         # Multiple terms, psi is block-diagonal of per-term structures
@@ -966,10 +982,13 @@ def fit_gamm_gaussian(
         psi_blocks = []
         term_offset = 0
         for info in Z_info:
-            n_effects = info['n_effects']
-            n_groups = info['n_groups']
+            n_effects = info["n_effects"]
+            n_groups = info["n_groups"]
             # Extract this term's per-group structure
-            psi_term = psi[term_offset:term_offset+n_effects, term_offset:term_offset+n_effects]
+            psi_term = psi[
+                term_offset : term_offset + n_effects,
+                term_offset : term_offset + n_effects,
+            ]
             # Expand to block-diagonal for all groups
             psi_blocks.append(linalg.block_diag(*([psi_term] * n_groups)))
             term_offset += n_effects
@@ -1017,28 +1036,27 @@ def fit_gamm_gaussian(
         variance_components_list = []
         offset = 0
         for info in Z_info:
-            n_effects = info['n_effects']
-            psi_term = psi[offset:offset+n_effects, offset:offset+n_effects]
+            n_effects = info["n_effects"]
+            psi_term = psi[offset : offset + n_effects, offset : offset + n_effects]
             variance_components_list.append(psi_term)
             offset += n_effects
 
     # Step 4c: Extract raw covariance parameters from theta
     # theta contains: [params_term1, params_term2, ..., log(sigma2)]
     # Split theta by number of parameters per term
-    from aurora.models.gamm.covariance import get_covariance_structure
 
     covariance_params_list = []
     theta = reml_result.theta
     param_idx = 0
 
     for info in Z_info:
-        cov_type = info.get('covariance', 'unstructured')
-        n_effects = info['n_effects']
+        cov_type = info.get("covariance", "unstructured")
+        n_effects = info["n_effects"]
         cov_structure = get_covariance_structure(cov_type)
         n_params = cov_structure.n_parameters(n_effects)
 
         # Extract parameters for this term
-        params_term = theta[param_idx:param_idx + n_params]
+        params_term = theta[param_idx : param_idx + n_params]
         covariance_params_list.append(params_term)
         param_idx += n_params
 
@@ -1064,7 +1082,11 @@ def fit_gamm_gaussian(
             start = smooth_start_cols[term_name]
             end = smooth_end_cols[term_name]
             p_term = end - start
-            if term_name in S_smooth and lambda_smooth is not None and term_name in lambda_smooth:
+            if (
+                term_name in S_smooth
+                and lambda_smooth is not None
+                and term_name in lambda_smooth
+            ):
                 # EDF ≈ tr[(X_k'X_k + λS)⁻¹ X_k'X_k]
                 X_term = X_smooth[term_name]
                 S_term = S_smooth[term_name]
@@ -1092,8 +1114,8 @@ def fit_gamm_gaussian(
     # Count variance component parameters
     n_variance_params = 0
     for info in Z_info:
-        cov_type = info.get('covariance', covariance)
-        n_effects = info['n_effects']
+        cov_type = info.get("covariance", covariance)
+        n_effects = info["n_effects"]
         cov_structure = get_covariance_structure(cov_type)
         n_variance_params += cov_structure.n_parameters(n_effects)
 

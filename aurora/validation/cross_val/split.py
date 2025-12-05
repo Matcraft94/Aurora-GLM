@@ -1,4 +1,5 @@
 """Data splitting helpers for cross-validation."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,7 +16,9 @@ class KFold:
     shuffle: bool = False
     random_state: int | None = None
 
-    def split(self, X: Sequence[Any], y: Sequence[Any] | None = None) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+    def split(
+        self, X: Sequence[Any], y: Sequence[Any] | None = None
+    ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Yield index pairs for successive training and validation splits."""
 
         del y  # kept for signature parity with scikit-learn-like API

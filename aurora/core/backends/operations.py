@@ -3,6 +3,7 @@
 This module provides unified interfaces for linear algebra and array operations
 that work across NumPy, PyTorch, and JAX backends.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -46,14 +47,18 @@ def get_namespace(backend: str = "numpy", device: str | None = None):
 
     elif backend in ("torch", "pytorch"):
         if torch is None:
-            raise ImportError("PyTorch is not installed. Install with: pip install torch")
+            raise ImportError(
+                "PyTorch is not installed. Install with: pip install torch"
+            )
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         return torch, torch.device(device)
 
     elif backend == "jax":
         if jnp is None:
-            raise ImportError("JAX is not installed. Install with: pip install jax jaxlib")
+            raise ImportError(
+                "JAX is not installed. Install with: pip install jax jaxlib"
+            )
         return jnp, None
 
     else:
@@ -80,13 +85,13 @@ def to_backend_array(data: Any, xp, device=None, dtype=None):
         Array in the target backend
     """
     # Handle pandas objects
-    if hasattr(data, 'values'):
+    if hasattr(data, "values"):
         data = data.values
 
     # Convert to numpy first if needed
-    if hasattr(data, 'detach'):  # torch tensor
+    if hasattr(data, "detach"):  # torch tensor
         data = data.detach().cpu().numpy()
-    elif hasattr(data, 'device_buffer'):  # jax array
+    elif hasattr(data, "device_buffer"):  # jax array
         data = np.asarray(data)
 
     # Convert to target backend
@@ -123,13 +128,14 @@ def to_numpy(data: Any) -> np.ndarray:
         return data
     elif torch is not None and isinstance(data, torch.Tensor):
         return data.detach().cpu().numpy()
-    elif jax is not None and hasattr(data, 'device_buffer'):
+    elif jax is not None and hasattr(data, "device_buffer"):
         return np.asarray(data)
     else:
         return np.asarray(data)
 
 
 # Linear algebra operations
+
 
 def solve(A, b, xp):
     """Solve linear system Ax = b.
@@ -347,6 +353,7 @@ def lstsq(A, b, xp):
 
 # Array operations
 
+
 def eye(n, xp, device=None, dtype=None):
     """Create identity matrix.
 
@@ -462,7 +469,7 @@ def concatenate(arrays, axis=0, xp=None):
         first = arrays[0]
         if torch is not None and isinstance(first, torch.Tensor):
             xp = torch
-        elif jnp is not None and hasattr(first, 'device_buffer'):
+        elif jnp is not None and hasattr(first, "device_buffer"):
             xp = jnp
         else:
             xp = np
@@ -498,7 +505,7 @@ def stack(arrays, axis=0, xp=None):
         first = arrays[0]
         if torch is not None and isinstance(first, torch.Tensor):
             xp = torch
-        elif jnp is not None and hasattr(first, 'device_buffer'):
+        elif jnp is not None and hasattr(first, "device_buffer"):
             xp = jnp
         else:
             xp = np
@@ -635,7 +642,7 @@ def sum(A, axis=None, xp=None):
     if xp is None:
         if torch is not None and isinstance(A, torch.Tensor):
             xp = torch
-        elif jnp is not None and hasattr(A, 'device_buffer'):
+        elif jnp is not None and hasattr(A, "device_buffer"):
             xp = jnp
         else:
             xp = np
@@ -672,7 +679,7 @@ def mean(A, axis=None, xp=None):
     if xp is None:
         if torch is not None and isinstance(A, torch.Tensor):
             xp = torch
-        elif jnp is not None and hasattr(A, 'device_buffer'):
+        elif jnp is not None and hasattr(A, "device_buffer"):
             xp = jnp
         else:
             xp = np
@@ -809,7 +816,7 @@ def max(x, axis=None, xp=None):
     if xp is None:
         if torch is not None and isinstance(x, torch.Tensor):
             xp = torch
-        elif jnp is not None and hasattr(x, 'device_buffer'):
+        elif jnp is not None and hasattr(x, "device_buffer"):
             xp = jnp
         else:
             xp = np

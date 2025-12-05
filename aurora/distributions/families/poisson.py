@@ -1,4 +1,5 @@
 """Poisson distribution family implementation."""
+
 from __future__ import annotations
 
 import numpy as np

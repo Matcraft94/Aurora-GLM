@@ -6,12 +6,12 @@ biological, ecological, and social science applications.
 
 References
 ----------
-.. [1] Hilbe, J. M. (2011). Negative Binomial Regression (2nd ed.). 
+.. [1] Hilbe, J. M. (2011). Negative Binomial Regression (2nd ed.).
        Cambridge University Press.
-.. [2] Ver Hoef, J. M., & Boveng, P. L. (2007). 
+.. [2] Ver Hoef, J. M., & Boveng, P. L. (2007).
        "Quasi-Poisson vs. negative binomial regression."
        Environmetrics, 18(3), 255-269.
-.. [3] Lawless, J. F. (1987). 
+.. [3] Lawless, J. F. (1987).
        "Negative binomial and mixed Poisson regression."
        Canadian Journal of Statistics, 15(3), 209-225.
 """
@@ -28,7 +28,6 @@ from aurora.distributions._utils import (
     namespace,
     as_namespace_array,
     log_gamma,
-    digamma,
 )
 
 if TYPE_CHECKING:
@@ -83,7 +82,7 @@ class NegativeBinomialFamily(Family):
     --------
     >>> from aurora.models.glm import fit_glm
     >>> # Fixed dispersion
-    >>> result = fit_glm(X, y, family='negativebinomial', 
+    >>> result = fit_glm(X, y, family='negativebinomial',
     ...                  family_params={'theta': 2.0})
 
     >>> # Estimate dispersion
@@ -96,16 +95,12 @@ class NegativeBinomialFamily(Family):
     .. [2] Cameron & Trivedi (2013). Regression Analysis of Count Data.
     """
 
-    name = 'negative_binomial'
-    
+    name = "negative_binomial"
+
     # Valid range for responses (non-negative integers)
     valid_y_range = (0, np.inf)
 
-    def __init__(
-        self, 
-        theta: float | str = 1.0, 
-        link: str = 'log'
-    ):
+    def __init__(self, theta: float | str = 1.0, link: str = "log"):
         """Initialize Negative Binomial family.
 
         Parameters
@@ -116,7 +111,7 @@ class NegativeBinomialFamily(Family):
             Link function name.
         """
         if isinstance(theta, str):
-            if theta != 'estimate':
+            if theta != "estimate":
                 raise ValueError("theta must be a number or 'estimate'")
             self._theta = None
             self._estimate_theta = True
@@ -125,15 +120,17 @@ class NegativeBinomialFamily(Family):
                 raise ValueError("theta must be positive")
             self._theta = float(theta)
             self._estimate_theta = False
-        
-        if link == 'log':
+
+        if link == "log":
             self._link = LogLink()
-        elif link == 'identity':
+        elif link == "identity":
             self._link = IdentityLink()
-        elif link == 'sqrt':
+        elif link == "sqrt":
             self._link = SqrtLink()
         else:
-            raise ValueError(f"Unsupported link: {link}. Use 'log', 'identity', or 'sqrt'")
+            raise ValueError(
+                f"Unsupported link: {link}. Use 'log', 'identity', or 'sqrt'"
+            )
 
     @property
     def theta(self) -> float:
@@ -169,7 +166,7 @@ class NegativeBinomialFamily(Family):
         ndarray
             Variance at each observation
         """
-        theta = params.get('theta', self._theta)
+        theta = params.get("theta", self._theta)
         if theta is None:
             raise ValueError("theta must be specified or estimated")
 
@@ -196,7 +193,7 @@ class NegativeBinomialFamily(Family):
 
         # Convert mu to scalar for max comparison
         if xp is torch:  # type: ignore[comparison-overlap]
-            mu_val = max(float(mu.item() if hasattr(mu, 'item') else mu), 0.1)
+            mu_val = max(float(mu.item() if hasattr(mu, "item") else mu), 0.1)
             return torch.full_like(y_arr, mu_val, dtype=torch.float32)
         elif xp is jnp:  # type: ignore[comparison-overlap]
             mu_val = max(float(mu), 0.1)
@@ -205,12 +202,7 @@ class NegativeBinomialFamily(Family):
             mu_val = max(float(mu), 0.1)
             return np.full_like(y_arr, mu_val, dtype=float)
 
-    def log_likelihood(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> float:
+    def log_likelihood(self, y: NDArray, mu: NDArray, **params) -> float:
         """Log-likelihood for Negative Binomial.
 
         Parameters
@@ -227,7 +219,7 @@ class NegativeBinomialFamily(Family):
         float
             Total log-likelihood
         """
-        theta = params.get('theta', self._theta)
+        theta = params.get("theta", self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
 
@@ -246,21 +238,18 @@ class NegativeBinomialFamily(Family):
         # Log-likelihood:
         # log Γ(y+θ) - log Γ(θ) - log(y!) + θ log(θ/(θ+μ)) + y log(μ/(θ+μ))
         log_lik = (
-            log_gamma(y_arr + theta, xp) -
-            log_gamma(xp.full_like(y_arr, theta) if hasattr(xp, 'full_like') else theta, xp) -
-            log_gamma(y_arr + 1, xp) +
-            theta * xp.log(theta / (theta + mu_arr)) +
-            y_arr * xp.log(mu_arr / (theta + mu_arr))
+            log_gamma(y_arr + theta, xp)
+            - log_gamma(
+                xp.full_like(y_arr, theta) if hasattr(xp, "full_like") else theta, xp
+            )
+            - log_gamma(y_arr + 1, xp)
+            + theta * xp.log(theta / (theta + mu_arr))
+            + y_arr * xp.log(mu_arr / (theta + mu_arr))
         )
 
         return float(xp.sum(log_lik))
 
-    def deviance(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> float:
+    def deviance(self, y: NDArray, mu: NDArray, **params) -> float:
         """Deviance for Negative Binomial.
 
         Parameters
@@ -277,7 +266,7 @@ class NegativeBinomialFamily(Family):
         float
             Total deviance
         """
-        theta = params.get('theta', self._theta)
+        theta = params.get("theta", self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
 
@@ -297,7 +286,7 @@ class NegativeBinomialFamily(Family):
         else:
             mu_arr = np.clip(mu_arr, 1e-10, None)
             zeros = np.zeros_like(y_arr)
-            with np.errstate(divide='ignore', invalid='ignore'):
+            with np.errstate(divide="ignore", invalid="ignore"):
                 term1 = np.where(y_arr > 0, y_arr * np.log(y_arr / mu_arr), zeros)
 
         # Unit deviance
@@ -308,12 +297,7 @@ class NegativeBinomialFamily(Family):
 
         return float(xp.sum(d))
 
-    def estimate_theta(
-        self, 
-        y: NDArray, 
-        mu: NDArray, 
-        method: str = 'ml'
-    ) -> float:
+    def estimate_theta(self, y: NDArray, mu: NDArray, method: str = "ml") -> float:
         """Estimate dispersion parameter theta.
 
         Parameters
@@ -332,18 +316,14 @@ class NegativeBinomialFamily(Family):
         float
             Estimated theta
         """
-        if method == 'moments':
+        if method == "moments":
             return self._estimate_theta_moments(y, mu)
-        elif method == 'ml':
+        elif method == "ml":
             return self._estimate_theta_ml(y, mu)
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    def _estimate_theta_moments(
-        self,
-        y: NDArray,
-        mu: NDArray
-    ) -> float:
+    def _estimate_theta_moments(self, y: NDArray, mu: NDArray) -> float:
         """Method of moments estimator for theta.
 
         Based on: Var(Y) = μ + μ²/θ
@@ -369,12 +349,7 @@ class NegativeBinomialFamily(Family):
         # Ensure reasonable bounds
         return float(np.clip(theta, 0.01, 1e6))
 
-    def _estimate_theta_ml(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        maxiter: int = 50
-    ) -> float:
+    def _estimate_theta_ml(self, y: NDArray, mu: NDArray, maxiter: int = 50) -> float:
         """Maximum likelihood estimator for theta.
 
         Uses Newton-Raphson on the profile log-likelihood.
@@ -420,12 +395,7 @@ class NegativeBinomialFamily(Family):
         except (ValueError, RuntimeError):
             return theta_init
 
-    def d_log_likelihood(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> NDArray:
+    def d_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """First derivative of log-likelihood w.r.t. μ.
 
         Parameters
@@ -440,7 +410,7 @@ class NegativeBinomialFamily(Family):
         ndarray
             Gradient
         """
-        theta = params.get('theta', self._theta)
+        theta = params.get("theta", self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
 
@@ -461,12 +431,7 @@ class NegativeBinomialFamily(Family):
 
         return grad
 
-    def d2_log_likelihood(
-        self,
-        y: NDArray,
-        mu: NDArray,
-        **params
-    ) -> NDArray:
+    def d2_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Second derivative of log-likelihood w.r.t. μ.
 
         Parameters
@@ -481,7 +446,7 @@ class NegativeBinomialFamily(Family):
         ndarray
             Negative Hessian diagonal
         """
-        theta = params.get('theta', self._theta)
+        theta = params.get("theta", self._theta)
         if theta is None:
             raise ValueError("theta must be specified")
 
@@ -498,7 +463,7 @@ class NegativeBinomialFamily(Family):
             mu_arr = np.clip(mu_arr, 1e-10, None)
 
         # d²/dμ² log L = -y/μ² + (y+θ)/(μ+θ)²
-        hess = -y_arr / mu_arr**2 + (y_arr + theta) / (mu_arr + theta)**2
+        hess = -y_arr / mu_arr**2 + (y_arr + theta) / (mu_arr + theta) ** 2
 
         return hess
 
@@ -509,7 +474,7 @@ class NegativeBinomialFamily(Family):
         else:
             theta_str = f"{self._theta:.4g}"
         # Get link name from class name (e.g., LogLink -> log)
-        link_name = self._link.__class__.__name__.replace('Link', '').lower()
+        link_name = self._link.__class__.__name__.replace("Link", "").lower()
         return f"NegativeBinomialFamily(theta={theta_str}, link='{link_name}')"
 
 
@@ -517,4 +482,4 @@ class NegativeBinomialFamily(Family):
 NegBinFamily = NegativeBinomialFamily
 
 
-__all__ = ['NegativeBinomialFamily', 'NegBinFamily']
+__all__ = ["NegativeBinomialFamily", "NegBinFamily"]

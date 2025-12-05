@@ -1,4 +1,5 @@
 """Smoothing parameter selection strategies."""
+
 from __future__ import annotations
 
 from aurora.smoothing.selection.gcv import gcv_score, select_smoothing_parameter

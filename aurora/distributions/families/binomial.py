@@ -1,10 +1,11 @@
 """Binomial distribution family implementation."""
+
 from __future__ import annotations
 
 import numpy as np
 
 from ..base import Family, LinkFunction
-from .._utils import as_namespace_array, clip_probability, namespace, ones_like
+from .._utils import as_namespace_array, clip_probability, namespace
 from ..links import LogitLink
 
 try:  # pragma: no cover - optional dependency
@@ -93,7 +94,9 @@ class BinomialFamily(Family):
 
         # Use _safe_log for consistency with log_likelihood
         term1 = y_arr * _safe_log(y_safe / mu_safe, xp, eps=eps)
-        term2 = (n_arr - y_arr) * _safe_log((n_arr - y_safe) / (n_arr - mu_safe), xp, eps=eps)
+        term2 = (n_arr - y_arr) * _safe_log(
+            (n_arr - y_safe) / (n_arr - mu_safe), xp, eps=eps
+        )
 
         return (2.0 * (term1 + term2)).sum()
 

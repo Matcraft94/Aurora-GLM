@@ -1,4 +1,5 @@
 """Spline basis constructors."""
+
 from __future__ import annotations
 
 from .bspline import BSplineBasis

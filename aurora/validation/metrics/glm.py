@@ -1,4 +1,5 @@
 """GLM-specific validation metrics."""
+
 from __future__ import annotations
 
 import math

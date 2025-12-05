@@ -279,6 +279,7 @@ problems where Hessian computation is feasible. Its quadratic convergence rate
 makes it highly efficient near the solution, though care must be taken with
 initialization and Hessian conditioning.
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -453,10 +454,18 @@ def _compute_hessian(loss_fn, params, backend, args, kwargs):
             e_i[i] = eps
             e_j[j] = eps
 
-            f_pp = backend.as_numpy(loss_fn(backend.array(params_np + e_i + e_j), *args, **kwargs))
-            f_pm = backend.as_numpy(loss_fn(backend.array(params_np + e_i - e_j), *args, **kwargs))
-            f_mp = backend.as_numpy(loss_fn(backend.array(params_np - e_i + e_j), *args, **kwargs))
-            f_mm = backend.as_numpy(loss_fn(backend.array(params_np - e_i - e_j), *args, **kwargs))
+            f_pp = backend.as_numpy(
+                loss_fn(backend.array(params_np + e_i + e_j), *args, **kwargs)
+            )
+            f_pm = backend.as_numpy(
+                loss_fn(backend.array(params_np + e_i - e_j), *args, **kwargs)
+            )
+            f_mp = backend.as_numpy(
+                loss_fn(backend.array(params_np - e_i + e_j), *args, **kwargs)
+            )
+            f_mm = backend.as_numpy(
+                loss_fn(backend.array(params_np - e_i - e_j), *args, **kwargs)
+            )
             evaluations += 4
 
             value = float((f_pp - f_pm - f_mp + f_mm) / (4 * eps * eps))
@@ -583,6 +592,7 @@ def modified_newton(
 
     if backend is None:
         from ..backends import get_backend
+
         backend = get_backend("jax")
 
     grad_fn = backend.grad(loss_fn)
@@ -688,7 +698,9 @@ def modified_newton(
 
         # Check step size convergence
         if step_found and np.linalg.norm(step) < tol:
-            final_grad = np.asarray(backend.as_numpy(grad_fn(x, *args, **kwargs)), dtype=float)
+            final_grad = np.asarray(
+                backend.as_numpy(grad_fn(x, *args, **kwargs)), dtype=float
+            )
             njev += 1
             return OptimizationResult(
                 x=x_np,

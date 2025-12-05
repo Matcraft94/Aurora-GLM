@@ -3,6 +3,7 @@
 This module provides gradient computation across backends (NumPy, PyTorch, JAX).
 For NumPy, uses central finite differences. For JAX/PyTorch, uses autodiff.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Any
@@ -56,13 +57,14 @@ def gradient(
     For PyTorch, uses `torch.autograd.grad` with gradient tracking.
     For NumPy, uses central finite differences with step size h = √ε × max(|x|, 1).
     """
+
     def grad_func(*args, **kwargs):
         x = args[argnums]
         detected_backend = backend or detect_backend(x)
 
-        if detected_backend == 'jax':
+        if detected_backend == "jax":
             return _gradient_jax(func, argnums, *args, **kwargs)
-        elif detected_backend == 'torch':
+        elif detected_backend == "torch":
             return _gradient_torch(func, argnums, *args, **kwargs)
         else:
             return _gradient_numerical(func, argnums, *args, **kwargs)
@@ -101,12 +103,7 @@ def _gradient_torch(func: ScalarFunc, argnums: int, *args, **kwargs) -> ArrayLik
         return grad
 
 
-def _gradient_numerical(
-    func: ScalarFunc,
-    argnums: int,
-    *args,
-    **kwargs
-) -> np.ndarray:
+def _gradient_numerical(func: ScalarFunc, argnums: int, *args, **kwargs) -> np.ndarray:
     """Compute gradient using central finite differences.
 
     Uses adaptive step size: h = sqrt(ε) × max(|x_i|, 1) for each component.

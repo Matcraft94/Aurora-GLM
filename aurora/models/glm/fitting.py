@@ -148,6 +148,7 @@ For mathematical proofs and derivations, see REFERENCES.md in the repository roo
 The IRLS algorithm is equivalent to Fisher scoring when the canonical link is used.
 For non-canonical links, IRLS approximates the Hessian with the expected information.
 """
+
 from __future__ import annotations
 
 import math
@@ -156,9 +157,18 @@ from typing import Any, Callable
 import numpy as np
 
 from ...core.types import Array
-from ...distributions._utils import as_namespace_array, namespace, namespace_from_backend
+from ...distributions._utils import (
+    as_namespace_array,
+    namespace,
+    namespace_from_backend,
+)
 from ...distributions.base import Family, LinkFunction
-from ...distributions.families import BinomialFamily, GammaFamily, GaussianFamily, PoissonFamily
+from ...distributions.families import (
+    BinomialFamily,
+    GammaFamily,
+    GaussianFamily,
+    PoissonFamily,
+)
 from ...distributions.links import (
     CLogLogLink,
     IdentityLink,
@@ -268,7 +278,9 @@ def fit_glm(
         y_arr = y_arr.reshape(-1)
 
     if X_arr.shape[0] != y_arr.shape[0]:
-        raise ValueError("Design matrix and response must share the same number of samples.")
+        raise ValueError(
+            "Design matrix and response must share the same number of samples."
+        )
 
     # Process weights and offset when backend was specified
     if backend is not None:
@@ -542,7 +554,9 @@ def _solve_normal_equation_numpy(gram: np.ndarray, rhs: np.ndarray) -> np.ndarra
             return _gaussian_elimination_solve_numpy(gram + jitter * eye, rhs)
         except np.linalg.LinAlgError:
             jitter *= 10.0
-    return _gaussian_elimination_solve_numpy(gram + jitter * eye, rhs, allow_singular=True)
+    return _gaussian_elimination_solve_numpy(
+        gram + jitter * eye, rhs, allow_singular=True
+    )
 
 
 def _gaussian_elimination_solve_numpy(

@@ -55,6 +55,7 @@ See Also
 aurora.models.gamm.pql : PQL for non-Gaussian GAMM without smooth terms
 aurora.models.gam.fitting : GAM fitting for Gaussian responses
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -175,16 +176,18 @@ def fit_pql_with_smooth(
 
     for name, X_s in X_smooth_dict.items():
         if X_s.shape[0] != n:
-            raise ValueError(f"X_smooth['{name}'] has {X_s.shape[0]} rows, expected {n}")
+            raise ValueError(
+                f"X_smooth['{name}'] has {X_s.shape[0]} rows, expected {n}"
+            )
         if name not in S_smooth_dict:
             raise ValueError(f"Missing penalty matrix for smooth term '{name}'")
 
     # Get family object
     family_map = {
-        'poisson': PoissonFamily(),
-        'binomial': BinomialFamily(),
-        'gamma': GammaFamily(),
-        'gaussian': GaussianFamily(),
+        "poisson": PoissonFamily(),
+        "binomial": BinomialFamily(),
+        "gamma": GammaFamily(),
+        "gaussian": GaussianFamily(),
     }
     if family not in family_map:
         raise ValueError(f"Unsupported family: {family}")
@@ -227,7 +230,7 @@ def fit_pql_with_smooth(
         # Simple initialization: identity for each random effect
         Psi_list = []
         for info in Z_info:
-            dim = info.get('dim', 1)  # Dimension of random effect (1 for intercept)
+            dim = info.get("dim", 1)  # Dimension of random effect (1 for intercept)
             Psi_list.append(np.eye(dim))
     else:
         Psi_list = Psi_init
@@ -255,10 +258,10 @@ def fit_pql_with_smooth(
         for iter_inner in range(maxiter_inner):
             # Clamp eta to prevent overflow in link.inverse (exp)
             eta = np.clip(eta, -700.0, 700.0)
-            
+
             # Compute current predictions
             mu = link.inverse(eta)
-            
+
             # Clamp mu to valid range for the family
             mu = np.clip(mu, 1e-10, 1e10)
 
@@ -278,11 +281,14 @@ def fit_pql_with_smooth(
 
             # Working response with NaN protection
             z = eta + (y - mu) * dmu_deta
-            
+
             # Validate finite values and fall back if needed
             if not (np.all(np.isfinite(z)) and np.all(np.isfinite(W_diag))):
                 import warnings
-                warnings.warn("NaN/Inf detected in PQL smooth iteration, using regularization")
+
+                warnings.warn(
+                    "NaN/Inf detected in PQL smooth iteration, using regularization"
+                )
                 z = np.where(np.isfinite(z), z, eta)
                 W_diag = np.where(np.isfinite(W_diag), W_diag, 1e-6)
                 W = np.diag(W_diag)
@@ -314,11 +320,13 @@ def fit_pql_with_smooth(
             Z_W_z = Z.T @ W @ z
 
             # Assemble augmented system
-            A = np.block([
-                [XpWXp, XpWXs, XpWZ],
-                [XpWXs.T, XsWXs, XsWZ],
-                [XpWZ.T, XsWZ.T, ZWZ_pen]
-            ])
+            A = np.block(
+                [
+                    [XpWXp, XpWXs, XpWZ],
+                    [XpWXs.T, XsWXs, XsWZ],
+                    [XpWZ.T, XsWZ.T, ZWZ_pen],
+                ]
+            )
             b_rhs = np.concatenate([Xp_W_z, Xs_W_z, Z_W_z])
 
             # Solve system
@@ -330,14 +338,18 @@ def fit_pql_with_smooth(
 
             # Extract components
             beta_para_new = coef_new[:p_para]
-            beta_smooth_new = coef_new[p_para:p_para + p_smooth_total]
-            b_new = coef_new[p_para + p_smooth_total:]
+            beta_smooth_new = coef_new[p_para : p_para + p_smooth_total]
+            b_new = coef_new[p_para + p_smooth_total :]
 
             # Update linear predictor
-            eta_new = X_parametric @ beta_para_new + X_smooth @ beta_smooth_new + Z @ b_new
+            eta_new = (
+                X_parametric @ beta_para_new + X_smooth @ beta_smooth_new + Z @ b_new
+            )
 
             # Check convergence
-            coef_change = np.linalg.norm(coef_new - np.concatenate([beta_para, beta_smooth, b]))
+            coef_change = np.linalg.norm(
+                coef_new - np.concatenate([beta_para, beta_smooth, b])
+            )
             if coef_change < tol_inner:
                 converged_inner = True
                 break
@@ -356,7 +368,7 @@ def fit_pql_with_smooth(
         for i, b_group in enumerate(b_grouped):
             # Reshape to matrix (n_levels, dim)
             # Support both 'dim' and 'n_effects' keys for compatibility
-            dim = Z_info[i].get('dim', Z_info[i].get('n_effects', 1))
+            dim = Z_info[i].get("dim", Z_info[i].get("n_effects", 1))
             n_levels = len(b_group) // dim
             if len(b_group) % dim != 0:
                 # Handle uneven split
@@ -401,7 +413,7 @@ def fit_pql_with_smooth(
                 print(f"Selected λ: {lambda_smooth}")
 
         # Check outer convergence
-        Psi_change = np.linalg.norm(Psi - Psi_old, 'fro')
+        Psi_change = np.linalg.norm(Psi - Psi_old, "fro")
         if verbose:
             print(f"Outer iter {iter_outer + 1}: Psi change = {Psi_change:.6f}")
 
@@ -436,20 +448,20 @@ def fit_pql_with_smooth(
     offset = 0
     for i, name in enumerate(smooth_names):
         K_j = p_smooth_list[i]
-        beta_smooth_dict[name] = beta_smooth[offset:offset + K_j]
+        beta_smooth_dict[name] = beta_smooth[offset : offset + K_j]
         offset += K_j
 
     # Build result dictionary
     result = {
-        'beta_parametric': beta_para,
-        'beta_smooth': beta_smooth_dict,
-        'random_effects': b,
-        'variance_components': Psi_list_new,
-        'smoothing_parameters': lambda_smooth,
-        'fitted_values': eta,
-        'converged': converged_outer,
-        'n_iterations_outer': iter_outer + 1,
-        'edf_smooth': edf_smooth_dict,
+        "beta_parametric": beta_para,
+        "beta_smooth": beta_smooth_dict,
+        "random_effects": b,
+        "variance_components": Psi_list_new,
+        "smoothing_parameters": lambda_smooth,
+        "fitted_values": eta,
+        "converged": converged_outer,
+        "n_iterations_outer": iter_outer + 1,
+        "edf_smooth": edf_smooth_dict,
     }
 
     return result
@@ -505,12 +517,12 @@ def _split_random_effects(
     offset = 0
     for info in Z_info:
         # Support both 'n_levels' and 'n_groups' keys for compatibility
-        n_levels = info.get('n_levels', info.get('n_groups', 1))
-        dim = info.get('dim', info.get('n_effects', 1))
+        n_levels = info.get("n_levels", info.get("n_groups", 1))
+        dim = info.get("dim", info.get("n_effects", 1))
         size = n_levels * dim
-        b_grouped.append(b[offset:offset + size])
+        b_grouped.append(b[offset : offset + size])
         offset += size
     return b_grouped
 
 
-__all__ = ['fit_pql_with_smooth']
+__all__ = ["fit_pql_with_smooth"]

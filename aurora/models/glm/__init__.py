@@ -1,4 +1,5 @@
 """Generalized Linear Model fitting routines."""
+
 from __future__ import annotations
 
 from ..base.result import GLMResult

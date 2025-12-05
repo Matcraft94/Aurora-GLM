@@ -1,4 +1,5 @@
 """Custom exception hierarchy for Aurora-GLM."""
+
 from __future__ import annotations
 
 

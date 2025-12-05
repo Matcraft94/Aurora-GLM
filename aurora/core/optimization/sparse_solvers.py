@@ -167,6 +167,7 @@ When λ = 0 (unpenalized least squares), the problem reduces to ordinary least
 squares and may be rank-deficient if k > rank(B). Add a small ridge penalty
 (e.g., λ = 1e-6) for numerical stability.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -176,6 +177,7 @@ import numpy as np
 try:
     from scipy.sparse import csr_matrix, diags, issparse
     from scipy.sparse.linalg import cg, minres, spsolve
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -187,7 +189,7 @@ def solve_sparse_penalized_ls(
     weights: np.ndarray,
     penalty: Any,
     lambda_: float,
-    method: Literal['auto', 'direct', 'cg', 'minres'] = 'auto',
+    method: Literal["auto", "direct", "cg", "minres"] = "auto",
     tol: float = 1e-8,
     maxiter: int | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
@@ -309,62 +311,58 @@ def solve_sparse_penalized_ls(
 
     # Construct coefficient matrix: C = B^T W B + λS
     # For sparse B: B^T W B = B^T @ diag(weights) @ B
-    W = diags(weights, format='csr')
+    W = diags(weights, format="csr")
     BtWB = B_sparse.T @ W @ B_sparse
 
     if lambda_ > 0:
         C = BtWB + lambda_ * S_sparse
     else:
         # Unpenalized LS: add small ridge for numerical stability
-        C = BtWB + 1e-8 * diags(np.ones(k), format='csr')
+        C = BtWB + 1e-8 * diags(np.ones(k), format="csr")
 
     # Right-hand side: d = B^T W z
     d = B_sparse.T @ (weights * z)
 
     # Select solver method
-    if method == 'auto':
+    if method == "auto":
         if k <= 50:
-            method = 'direct'
+            method = "direct"
         elif lambda_ > 1e-6:
-            method = 'cg'
+            method = "cg"
         else:
-            method = 'minres'
+            method = "minres"
 
     # Solve the system
-    if method == 'direct':
+    if method == "direct":
         beta = spsolve(C, d)
-        info = {'method': 'direct', 'success': True}
+        info = {"method": "direct", "success": True}
 
-    elif method == 'cg':
+    elif method == "cg":
         # Conjugate Gradient with diagonal preconditioning
         M = _diagonal_preconditioner(C)
         if maxiter is None:
             maxiter = k
 
-        beta, exit_code = cg(
-            C, d, rtol=tol, maxiter=maxiter, M=M, atol=0
-        )
+        beta, exit_code = cg(C, d, rtol=tol, maxiter=maxiter, M=M, atol=0)
 
         info = {
-            'method': 'cg',
-            'success': (exit_code == 0),
-            'iterations': exit_code if exit_code > 0 else maxiter,
+            "method": "cg",
+            "success": (exit_code == 0),
+            "iterations": exit_code if exit_code > 0 else maxiter,
         }
 
-    elif method == 'minres':
+    elif method == "minres":
         # MINRES with diagonal preconditioning
         M = _diagonal_preconditioner(C)
         if maxiter is None:
             maxiter = k
 
-        beta, exit_code = minres(
-            C, d, rtol=tol, maxiter=maxiter, M=M
-        )
+        beta, exit_code = minres(C, d, rtol=tol, maxiter=maxiter, M=M)
 
         info = {
-            'method': 'minres',
-            'success': (exit_code == 0),
-            'iterations': exit_code if exit_code > 0 else maxiter,
+            "method": "minres",
+            "success": (exit_code == 0),
+            "iterations": exit_code if exit_code > 0 else maxiter,
         }
 
     else:
@@ -427,15 +425,11 @@ def _diagonal_preconditioner(C: csr_matrix) -> Any:
     def matvec(x):
         return M_inv_diag * x
 
-    M = LinearOperator(
-        shape=C.shape,
-        matvec=matvec,
-        dtype=C.dtype
-    )
+    M = LinearOperator(shape=C.shape, matvec=matvec, dtype=C.dtype)
 
     return M
 
 
 __all__ = [
-    'solve_sparse_penalized_ls',
+    "solve_sparse_penalized_ls",
 ]

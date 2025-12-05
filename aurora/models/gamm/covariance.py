@@ -7,6 +7,7 @@ References
 ----------
 .. [1] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -215,9 +216,7 @@ class DiagonalCovariance(CovarianceStructure):
     def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
         """Construct diagonal Ψ from log-variances."""
         if len(params) != n_effects:
-            raise ValueError(
-                f"Expected {n_effects} parameters, got {len(params)}"
-            )
+            raise ValueError(f"Expected {n_effects} parameters, got {len(params)}")
 
         # Transform from log scale to ensure positivity
         variances = np.exp(params)
@@ -286,9 +285,7 @@ class IdentityCovariance(CovarianceStructure):
     def construct_psi(self, params: np.ndarray, n_effects: int) -> np.ndarray:
         """Construct σ²I from log-variance."""
         if len(params) != 1:
-            raise ValueError(
-                f"Expected 1 parameter, got {len(params)}"
-            )
+            raise ValueError(f"Expected 1 parameter, got {len(params)}")
 
         # Transform from log scale
         variance = np.exp(params[0])
@@ -304,7 +301,9 @@ class IdentityCovariance(CovarianceStructure):
         n = psi.shape[0]
         expected = psi[0, 0] * np.eye(n)
         if not np.allclose(psi, expected):
-            raise ValueError("psi must be proportional to identity for IdentityCovariance")
+            raise ValueError(
+                "psi must be proportional to identity for IdentityCovariance"
+            )
 
         # Extract variance and log-transform
         variance = psi[0, 0]
@@ -401,7 +400,7 @@ class AR1Covariance(CovarianceStructure):
 
         # Estimate ρ from first off-diagonal
         if n > 1:
-            off_diag = np.mean([psi[i, i+1] for i in range(n-1)])
+            off_diag = np.mean([psi[i, i + 1] for i in range(n - 1)])
             rho = off_diag / sigma2
             rho = np.clip(rho, -0.999, 0.999)  # Ensure valid range
         else:
@@ -443,8 +442,8 @@ class AR1Covariance(CovarianceStructure):
 
         # Off-diagonals
         for i in range(n - 1):
-            psi_inv[i, i+1] = -rho / denom
-            psi_inv[i+1, i] = -rho / denom
+            psi_inv[i, i + 1] = -rho / denom
+            psi_inv[i + 1, i] = -rho / denom
 
         return psi_inv
 
@@ -519,8 +518,9 @@ class CompoundSymmetryCovariance(CovarianceStructure):
         rho = rho_min + rho_range * rho_scaled
 
         # Build compound symmetry structure
-        psi = sigma2 * (rho * np.ones((n_effects, n_effects)) +
-                        (1 - rho) * np.eye(n_effects))
+        psi = sigma2 * (
+            rho * np.ones((n_effects, n_effects)) + (1 - rho) * np.eye(n_effects)
+        )
 
         return psi
 
@@ -540,7 +540,7 @@ class CompoundSymmetryCovariance(CovarianceStructure):
             n_off = n * (n - 1)
             avg_cov = off_diag_sum / n_off
             rho = avg_cov / sigma2
-            rho = np.clip(rho, -1/(n-1) + 0.001, 0.999)
+            rho = np.clip(rho, -1 / (n - 1) + 0.001, 0.999)
         else:
             rho = 0.0
 
@@ -618,6 +618,7 @@ class ExponentialSpatialCovariance(CovarianceStructure):
                 )
             # Compute Euclidean distances
             from scipy.spatial.distance import pdist, squareform
+
             self._distance_matrix = squareform(pdist(self.coordinates))
         else:
             # Assume 1D equally-spaced
@@ -728,11 +729,7 @@ class MaternCovariance(CovarianceStructure):
     >>> psi = cov.construct_psi(params, n_effects=3)
     """
 
-    def __init__(
-        self,
-        coordinates: np.ndarray | None = None,
-        nu: float = 1.5
-    ):
+    def __init__(self, coordinates: np.ndarray | None = None, nu: float = 1.5):
         """Initialize Matérn covariance.
 
         Parameters
@@ -759,6 +756,7 @@ class MaternCovariance(CovarianceStructure):
                     f"but n_effects is {n_effects}"
                 )
             from scipy.spatial.distance import pdist, squareform
+
             self._distance_matrix = squareform(pdist(self.coordinates))
         else:
             i, j = np.ogrid[:n_effects, :n_effects]
@@ -801,9 +799,9 @@ class MaternCovariance(CovarianceStructure):
         scaled_d = np.sqrt(2 * nu) * D / phi
 
         # Compute Matérn covariance
-        with np.errstate(divide='ignore', invalid='ignore'):
-            factor = (2**(1 - nu)) / gamma(nu)
-            psi = sigma2 * factor * (scaled_d ** nu) * kv(nu, scaled_d)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            factor = (2 ** (1 - nu)) / gamma(nu)
+            psi = sigma2 * factor * (scaled_d**nu) * kv(nu, scaled_d)
 
         # Fix diagonal (d=0 case: cov = σ²)
         np.fill_diagonal(psi, sigma2)
@@ -957,6 +955,7 @@ class ToeplitzCovariance(CovarianceStructure):
 
         # Construct symmetric Toeplitz matrix from first row
         from scipy.linalg import toeplitz
+
         psi = toeplitz(first_row)
 
         # Ensure positive definiteness by checking eigenvalues
@@ -999,15 +998,12 @@ class ToeplitzCovariance(CovarianceStructure):
         return np.array(params)
 
 
-def get_covariance_structure(
-    structure: str,
-    **kwargs
-) -> CovarianceStructure:
+def get_covariance_structure(structure: str, **kwargs) -> CovarianceStructure:
     """Get covariance structure instance by name.
 
     Parameters
     ----------
-    structure : {'unstructured', 'diagonal', 'identity', 'ar1', 
+    structure : {'unstructured', 'diagonal', 'identity', 'ar1',
                  'compound_symmetry', 'cs', 'exponential', 'matern'}
         Covariance structure name
     **kwargs : dict
@@ -1046,51 +1042,51 @@ def get_covariance_structure(
     """
     # Structures without extra arguments
     simple_structures = {
-        'unstructured': UnstructuredCovariance,
-        'diagonal': DiagonalCovariance,
-        'identity': IdentityCovariance,
-        'ar1': AR1Covariance,
-        'compound_symmetry': CompoundSymmetryCovariance,
-        'cs': CompoundSymmetryCovariance,  # Alias
+        "unstructured": UnstructuredCovariance,
+        "diagonal": DiagonalCovariance,
+        "identity": IdentityCovariance,
+        "ar1": AR1Covariance,
+        "compound_symmetry": CompoundSymmetryCovariance,
+        "cs": CompoundSymmetryCovariance,  # Alias
     }
 
     if structure in simple_structures:
         return simple_structures[structure]()
 
     # Toeplitz with optional band parameter
-    if structure == 'toeplitz':
-        band = kwargs.get('band', 2)
+    if structure == "toeplitz":
+        band = kwargs.get("band", 2)
         return ToeplitzCovariance(band=band)
 
     # Structures with coordinates
-    if structure == 'exponential':
-        return ExponentialSpatialCovariance(
-            coordinates=kwargs.get('coordinates')
-        )
+    if structure == "exponential":
+        return ExponentialSpatialCovariance(coordinates=kwargs.get("coordinates"))
 
-    if structure == 'matern':
+    if structure == "matern":
         return MaternCovariance(
-            coordinates=kwargs.get('coordinates'),
-            nu=kwargs.get('nu', 1.5)
+            coordinates=kwargs.get("coordinates"), nu=kwargs.get("nu", 1.5)
         )
 
     # Unknown structure
-    all_structures = list(simple_structures.keys()) + ['toeplitz', 'exponential', 'matern']
+    all_structures = list(simple_structures.keys()) + [
+        "toeplitz",
+        "exponential",
+        "matern",
+    ]
     raise ValueError(
-        f"Unknown covariance structure: '{structure}'. "
-        f"Must be one of {all_structures}"
+        f"Unknown covariance structure: '{structure}'. Must be one of {all_structures}"
     )
 
 
 __all__ = [
-    'CovarianceStructure',
-    'UnstructuredCovariance',
-    'DiagonalCovariance',
-    'IdentityCovariance',
-    'AR1Covariance',
-    'CompoundSymmetryCovariance',
-    'ToeplitzCovariance',
-    'ExponentialSpatialCovariance',
-    'MaternCovariance',
-    'get_covariance_structure',
+    "CovarianceStructure",
+    "UnstructuredCovariance",
+    "DiagonalCovariance",
+    "IdentityCovariance",
+    "AR1Covariance",
+    "CompoundSymmetryCovariance",
+    "ToeplitzCovariance",
+    "ExponentialSpatialCovariance",
+    "MaternCovariance",
+    "get_covariance_structure",
 ]

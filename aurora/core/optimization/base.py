@@ -1,4 +1,5 @@
 """Base optimizer abstraction."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

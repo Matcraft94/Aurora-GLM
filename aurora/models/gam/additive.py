@@ -4,6 +4,7 @@ This module implements multivariate Generalized Additive Models with
 multiple smooth and parametric terms:
     y = β₀ + f₁(x₁) + f₂(x₂) + ... + βₖxₖ + ε
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -11,7 +12,6 @@ from typing import Any
 import numpy as np
 
 from aurora.models.gam.terms import ParametricTerm, SmoothTerm
-from aurora.smoothing.penalties.difference import difference_penalty
 from aurora.smoothing.selection.gcv import select_smoothing_parameter
 from aurora.smoothing.splines.bspline import BSplineBasis
 from aurora.smoothing.splines.cubic import CubicSplineBasis
@@ -101,7 +101,7 @@ class AdditiveGAMResult:
         rss = np.sum(self.residuals**2)
         if self.weights is not None:
             rss = np.sum(self.weights * self.residuals**2)
-        
+
         tss = np.sum((self.y - np.mean(self.y)) ** 2)
         return 1 - rss / tss
 
@@ -134,12 +134,17 @@ class AdditiveGAMResult:
         # Start with parametric terms
         if len(self.parametric_terms) > 0:
             # Extract parametric columns (including intercept)
-            X_param_new = np.column_stack([
-                np.ones(n_new),  # Intercept
-                *[X_new_arr[:, t.variable] if isinstance(t.variable, int)
-                  else X_new_arr[:, t.variable]
-                  for t in self.parametric_terms]
-            ])
+            X_param_new = np.column_stack(
+                [
+                    np.ones(n_new),  # Intercept
+                    *[
+                        X_new_arr[:, t.variable]
+                        if isinstance(t.variable, int)
+                        else X_new_arr[:, t.variable]
+                        for t in self.parametric_terms
+                    ],
+                ]
+            )
             y_pred = X_param_new @ self.parametric_coef
         else:
             y_pred = np.zeros(n_new)
@@ -192,7 +197,9 @@ class AdditiveGAMResult:
             lines.append("Parametric Coefficients:")
             lines.append(f"  Intercept:           {self.parametric_coef[0]:.4f}")
             for i, term in enumerate(self.parametric_terms):
-                lines.append(f"  {term.variable}:             {self.parametric_coef[i+1]:.4f}")
+                lines.append(
+                    f"  {term.variable}:             {self.parametric_coef[i + 1]:.4f}"
+                )
             lines.append("")
 
         # Smooth terms
@@ -326,7 +333,9 @@ def fit_additive_gam(
 
     n, p = X_arr.shape
     if len(y_arr) != n:
-        raise ValueError(f"X and y must have same number of rows, got {n} and {len(y_arr)}")
+        raise ValueError(
+            f"X and y must have same number of rows, got {n} and {len(y_arr)}"
+        )
 
     if len(smooth_terms) == 0:
         raise ValueError("Must specify at least one smooth term")
@@ -358,7 +367,9 @@ def fit_additive_gam(
         # Extract predictor
         if isinstance(term.variable, int):
             if term.variable >= p:
-                raise ValueError(f"Variable index {term.variable} out of range (0-{p-1})")
+                raise ValueError(
+                    f"Variable index {term.variable} out of range (0-{p - 1})"
+                )
             x_smooth = X_arr[:, term.variable]
         else:
             raise NotImplementedError("Named variables require DataFrame support")
@@ -375,7 +386,9 @@ def fit_additive_gam(
             )
             basis = CubicSplineBasis(knots_interior)
         else:
-            raise NotImplementedError(f"basis_type='{term.basis_type}' not yet implemented")
+            raise NotImplementedError(
+                f"basis_type='{term.basis_type}' not yet implemented"
+            )
 
         # Compute basis matrix and penalty
         X_smooth = basis.basis_matrix(x_smooth)
@@ -395,7 +408,9 @@ def fit_additive_gam(
     for term in parametric_terms:
         if isinstance(term.variable, int):
             if term.variable >= p:
-                raise ValueError(f"Variable index {term.variable} out of range (0-{p-1})")
+                raise ValueError(
+                    f"Variable index {term.variable} out of range (0-{p - 1})"
+                )
             X_parametric_list.append(X_arr[:, term.variable])
         else:
             raise NotImplementedError("Named variables require DataFrame support")
@@ -417,6 +432,7 @@ def fit_additive_gam(
 
     # Create block-diagonal penalty matrix
     from scipy.linalg import block_diag
+
     S_full = block_diag(*penalty_blocks)
 
     # Select smoothing parameters
@@ -425,6 +441,7 @@ def fit_additive_gam(
     # optimization than alternating optimization provides
     if method.upper() == "REML":
         from aurora.smoothing.selection.reml import select_smoothing_parameter_reml
+
         selection_result = select_smoothing_parameter_reml(
             y_arr,
             X_full,
@@ -457,7 +474,7 @@ def fit_additive_gam(
     idx = 0
 
     # Parametric coefficients
-    parametric_coef = coefficients[idx:idx + n_parametric]
+    parametric_coef = coefficients[idx : idx + n_parametric]
     idx += n_parametric
 
     # Smooth coefficients
@@ -483,7 +500,7 @@ def fit_additive_gam(
         term_name = f"s({term.variable})"
         n_basis = smooth_design_matrices[term_name].shape[1]
 
-        smooth_coef[term_name] = coefficients[idx:idx + n_basis]
+        smooth_coef[term_name] = coefficients[idx : idx + n_basis]
 
         # All smooths use same lambda
         lambda_values[term_name] = lambda_opt
@@ -493,23 +510,35 @@ def fit_additive_gam(
         try:
             if H is not None:
                 # Get columns corresponding to this smooth term
-                X_j = X_full[:, idx:idx + n_basis]
+                X_j = X_full[:, idx : idx + n_basis]
                 # EDF for this term is trace of its influence
-                H_j = X_j @ A_inv[idx:idx + n_basis, :] @ X_full.T @ W
+                H_j = X_j @ A_inv[idx : idx + n_basis, :] @ X_full.T @ W
                 edf_j = float(np.trace(H_j))
 
                 # Sanity check: EDF should be between 0 and n_basis
                 if not (0 <= edf_j <= n_basis + 1):
                     # Fall back to simple division
-                    edf_j = max(0.0, (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms))
+                    edf_j = max(
+                        0.0,
+                        (selection_result.get("edf", n_basis) - n_parametric)
+                        / len(smooth_terms),
+                    )
 
                 edf_values[term_name] = edf_j
             else:
                 # Fallback: equal division (subtract parametric)
-                edf_values[term_name] = max(0.0, (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms))
+                edf_values[term_name] = max(
+                    0.0,
+                    (selection_result.get("edf", n_basis) - n_parametric)
+                    / len(smooth_terms),
+                )
         except (np.linalg.LinAlgError, ValueError):
             # Numerical issues - use fallback
-            edf_values[term_name] = max(0.0, (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms))
+            edf_values[term_name] = max(
+                0.0,
+                (selection_result.get("edf", n_basis) - n_parametric)
+                / len(smooth_terms),
+            )
 
         idx += n_basis
 
@@ -692,7 +721,9 @@ def fit_gam_formula(
         X = data_arr[:, predictor_indices_sorted]
 
         # Remap variable indices in terms to new X matrix
-        idx_map = {old_idx: new_idx for new_idx, old_idx in enumerate(predictor_indices_sorted)}
+        idx_map = {
+            old_idx: new_idx for new_idx, old_idx in enumerate(predictor_indices_sorted)
+        }
 
         smooth_terms = [
             SmoothTerm(

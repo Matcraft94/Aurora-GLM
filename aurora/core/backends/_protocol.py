@@ -18,6 +18,7 @@ References
 .. [2] PyTorch: An Imperative Style, High-Performance Deep Learning Library
        https://pytorch.org/
 """
+
 from __future__ import annotations
 
 from typing import Callable, Protocol

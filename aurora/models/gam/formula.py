@@ -9,6 +9,7 @@ This module provides a formula parser that supports syntax like:
 The parser converts formula strings into term specifications that can be
 used with fit_additive_gam() or fit_gamm().
 """
+
 from __future__ import annotations
 
 import re
@@ -32,6 +33,7 @@ class FormulaSpec:
     random_effects : list of RandomEffect
         Random effects specifications (for GAMM models).
     """
+
     response: str
     smooth_terms: list[SmoothTerm]
     parametric_terms: list[ParametricTerm]
@@ -101,10 +103,10 @@ def parse_formula(formula: str) -> FormulaSpec:
     formula = formula.strip()
 
     # Split into response and predictors
-    if '~' not in formula:
+    if "~" not in formula:
         raise ValueError("Formula must contain '~' separating response and predictors")
 
-    parts = formula.split('~')
+    parts = formula.split("~")
     if len(parts) != 2:
         raise ValueError("Formula must have exactly one '~'")
 
@@ -129,7 +131,7 @@ def parse_formula(formula: str) -> FormulaSpec:
             continue
 
         # Check if it's a random effect (...)
-        if term_str.startswith('(') and '|' in term_str:
+        if term_str.startswith("(") and "|" in term_str:
             random_effect = _parse_random_effect_term(term_str)
             # Could be list if nested (e.g., (1 | a/b))
             if isinstance(random_effect, list):
@@ -137,13 +139,13 @@ def parse_formula(formula: str) -> FormulaSpec:
             else:
                 random_effects.append(random_effect)
         # Check if it's a smooth term s(...)
-        elif term_str.startswith('s('):
+        elif term_str.startswith("s("):
             smooth_term = _parse_smooth_term(term_str)
             smooth_terms.append(smooth_term)
         else:
             # Parametric term (just variable name)
             # Skip '1' as it represents the intercept which is added automatically
-            if term_str.strip() == '1':
+            if term_str.strip() == "1":
                 continue
             parametric_term = _parse_parametric_term(term_str)
             parametric_terms.append(parametric_term)
@@ -183,22 +185,22 @@ def _split_formula_terms(formula_str: str) -> list[str]:
     paren_depth = 0
 
     for char in formula_str:
-        if char == '(':
+        if char == "(":
             paren_depth += 1
             current_term.append(char)
-        elif char == ')':
+        elif char == ")":
             paren_depth -= 1
             current_term.append(char)
-        elif char == '+' and paren_depth == 0:
+        elif char == "+" and paren_depth == 0:
             # Split here
-            terms.append(''.join(current_term).strip())
+            terms.append("".join(current_term).strip())
             current_term = []
         else:
             current_term.append(char)
 
     # Add last term
     if current_term:
-        terms.append(''.join(current_term).strip())
+        terms.append("".join(current_term).strip())
 
     return terms
 
@@ -243,16 +245,18 @@ def _parse_random_effect_term(term_str: str):
     from aurora.models.gamm.random_effects import RandomEffect
 
     # Remove outer parentheses
-    if not (term_str.startswith('(') and term_str.endswith(')')):
-        raise ValueError(f"Random effect term must be enclosed in parentheses: {term_str}")
+    if not (term_str.startswith("(") and term_str.endswith(")")):
+        raise ValueError(
+            f"Random effect term must be enclosed in parentheses: {term_str}"
+        )
 
     content = term_str[1:-1].strip()
 
-    if '|' not in content:
+    if "|" not in content:
         raise ValueError(f"Random effect term must contain '|': {term_str}")
 
     # Split by '|'
-    parts = content.split('|')
+    parts = content.split("|")
     if len(parts) != 2:
         raise ValueError(f"Random effect term must have exactly one '|': {term_str}")
 
@@ -260,9 +264,9 @@ def _parse_random_effect_term(term_str: str):
     grouping_part = parts[1].strip()
 
     # Parse grouping (could be nested like a/b)
-    if '/' in grouping_part:
+    if "/" in grouping_part:
         # Nested random effects: (1 | a/b) means (1 | b) + (1 | a:b)
-        grouping_vars = [g.strip() for g in grouping_part.split('/')]
+        grouping_vars = [g.strip() for g in grouping_part.split("/")]
         # Create random effects for nested structure
         # For simplicity, we'll create one RE per grouping level
         random_effects_list = []
@@ -318,7 +322,7 @@ def _parse_random_effects_formula(formula_str: str) -> tuple[bool, tuple]:
     (False, ('x', 'y'))
     """
     # Split by '+'
-    parts = [p.strip() for p in formula_str.split('+')]
+    parts = [p.strip() for p in formula_str.split("+")]
 
     include_intercept = False
     variables = []
@@ -327,9 +331,9 @@ def _parse_random_effects_formula(formula_str: str) -> tuple[bool, tuple]:
         if not part:
             continue
 
-        if part == '1':
+        if part == "1":
             include_intercept = True
-        elif part == '0':
+        elif part == "0":
             # Explicit removal of intercept (not common but valid)
             include_intercept = False
         else:
@@ -346,7 +350,7 @@ def _parse_random_effects_formula(formula_str: str) -> tuple[bool, tuple]:
 def _parse_smooth_term(term_str: str) -> SmoothTerm:
     """Parse a smooth term like 's(x1, n_basis=10, basis="cubic")'."""
     # Extract content inside s(...)
-    match = re.match(r's\((.*)\)', term_str)
+    match = re.match(r"s\((.*)\)", term_str)
     if not match:
         raise ValueError(f"Invalid smooth term syntax: {term_str}")
 
@@ -356,7 +360,7 @@ def _parse_smooth_term(term_str: str) -> SmoothTerm:
         raise ValueError(f"Smooth term must specify variable: {term_str}")
 
     # Split by comma
-    parts = [p.strip() for p in content.split(',')]
+    parts = [p.strip() for p in content.split(",")]
 
     if len(parts) == 0 or not parts[0]:
         raise ValueError(f"Smooth term must specify variable: {term_str}")
@@ -373,10 +377,10 @@ def _parse_smooth_term(term_str: str) -> SmoothTerm:
     # Parse options
     kwargs = {}
     for part in parts[1:]:
-        if '=' not in part:
+        if "=" not in part:
             raise ValueError(f"Invalid smooth term option: {part}")
 
-        key, value = part.split('=', 1)
+        key, value = part.split("=", 1)
         key = key.strip()
         value = value.strip()
 
@@ -394,14 +398,14 @@ def _parse_smooth_term(term_str: str) -> SmoothTerm:
                 pass  # Keep as string
 
         # Map parameter names (with R/mgcv-style aliases)
-        if key == 'basis':
-            kwargs['basis_type'] = value
-        elif key in ('n_basis', 'k'):  # 'k' is the mgcv-style parameter
-            kwargs['n_basis'] = value
-        elif key in ('penalty_order', 'm'):  # 'm' is mgcv-style penalty order
-            kwargs['penalty_order'] = value
-        elif key in ('lambda', 'sp'):  # 'sp' is mgcv-style smoothing parameter
-            kwargs['lambda_'] = value
+        if key == "basis":
+            kwargs["basis_type"] = value
+        elif key in ("n_basis", "k"):  # 'k' is the mgcv-style parameter
+            kwargs["n_basis"] = value
+        elif key in ("penalty_order", "m"):  # 'm' is mgcv-style penalty order
+            kwargs["penalty_order"] = value
+        elif key in ("lambda", "sp"):  # 'sp' is mgcv-style smoothing parameter
+            kwargs["lambda_"] = value
         else:
             raise ValueError(f"Unknown smooth term parameter: {key}")
 

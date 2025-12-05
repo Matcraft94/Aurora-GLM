@@ -1,4 +1,5 @@
 """Classification-oriented evaluation metrics."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -87,7 +88,9 @@ def brier_score_loss(
     return float(_weighted_mean(losses, sample_weight))
 
 
-def concordance_index(y_true: Any, y_score: Any, *, sample_weight: Any | None = None) -> float:
+def concordance_index(
+    y_true: Any, y_score: Any, *, sample_weight: Any | None = None
+) -> float:
     """Compute the concordance index (c-statistic) for binary outcomes.
 
     The concordance index measures the probability that for a randomly selected
@@ -143,7 +146,9 @@ def concordance_index(y_true: Any, y_score: Any, *, sample_weight: Any | None = 
     n_pos = float(np.sum(binary * weights))
     n_neg = float(np.sum((1.0 - binary) * weights))
     if n_pos <= 0.0 or n_neg <= 0.0:
-        raise ValueError("Concordance index requires both positive and negative examples")
+        raise ValueError(
+            "Concordance index requires both positive and negative examples"
+        )
 
     order = np.argsort(-score, kind="mergesort")
     y_sorted = binary[order]
@@ -185,7 +190,11 @@ def concordance_index(y_true: Any, y_score: Any, *, sample_weight: Any | None = 
 
 def _is_binary_labels(labels: np.ndarray) -> bool:
     unique = np.unique(labels)
-    return np.array_equal(unique, [0]) or np.array_equal(unique, [1]) or np.array_equal(unique, [0, 1])
+    return (
+        np.array_equal(unique, [0])
+        or np.array_equal(unique, [1])
+        or np.array_equal(unique, [0, 1])
+    )
 
 
 def _to_binary_labels(labels: np.ndarray) -> np.ndarray:
@@ -235,14 +244,14 @@ def _to_numpy(value: Any) -> np.ndarray:
 
 def confusion_matrix(y_true: Any, y_pred: Any) -> np.ndarray:
     """Compute confusion matrix for binary classification.
-    
+
     Parameters
     ----------
     y_true : array-like
         True binary labels (0 or 1).
     y_pred : array-like
         Predicted binary labels (0 or 1).
-    
+
     Returns
     -------
     cm : ndarray, shape (2, 2)
@@ -254,24 +263,24 @@ def confusion_matrix(y_true: Any, y_pred: Any) -> np.ndarray:
     true = _to_numpy(y_true).astype(int)
     pred = _to_numpy(y_pred).astype(int)
     _validate_shape(true, pred)
-    
+
     if not _is_binary_labels(true) or not _is_binary_labels(pred):
         raise ValueError("confusion_matrix requires binary labels (0 and 1)")
-    
+
     # Compute confusion matrix
     tn = np.sum((true == 0) & (pred == 0))
     fp = np.sum((true == 0) & (pred == 1))
     fn = np.sum((true == 1) & (pred == 0))
     tp = np.sum((true == 1) & (pred == 1))
-    
+
     return np.array([[tn, fp], [fn, tp]], dtype=int)
 
 
 def precision(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> float:
     """Compute precision (positive predictive value).
-    
+
     Precision = TP / (TP + FP)
-    
+
     Parameters
     ----------
     y_true : array-like
@@ -280,7 +289,7 @@ def precision(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> 
         Predicted binary labels.
     sample_weight : array-like, optional
         Sample weights.
-    
+
     Returns
     -------
     precision : float
@@ -289,7 +298,7 @@ def precision(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> 
     true = _to_numpy(y_true)
     pred = _to_numpy(y_pred)
     _validate_shape(true, pred)
-    
+
     if sample_weight is None:
         tp = np.sum((true == 1) & (pred == 1))
         fp = np.sum((true == 0) & (pred == 1))
@@ -297,7 +306,7 @@ def precision(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> 
         weights = _to_numpy(sample_weight)
         tp = np.sum(weights * (true == 1) * (pred == 1))
         fp = np.sum(weights * (true == 0) * (pred == 1))
-    
+
     denominator = tp + fp
     if denominator == 0:
         return 0.0
@@ -306,9 +315,9 @@ def precision(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> 
 
 def recall(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> float:
     """Compute recall (sensitivity, true positive rate).
-    
+
     Recall = TP / (TP + FN)
-    
+
     Parameters
     ----------
     y_true : array-like
@@ -317,7 +326,7 @@ def recall(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> flo
         Predicted binary labels.
     sample_weight : array-like, optional
         Sample weights.
-    
+
     Returns
     -------
     recall : float
@@ -326,7 +335,7 @@ def recall(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> flo
     true = _to_numpy(y_true)
     pred = _to_numpy(y_pred)
     _validate_shape(true, pred)
-    
+
     if sample_weight is None:
         tp = np.sum((true == 1) & (pred == 1))
         fn = np.sum((true == 1) & (pred == 0))
@@ -334,7 +343,7 @@ def recall(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> flo
         weights = _to_numpy(sample_weight)
         tp = np.sum(weights * (true == 1) * (pred == 1))
         fn = np.sum(weights * (true == 1) * (pred == 0))
-    
+
     denominator = tp + fn
     if denominator == 0:
         return 0.0
@@ -343,9 +352,9 @@ def recall(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> flo
 
 def f1_score(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> float:
     """Compute F1 score (harmonic mean of precision and recall).
-    
+
     F1 = 2 * (precision * recall) / (precision + recall)
-    
+
     Parameters
     ----------
     y_true : array-like
@@ -354,7 +363,7 @@ def f1_score(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> f
         Predicted binary labels.
     sample_weight : array-like, optional
         Sample weights.
-    
+
     Returns
     -------
     f1 : float
@@ -362,7 +371,7 @@ def f1_score(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> f
     """
     prec = precision(y_true, y_pred, sample_weight=sample_weight)
     rec = recall(y_true, y_pred, sample_weight=sample_weight)
-    
+
     denominator = prec + rec
     if denominator == 0:
         return 0.0
@@ -371,9 +380,9 @@ def f1_score(y_true: Any, y_pred: Any, *, sample_weight: Any | None = None) -> f
 
 def roc_auc(y_true: Any, y_score: Any, *, sample_weight: Any | None = None) -> float:
     """Compute Area Under the Receiver Operating Characteristic Curve (ROC-AUC).
-    
+
     This is equivalent to the concordance index for binary classification.
-    
+
     Parameters
     ----------
     y_true : array-like
@@ -382,7 +391,7 @@ def roc_auc(y_true: Any, y_score: Any, *, sample_weight: Any | None = None) -> f
         Predicted scores or probabilities.
     sample_weight : array-like, optional
         Sample weights.
-    
+
     Returns
     -------
     auc : float

@@ -34,6 +34,7 @@ See Also
 aurora.distributions._utils : Array namespace utilities for distributions
 aurora.models : High-level model fitting interfaces
 """
+
 from __future__ import annotations
 
 # Protocol and type definitions
