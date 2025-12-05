@@ -32,7 +32,7 @@ def interpret_variance_components(
     ... ))
     """
     if group_names is None:
-        group_names = [f"Group_{i+1}" for i in range(len(variance_components))]
+        group_names = [f"Group_{i + 1}" for i in range(len(variance_components))]
 
     lines = []
     lines.append("=" * 75)
@@ -48,18 +48,20 @@ def interpret_variance_components(
             # Single variance component (random intercept only)
             variance = vc[0, 0]
             sd = np.sqrt(variance)
-            lines.append(f"  Tipo: Intercepto aleatorio únicamente")
+            lines.append("  Tipo: Intercepto aleatorio únicamente")
             lines.append(f"  Varianza: {variance:.4f}")
             lines.append(f"  Desviación estándar: {sd:.4f}")
             lines.append("")
-            lines.append(f"  Interpretación:")
+            lines.append("  Interpretación:")
             lines.append(
                 f"    - Hay una variabilidad de ±{sd:.2f} unidades entre {group_name}s"
             )
             lines.append(
                 f"    - Aproximadamente 95% de {group_name}s tienen interceptos"
             )
-            lines.append(f"      aleatorios dentro de ±{1.96*sd:.2f} unidades del promedio")
+            lines.append(
+                f"      aleatorios dentro de ±{1.96 * sd:.2f} unidades del promedio"
+            )
 
         elif vc.shape[0] == 2:
             # Random intercept + slope
@@ -71,20 +73,20 @@ def interpret_variance_components(
             sd_slope = np.sqrt(var_slope)
             correlation = cov / (sd_intercept * sd_slope)
 
-            lines.append(f"  Tipo: Intercepto y pendiente aleatoria")
+            lines.append("  Tipo: Intercepto y pendiente aleatoria")
             lines.append("")
-            lines.append(f"  Componente 1 (Intercepto):")
+            lines.append("  Componente 1 (Intercepto):")
             lines.append(f"    Varianza: {var_intercept:.4f}")
             lines.append(f"    Desviación estándar: {sd_intercept:.4f}")
             lines.append("")
-            lines.append(f"  Componente 2 (Pendiente):")
+            lines.append("  Componente 2 (Pendiente):")
             lines.append(f"    Varianza: {var_slope:.4f}")
             lines.append(f"    Desviación estándar: {sd_slope:.4f}")
             lines.append("")
             lines.append(f"  Covarianza: {cov:.4f}")
             lines.append(f"  Correlación: {correlation:.4f}")
             lines.append("")
-            lines.append(f"  Interpretación:")
+            lines.append("  Interpretación:")
             lines.append(
                 f"    - Variabilidad en niveles basales: ±{sd_intercept:.2f} unidades"
             )
@@ -97,32 +99,38 @@ def interpret_variance_components(
                 lines.append(
                     f"      Los {group_name}s con mayores valores basales no necesariamente"
                 )
-                lines.append(f"      tienen mayores (o menores) tasas de cambio")
+                lines.append("      tienen mayores (o menores) tasas de cambio")
             elif correlation > 0.3:
-                lines.append(f"    - Correlación positiva moderada/fuerte ({correlation:.3f}):")
+                lines.append(
+                    f"    - Correlación positiva moderada/fuerte ({correlation:.3f}):"
+                )
                 lines.append(
                     f"      Los {group_name}s con mayores valores basales tienden a"
                 )
-                lines.append(f"      tener mayores tasas de cambio")
+                lines.append("      tener mayores tasas de cambio")
             elif correlation < -0.3:
-                lines.append(f"    - Correlación negativa moderada/fuerte ({correlation:.3f}):")
+                lines.append(
+                    f"    - Correlación negativa moderada/fuerte ({correlation:.3f}):"
+                )
                 lines.append(
                     f"      Los {group_name}s con mayores valores basales tienden a"
                 )
-                lines.append(f"      tener menores tasas de cambio (efecto compensatorio)")
+                lines.append(
+                    "      tener menores tasas de cambio (efecto compensatorio)"
+                )
 
         else:
             # Multiple components
             lines.append(f"  Tipo: {vc.shape[0]} componentes aleatorios")
-            lines.append(f"  Matriz de varianza-covarianza:")
+            lines.append("  Matriz de varianza-covarianza:")
             for row in vc:
                 row_str = "    " + "  ".join([f"{val:>10.4f}" for val in row])
                 lines.append(row_str)
 
             lines.append("")
-            lines.append(f"  Desviaciones estándar:")
+            lines.append("  Desviaciones estándar:")
             for j in range(vc.shape[0]):
-                lines.append(f"    Componente {j+1}: {np.sqrt(vc[j, j]):.4f}")
+                lines.append(f"    Componente {j + 1}: {np.sqrt(vc[j, j]):.4f}")
 
         lines.append("")
 
@@ -236,7 +244,7 @@ def plot_diagnostics(result, figsize=(12, 10)):
             spline = make_interp_spline(x_smooth[::step], y_smooth[::step], k=3)
             x_plot = np.linspace(x_smooth.min(), x_smooth.max(), 100)
             axes[0, 0].plot(x_plot, spline(x_plot), "b-", linewidth=2, alpha=0.7)
-    except:
+    except (ImportError, ValueError, TypeError):
         pass
 
     # 2. Q-Q Plot
@@ -264,7 +272,7 @@ def plot_diagnostics(result, figsize=(12, 10)):
             spline = make_interp_spline(x_smooth[::step], y_smooth[::step], k=3)
             x_plot = np.linspace(x_smooth.min(), x_smooth.max(), 100)
             axes[1, 0].plot(x_plot, spline(x_plot), "r-", linewidth=2, alpha=0.7)
-    except:
+    except (ImportError, ValueError, TypeError):
         pass
 
     # 4. Histogram of residuals
@@ -328,16 +336,16 @@ def plot_random_effects(result, group_name=None, figsize=(15, 5)):
     # Extract random effects for this group
     # result.random_effects[group_name] is a dict: {group_id: array([intercept, slope, ...])}
     random_effects_dict = result.random_effects[group_name]
-    
+
     # Convert dict to array: stack all group effects
     # Sort by group_id to maintain consistent ordering
     group_ids = sorted(random_effects_dict.keys())
     random_effects_list = [random_effects_dict[gid] for gid in group_ids]
-    
+
     # Stack into array where each row is one group's effects
     # Shape: (n_groups, n_components)
     random_effects_matrix = np.vstack(random_effects_list)
-    
+
     # Determine structure
     vc = result.variance_components[
         list(result.random_effects.keys()).index(group_name)
