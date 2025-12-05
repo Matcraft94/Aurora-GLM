@@ -201,6 +201,7 @@ References
 
 - Wahba, G. (1990). *Spline Models for Observational Data*. SIAM.
 """
+
 from __future__ import annotations
 
 from aurora.smoothing.tensor import (

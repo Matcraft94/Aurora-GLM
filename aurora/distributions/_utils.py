@@ -1,7 +1,7 @@
 """Utility helpers for distribution implementations."""
+
 from __future__ import annotations
 
-import math
 import numpy as np
 
 try:  # pragma: no cover - optional dependency
@@ -27,8 +27,8 @@ def is_jax(value) -> bool:
     if jax is None:
         return False
     # Check for JAX array types
-    return hasattr(value, 'device_buffer') or (
-        hasattr(jax, 'Array') and isinstance(value, jax.Array)
+    return hasattr(value, "device_buffer") or (
+        hasattr(jax, "Array") and isinstance(value, jax.Array)
     )
 
 
@@ -65,13 +65,17 @@ def namespace_from_backend(backend: str = "numpy", device: str | None = None):
         return np, None
     elif backend in ("torch", "pytorch"):
         if torch is None:
-            raise ImportError("PyTorch is not installed. Install with: pip install torch")
+            raise ImportError(
+                "PyTorch is not installed. Install with: pip install torch"
+            )
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         return torch, torch.device(device)
     elif backend == "jax":
         if jnp is None:
-            raise ImportError("JAX is not installed. Install with: pip install jax jaxlib")
+            raise ImportError(
+                "JAX is not installed. Install with: pip install jax jaxlib"
+            )
         return jnp, None
     else:
         raise ValueError(f"Unknown backend: {backend}. Choose from: numpy, torch, jax")
@@ -82,7 +86,11 @@ def as_namespace_array(value, xp, *, like=None, device=None):
     if xp is torch:  # type: ignore[comparison-overlap]
         dtype = getattr(like, "dtype", torch.get_default_dtype())
         if device is None:
-            device = getattr(like, "device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            device = getattr(
+                like,
+                "device",
+                torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+            )
         return torch.as_tensor(value, dtype=dtype, device=device)
     elif xp is jnp:  # type: ignore[comparison-overlap]
         dtype = getattr(like, "dtype", jnp.float64 if jnp is not None else None)
@@ -179,9 +187,11 @@ def log_factorial(value, xp):
         return torch.lgamma(value + 1.0)
     elif xp is jnp:  # type: ignore[comparison-overlap]
         from jax.scipy.special import gammaln
+
         return gammaln(value + 1.0)
     # NumPy - use scipy for vectorized operation
     from scipy.special import gammaln
+
     return gammaln(np.asarray(value) + 1.0)
 
 
@@ -204,9 +214,11 @@ def log_gamma(value, xp):
         return torch.lgamma(value)
     elif xp is jnp:  # type: ignore[comparison-overlap]
         from jax.scipy.special import gammaln
+
         return gammaln(value)
     # NumPy - use scipy for vectorized operation
     from scipy.special import gammaln
+
     return gammaln(np.asarray(value))
 
 
@@ -216,9 +228,11 @@ def digamma(value, xp):
         return torch.digamma(value)
     elif xp is jnp:  # type: ignore[comparison-overlap]
         from jax.scipy.special import digamma as jax_digamma
+
         return jax_digamma(value)
     # NumPy
     from scipy import special
+
     return special.digamma(value)
 
 

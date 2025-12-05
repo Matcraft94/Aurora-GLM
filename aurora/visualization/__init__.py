@@ -22,6 +22,7 @@ Model Diagnostics
 - plot_smooth_effect: Single smooth term with confidence bands
 - plot_all_smooth_effects: Grid of all smooth terms
 """
+
 from __future__ import annotations
 
 # GAM smooth term visualization

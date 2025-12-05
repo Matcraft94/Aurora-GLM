@@ -181,6 +181,7 @@ References
 - Dunn, P. K., & Smyth, G. K. (2018). *Generalized Linear Models with
   Examples in R*. Springer. Chapters 3-4.
 """
+
 from __future__ import annotations
 
 from .base import Family, LinkFunction
@@ -191,14 +192,14 @@ from .families.poisson import PoissonFamily
 from .links import IdentityLink, InverseLink, LogLink, LogitLink
 
 __all__ = [
-	"Family",
-	"LinkFunction",
-	"GaussianFamily",
-	"BinomialFamily",
-	"PoissonFamily",
-	"GammaFamily",
-	"IdentityLink",
-	"LogLink",
-	"LogitLink",
-	"InverseLink",
+    "Family",
+    "LinkFunction",
+    "GaussianFamily",
+    "BinomialFamily",
+    "PoissonFamily",
+    "GammaFamily",
+    "IdentityLink",
+    "LogLink",
+    "LogitLink",
+    "InverseLink",
 ]

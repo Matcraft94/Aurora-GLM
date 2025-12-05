@@ -1,4 +1,5 @@
 """Core type definitions and protocols for Aurora-GLM."""
+
 from __future__ import annotations
 
 from typing import Any, Callable, Protocol, TypeAlias, Union
@@ -41,12 +42,10 @@ class ArrayLike(Protocol):
         ...
 
     @property
-    def shape(self) -> Shape:
-        ...
+    def shape(self) -> Shape: ...
 
     @property
-    def dtype(self) -> DType:
-        ...
+    def dtype(self) -> DType: ...
 
 
 class Distribution(Protocol):

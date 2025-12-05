@@ -9,6 +9,7 @@ References
 Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
     Chapman and Hall/CRC, 2nd edition. Chapter 5.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -266,18 +267,18 @@ def fit_tensor_product(
         H = B @ A_inv @ B.T @ W
         edf = float(np.trace(H))
     except np.linalg.LinAlgError:
-        edf = float('nan')
+        edf = float("nan")
 
     return {
-        'coefficients': coefficients,
-        'fitted_values': fitted_values,
-        'basis_matrix': B,
-        'edf': edf,
+        "coefficients": coefficients,
+        "fitted_values": fitted_values,
+        "basis_matrix": B,
+        "edf": edf,
     }
 
 
 __all__ = [
-    'tensor_product_basis',
-    'tensor_product_penalty',
-    'fit_tensor_product',
+    "tensor_product_basis",
+    "tensor_product_penalty",
+    "fit_tensor_product",
 ]

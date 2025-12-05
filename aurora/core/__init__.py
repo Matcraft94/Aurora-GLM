@@ -30,7 +30,7 @@ Array Namespace Abstraction
 The `namespace()` function provides a unified API across backends:
 
     xp = namespace(array)  # Infer backend from array type
-    
+
     # Use xp for all operations
     result = xp.sum(xp.exp(array))
 
@@ -129,6 +129,7 @@ and specify device='cuda' when creating arrays.
 For JAX JIT compilation, ensure the code is free of Python-level
 control flow that depends on array values.
 """
+
 from __future__ import annotations
 
 from . import backends, types

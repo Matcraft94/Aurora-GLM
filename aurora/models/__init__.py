@@ -63,7 +63,7 @@ where:
 
 **For Gaussian responses**: Reduces to Linear Mixed Model (LMM)
 
-**For non-Gaussian responses**: 
+**For non-Gaussian responses**:
     - PQL (Penalized Quasi-Likelihood)
     - Laplace approximation
     - Adaptive Gauss-Hermite quadrature
@@ -196,6 +196,7 @@ References
 - Pinheiro, J. C., & Bates, D. M. (2000). *Mixed-Effects Models in S and S-PLUS*.
   Springer.
 """
+
 from __future__ import annotations
 
 from .base import GLMResult, ModelResult
