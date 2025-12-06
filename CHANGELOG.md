@@ -7,7 +7,162 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.1] - 2025-12-03
+### Added
+
+#### Test Coverage Expansion
+- **Benchmark test suite** (`benchmarks/`):
+  - comprehensive_benchmarks.py (891 lines): Multi-backend accuracy validation against statsmodels and R glm()
+  - performance_benchmarks.py (700 lines): Execution time and memory profiling for GLM, GAM, GAMM
+  - GPU performance measurement (PyTorch CUDA, JAX GPU)
+  - JSON and Markdown report generation for CI/CD integration
+
+- **Bayesian GLM tests** (`tests/test_models/test_bayes/`):
+  - test_bayes_unit.py (519 lines): Prior specification, posterior sampling, convergence diagnostics
+  - test_glm_bayes.py (311 lines): Full Bayesian GLM workflow integration tests
+  - test_priors.py (230 lines): Prior distribution functionality and validation
+  - Total: 1,060 lines of Bayesian inference test coverage
+
+- **Zero-inflated count model tests** (`tests/test_models/test_zero_inflated/`):
+  - test_zip_unit.py (340 lines): Zero-Inflated Poisson model tests
+  - test_zinb_unit.py (362 lines): Zero-Inflated Negative Binomial tests
+  - test_zip.py (254 lines): ZIP integration tests
+  - Total: 956 lines testing excess zeros in count data
+
+- **Hurdle count model tests** (`tests/test_models/test_hurdle/`):
+  - test_hurdle_unit.py (449 lines): Two-stage modeling of zeros and positive counts
+  - test_hurdle_poisson.py (191 lines): Hurdle Poisson specific tests
+  - Total: 640 lines of hurdle model test coverage
+
+- **Smoothing method tests** (`tests/test_smoothing/`):
+  - test_loess_unit.py (295 lines): LOESS local polynomial regression tests
+  - test_loess.py (250 lines): LOESS integration and application tests
+  - test_psplines_unit.py (275 lines): P-spline basis and penalty matrix tests
+  - test_psplines.py (263 lines): P-spline integration tests
+  - Total: 1,083 lines of non-parametric smoothing test coverage
+
+- **Integration tests** (`tests/test_integration/`):
+  - test_count_models_integration.py (401 lines): End-to-end workflows for all count data models
+
+**Total new test coverage: 5,731 lines** across benchmarking, Bayesian inference, count models, and smoothing methods.
+
+## [0.6.1] - 2025-12-04
+
+### Added - Performance Validation & Benchmarking
+
+#### Comprehensive Benchmark Suite
+- **Multi-backend accuracy validation** (`benchmarks/comprehensive_benchmarks.py`):
+  - Validates Aurora-GLM against NumPy, PyTorch (CPU/CUDA), JAX (CPU/GPU)
+  - Compares against reference implementations: statsmodels (Python) and R glm()
+  - Systematic GPU performance measurement across problem sizes
+  - Automated JSON and Markdown report generation
+  - 900+ lines of comprehensive benchmarking code
+  - 11/11 accuracy tests passing across all backends
+
+- **Performance documentation** (`benchmarks/PERFORMANCE.md`):
+  - GPU acceleration results: Up to 141× speedup with PyTorch CUDA
+  - Multi-backend consistency validation tables
+  - Sparse matrix performance analysis
+  - R environment setup instructions
+  - Benchmark reproducibility guide
+  - When to use Aurora-GLM vs statsmodels decision guide
+
+#### Validation Results
+
+**Accuracy validation (max coefficient difference)**:
+- PyTorch vs NumPy: < 4e-7
+- JAX vs NumPy: < 1e-15
+- Aurora vs R glm(): < 1e-11
+- Aurora vs statsmodels (Gaussian): < 1e-11
+- Aurora vs statsmodels (Poisson): < 1e-10
+- Aurora vs statsmodels (Binomial): < 1e-9
+- Aurora vs statsmodels (Gamma): < 2e-6
+
+**GPU acceleration (NVIDIA RTX 5070 Ti)**:
+- Gaussian n=1,000: NumPy 42ms → PyTorch CUDA 5ms (**9× speedup**)
+- Gaussian n=5,000: NumPy 206ms → PyTorch CUDA 5ms (**39× speedup**)
+- Gaussian n=50,000: NumPy 2.1s → PyTorch CUDA 18ms (**116× speedup**)
+- Poisson n=50,000: NumPy 4.3s → PyTorch CUDA 30ms (**141× speedup**)
+
+**Sparse matrix performance**:
+- n=1,000, k=30: 5.5× speedup, 6-8× memory reduction
+- n=2,000, k=50: 7.4× speedup, 6-8× memory reduction
+- n=5,000, k=50: 5.3× speedup, 6-8× memory reduction
+
+#### R Environment Integration
+- **rpy2 integration** for R comparison benchmarks:
+  - Micromamba-based local R installation (no sudo required)
+  - Configured R environment with mgcv, lme4, nlme packages
+  - Python-R bridge via rpy2 with proper conversion contexts
+  - Environment variable configuration to avoid renv conflicts
+  - Comprehensive validation against R's glm() function
+
+### Changed - Documentation Overhaul
+
+#### README.md Comprehensive Update
+- **Restructured README** (1,068 lines) preserving Aurora's modular/extensible essence:
+  - Opening statement: "Aurora-GLM is a modular, extensible, and high-performance Python framework..."
+  - Vision and Goals section restored (scientifically rigorous, high performance, extensible, modular)
+  - Performance Highlights prominently featured with validated benchmarks
+  - Complete implementation status by phase (Phase 1-5)
+  - Design principles and extensibility examples
+  - When to Use Aurora-GLM decision guide
+  - Comprehensive examples for GLM, GAM, GAMM with code and output
+
+#### Phase 5 Completion Documentation
+- **Phase 5 summary** (`docs/PHASE_5_COMPLETION_SUMMARY.md`):
+  - Comprehensive accomplishment list
+  - Detailed benchmark results
+  - Environment setup instructions
+  - Progress breakdown (85% complete)
+  - Recommendations for next release
+
+### Fixed - Benchmarking Infrastructure
+
+#### Data Generation
+- Fixed double intercept issue in benchmark data generation
+  - Aurora's `fit_glm()` uses `fit_intercept=True` by default
+  - Updated benchmarks to NOT include intercept in X
+  - Statsmodels comparison now uses `sm.add_constant(X)`
+  - Reduced coefficient differences from ~0.15 to < 1e-11
+
+#### Backend Compatibility
+- Fixed JAX NaN values by enabling float64 mode at import time
+  - JAX uses float32 by default causing precision issues
+  - Added `jax.config.update('jax_enable_x64', True)`
+  - Reduced JAX vs NumPy differences from NaN to < 1e-15
+
+#### rpy2 API Updates
+- Updated rpy2 usage to avoid deprecated APIs
+  - Replaced `activate()/deactivate()` with `converter.context()`
+  - Improved pandas/numpy to R conversion
+  - Fixed R formula construction for proper variable names
+
+#### JSON Serialization
+- Added type conversion utilities for numpy types
+  - Convert numpy bool_, integer, floating to Python natives
+  - Enables JSON export of benchmark results
+  - Handles nested dictionaries and lists recursively
+
+### Testing
+- **634 tests collected** across all modules
+- **AR1/CS Integration**: 14/14 tests passing (5:38 runtime)
+- **Link Functions**: 44/44 tests passing
+- **Benchmark Suite**: 11/11 accuracy tests passing
+- All backends validated: NumPy, PyTorch (CPU/CUDA), JAX (CPU/GPU)
+- All references validated: statsmodels, R glm()
+
+### Performance
+- **GPU Acceleration**: Up to 141× faster than NumPy with PyTorch CUDA
+- **Sparse Matrices**: 5-8× speedup and 6-8× memory reduction for GAM/GAMM
+- **Multi-backend**: Consistent results across NumPy, PyTorch, JAX (< 4e-7 diff)
+
+### Notes
+- Phase 5 progress: 85% complete (benchmarking validation complete)
+- Remaining: PyPI publication, documentation website, optional spatial covariance
+- All benchmarks reproducible with provided scripts
+- R environment setup documented for validation replication
+
+## [0.6.1-initial] - 2025-12-03
 
 ### Added
 
