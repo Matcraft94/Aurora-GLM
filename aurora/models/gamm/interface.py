@@ -486,9 +486,11 @@ def fit_gamm(
                 edf_smooth=result_dict["edf_smooth"],
                 fitted_values=result_dict["fitted_values"],
                 residuals=residuals,
-                log_likelihood=0.0,  # TODO: compute proper log-likelihood
-                aic=0.0,
-                bic=0.0,
+                log_likelihood=_compute_gaussian_gamm_loglik(
+                    y, result_dict["fitted_values"], residuals, len(result_dict["variance_components"])
+                ),
+                aic=_compute_aic(residuals, len(y), result_dict["edf_smooth"], len(result_dict["beta_parametric"]), len(result_dict["variance_components"])),
+                bic=_compute_bic(residuals, len(y), result_dict["edf_smooth"], len(result_dict["beta_parametric"]), len(result_dict["variance_components"])),
                 converged=result_dict["converged"],
                 n_iterations=result_dict["n_iterations_outer"],
                 n_obs=len(y),
@@ -778,3 +780,138 @@ def predict_from_gamm(
     )
 
     return predictions
+
+
+def _compute_gaussian_gamm_loglik(
+    y: NDArray, fitted_values: NDArray, residuals: NDArray, n_variance_components: int
+) -> float:
+    """Compute log-likelihood for Gaussian GAMM.
+
+    Parameters
+    ----------
+    y : NDArray
+        Response variable
+    fitted_values : NDArray
+        Fitted values from the model
+    residuals : NDArray
+        Residuals (y - fitted_values)
+    n_variance_components : int
+        Number of variance components (for penalty)
+
+    Returns
+    -------
+    log_likelihood : float
+        Log-likelihood value
+
+    Notes
+    -----
+    For Gaussian GAMM, the log-likelihood is:
+        ll = -0.5 * n * log(2π * σ²) - 0.5 * Σ(residuals²) / σ²
+
+    This is a simplified version that does not account for the random effects
+    contribution to the likelihood. For full likelihood including random effects,
+    use Laplace approximation or REML.
+    """
+    n = len(y)
+    sigma2 = float(np.var(residuals))
+
+    # Avoid log(0) if residuals are perfect
+    if sigma2 < 1e-10:
+        sigma2 = 1e-10
+
+    ll = -0.5 * n * np.log(2 * np.pi * sigma2) - 0.5 * np.sum(residuals**2) / sigma2
+    return float(ll)
+
+
+def _compute_aic(
+    residuals: NDArray,
+    n_obs: int,
+    edf_smooth: dict,
+    n_parametric: int,
+    n_variance_components: int,
+) -> float:
+    """Compute AIC for GAMM.
+
+    Parameters
+    ----------
+    residuals : NDArray
+        Model residuals
+    n_obs : int
+        Number of observations
+    edf_smooth : dict
+        Effective degrees of freedom for each smooth term
+    n_parametric : int
+        Number of parametric coefficients
+    n_variance_components : int
+        Number of variance components
+
+    Returns
+    -------
+    aic : float
+        Akaike Information Criterion
+
+    Notes
+    -----
+    AIC = -2 * log_likelihood + 2 * edf_total
+    where edf_total = sum(edf_smooth) + n_parametric + n_variance_components
+    """
+    sigma2 = float(np.var(residuals))
+
+    # Avoid log(0)
+    if sigma2 < 1e-10:
+        sigma2 = 1e-10
+
+    ll = -0.5 * n_obs * np.log(2 * np.pi * sigma2) - 0.5 * np.sum(residuals**2) / sigma2
+
+    # Total effective degrees of freedom
+    edf_total = sum(edf_smooth.values()) + n_parametric + n_variance_components
+
+    aic = -2 * ll + 2 * edf_total
+    return float(aic)
+
+
+def _compute_bic(
+    residuals: NDArray,
+    n_obs: int,
+    edf_smooth: dict,
+    n_parametric: int,
+    n_variance_components: int,
+) -> float:
+    """Compute BIC for GAMM.
+
+    Parameters
+    ----------
+    residuals : NDArray
+        Model residuals
+    n_obs : int
+        Number of observations
+    edf_smooth : dict
+        Effective degrees of freedom for each smooth term
+    n_parametric : int
+        Number of parametric coefficients
+    n_variance_components : int
+        Number of variance components
+
+    Returns
+    -------
+    bic : float
+        Bayesian Information Criterion
+
+    Notes
+    -----
+    BIC = -2 * log_likelihood + log(n) * edf_total
+    where edf_total = sum(edf_smooth) + n_parametric + n_variance_components
+    """
+    sigma2 = float(np.var(residuals))
+
+    # Avoid log(0)
+    if sigma2 < 1e-10:
+        sigma2 = 1e-10
+
+    ll = -0.5 * n_obs * np.log(2 * np.pi * sigma2) - 0.5 * np.sum(residuals**2) / sigma2
+
+    # Total effective degrees of freedom
+    edf_total = sum(edf_smooth.values()) + n_parametric + n_variance_components
+
+    bic = -2 * ll + np.log(n_obs) * edf_total
+    return float(bic)

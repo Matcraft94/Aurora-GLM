@@ -197,14 +197,10 @@ def test_parse_empty_predictors_raises():
 
 
 def test_parse_invalid_random_effect_no_bar():
-    """Random effect without | is currently parsed as parametric term."""
-    # TODO: Add validation to raise error for parenthesized terms without |
-    # For now, (1 subject) is parsed as a parametric term with variable='(1 subject)'
-    spec = parse_formula("y ~ x1 + (1 subject)")
-    assert len(spec.parametric_terms) == 2
-    assert spec.parametric_terms[0].variable == "x1"
-    assert spec.parametric_terms[1].variable == "(1 subject)"
-    assert len(spec.random_effects) == 0
+    """Random effect without | should raise error."""
+    # Parenthesized terms without | are invalid - must use (1 | group) syntax
+    with pytest.raises(ValueError, match="Parenthesized term.*without.*invalid"):
+        parse_formula("y ~ x1 + (1 subject)")
 
 
 def test_parse_invalid_random_effect_no_parens():
@@ -286,12 +282,10 @@ def test_parse_both_one_and_zero():
 
 
 def test_parse_empty_random_effect_parens():
-    """Empty parentheses are currently parsed as parametric term."""
-    # TODO: Add validation to raise error for empty parentheses
-    # For now, () is parsed as a parametric term with variable='()'
-    spec = parse_formula("y ~ x1 + ()")
-    assert len(spec.parametric_terms) == 2
-    assert spec.parametric_terms[1].variable == "()"
+    """Empty parentheses should raise error."""
+    # Empty parentheses are invalid - use proper random effect syntax
+    with pytest.raises(ValueError, match="Empty parentheses"):
+        parse_formula("y ~ x1 + ()")
 
 
 def test_parse_random_effect_only_bar():

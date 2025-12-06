@@ -459,11 +459,27 @@ def fit_gam(
             )
             fitted_values = X @ coefficients
 
-            # Compute EDF (approximate for sparse - exact computation expensive)
-            # Use trace approximation: edf ≈ n_basis - λ × tr(S) / σ²
-            # For now, use simpler approximation or skip
-            # TODO: Implement efficient EDF computation for sparse
-            edf = float(n_basis)  # Placeholder
+            # Compute EDF for sparse matrices
+            # For small n_basis (< 100), convert to dense for exact computation
+            # For large n_basis, use diagonal approximation
+            if n_basis <= 100:
+                # Small enough for exact dense computation
+                X_dense = X.toarray() if hasattr(X, 'toarray') else X
+                S_dense = S.toarray() if hasattr(S, 'toarray') else S
+
+                if weights_arr is None:
+                    W = np.eye(n)
+                else:
+                    W = np.diag(weights_arr)
+
+                XtWX = X_dense.T @ W @ X_dense
+                A = XtWX + lambda_used * S_dense
+                A_inv = np.linalg.inv(A)
+                edf = float(np.trace(A_inv @ XtWX))
+            else:
+                # For large basis, use approximation: EDF ≈ k / (1 + λ)
+                # This assumes S ≈ I (reasonable for difference penalties)
+                edf = float(n_basis / (1 + lambda_used))
 
             gcv_score = None
         else:

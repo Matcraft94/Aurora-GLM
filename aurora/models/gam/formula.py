@@ -130,6 +130,24 @@ def parse_formula(formula: str) -> FormulaSpec:
         if not term_str:
             continue
 
+        # Validate parenthesized terms
+        if term_str.startswith("(") and term_str.endswith(")"):
+            # Check for empty parentheses
+            inner = term_str[1:-1].strip()
+            if not inner:
+                raise ValueError(
+                    f"Empty parentheses '()' found in formula. "
+                    f"Use '(1 | group)' for random effects or remove empty parentheses."
+                )
+
+            # Check if it's a random effect (must contain |)
+            if "|" not in term_str:
+                raise ValueError(
+                    f"Parenthesized term '{term_str}' without '|' is invalid. "
+                    f"For random effects, use '(1 | group)' syntax. "
+                    f"For parametric terms, remove parentheses."
+                )
+
         # Check if it's a random effect (...)
         if term_str.startswith("(") and "|" in term_str:
             random_effect = _parse_random_effect_term(term_str)
