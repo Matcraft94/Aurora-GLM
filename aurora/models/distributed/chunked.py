@@ -59,11 +59,21 @@ class ChunkedDataLoader:
         self.y_path = Path(self.y_path)
 
     def __iter__(self) -> Iterator[tuple[NDArray, NDArray]]:
-        """Iterate over data chunks."""
-        # Load data (for now, load fully then chunk)
-        # TODO: Implement true streaming for very large files
-        X = self._load_array(self.X_path)
-        y = self._load_array(self.y_path).ravel()
+        """Iterate over data chunks with true streaming support.
+
+        For .npy files, uses memory mapping to avoid loading entire
+        file into memory. For other formats, loads fully then chunks.
+
+        Yields
+        ------
+        X_chunk : ndarray
+            Design matrix chunk
+        y_chunk : ndarray
+            Response vector chunk
+        """
+        # Use memory mapping for .npy files to enable true streaming
+        X = self._load_array_streaming(self.X_path)
+        y = self._load_array_streaming(self.y_path).ravel()
 
         n = len(y)
         indices = np.arange(n)
@@ -75,10 +85,68 @@ class ChunkedDataLoader:
         for start in range(0, n, self.chunk_size):
             end = min(start + self.chunk_size, n)
             idx = indices[start:end]
-            yield X[idx], y[idx]
+            # Use .copy() to materialize memory-mapped chunks
+            yield X[idx].copy(), y[idx].copy()
+
+    def _load_array_streaming(self, path: Path) -> NDArray:
+        """Load array with streaming support (memory mapping for .npy).
+
+        For .npy files, uses memory mapping to enable true streaming
+        without loading the entire file into memory. For other formats,
+        falls back to full loading.
+
+        Parameters
+        ----------
+        path : Path
+            Path to array file
+
+        Returns
+        -------
+        array : ndarray
+            Loaded array (memory-mapped if .npy, otherwise in-memory)
+
+        Notes
+        -----
+        Memory-mapped arrays are read-only and lazily loaded. Only the
+        accessed chunks are loaded into RAM. Use .copy() to materialize.
+        """
+        suffix = path.suffix.lower()
+
+        if suffix == ".npy":
+            # Use memory mapping for streaming
+            return np.load(path, mmap_mode='r')
+        elif suffix == ".npz":
+            # NPZ doesn't support mmap, load fully
+            data = np.load(path)
+            return data[list(data.keys())[0]]
+        elif suffix == ".csv":
+            # CSV requires full load (could use pandas chunking in future)
+            return np.loadtxt(path, delimiter=",", skiprows=1)
+        else:
+            # Try numpy load with mmap if possible
+            try:
+                return np.load(path, mmap_mode='r')
+            except (ValueError, OSError):
+                # Fall back to regular load
+                return np.load(path)
 
     def _load_array(self, path: Path) -> NDArray:
-        """Load array from file."""
+        """Load array from file (legacy method, loads fully into memory).
+
+        This method is kept for compatibility and for cases where
+        in-memory arrays are needed. Use _load_array_streaming for
+        large files.
+
+        Parameters
+        ----------
+        path : Path
+            Path to array file
+
+        Returns
+        -------
+        array : ndarray
+            Loaded array in memory
+        """
         suffix = path.suffix.lower()
 
         if suffix == ".npy":
