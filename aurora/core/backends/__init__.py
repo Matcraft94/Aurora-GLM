@@ -1,76 +1,109 @@
-"""Backend registry and abstraction layer for numerical computations."""
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
+"""Backend abstraction layer for multi-platform numerical computing.
+
+Aurora supports NumPy (CPU), PyTorch (GPU), and JAX (XLA) backends,
+allowing the same statistical code to run on different platforms
+without modification.
+
+Quick Start
+-----------
+>>> from aurora.core.backends import get_backend
+>>> backend = get_backend('pytorch')  # or 'jax'
+>>> x = backend.array([1.0, 2.0, 3.0])
+>>> grad_fn = backend.grad(my_loss_function)
+
+Available Backends
+------------------
+- **jax**: Google JAX with XLA compilation (default)
+- **pytorch**: PyTorch with CUDA support
+
+Backend Operations
+------------------
+For lower-level numerical operations that work across backends:
+
+>>> from aurora.core.backends import get_namespace, solve, cholesky
+>>> xp, device = get_namespace('numpy')  # or 'torch', 'jax'
+>>> solution = solve(A, b, xp)
+
+Backward Compatibility
+----------------------
+This module maintains strict backward compatibility. All public functions
+and classes exposed in v0.5.0 remain available with identical signatures.
+
+See Also
+--------
+aurora.distributions._utils : Array namespace utilities for distributions
+aurora.models : High-level model fitting interfaces
+"""
+
 from __future__ import annotations
 
-from importlib import import_module
-from types import ModuleType
-from typing import Callable, Protocol
+# Protocol and type definitions
+from ._protocol import Backend, BackendFactory
 
-from ...utils import BackendNotAvailableError
+# Registry functions
+from ._registry import (
+    available_backends,
+    get_backend,
+    register_backend,
+)
 
+# Backend-agnostic numerical operations
+from .operations import (
+    get_namespace,
+    to_backend_array,
+    to_numpy,
+    solve,
+    cholesky,
+    inv,
+    det,
+    slogdet,
+    eigh,
+    qr,
+    lstsq,
+    eye,
+    zeros,
+    ones,
+    concatenate,
+    stack,
+    diag,
+    trace,
+    matmul,
+    transpose,
+)
 
-class Backend(Protocol):
-    """Protocol describing the minimum surface area expected from a backend."""
-
-    def array(self, data, dtype=None):  # noqa: ANN001 - backend dependent signature
-        ...
-
-    def as_numpy(self, data):  # noqa: ANN001 - backend dependent signature
-        ...
-
-    def grad(self, func: Callable):
-        ...
-
-    def jit(self, func: Callable):
-        ...
-
-    def device_put(self, data):  # noqa: ANN001 - backend dependent signature
-        ...
-
-
-BackendFactory = Callable[[], Backend]
-
-
-_BACKENDS: dict[str, BackendFactory] = {}
-
-
-def register_backend(name: str, factory: BackendFactory, *, overwrite: bool = False) -> None:
-    """Register a backend factory so it can be retrieved by name."""
-    normalized = name.lower()
-    if not overwrite and normalized in _BACKENDS:
-        raise ValueError(f"Backend '{name}' is already registered. Pass overwrite=True to replace it.")
-    _BACKENDS[normalized] = factory
-
-
-def _load_builtin_backend(name: str) -> Backend:
-    try:
-        module: ModuleType = import_module(f"aurora.core.backends.{name}_backend")
-    except ModuleNotFoundError as exc:  # pragma: no cover - lazy import path
-        raise BackendNotAvailableError(
-            f"Backend '{name}' is not available. Install optional dependencies and try again."
-        ) from exc
-    if not hasattr(module, "create_backend"):
-        raise BackendNotAvailableError(
-            f"Backend module 'aurora.core.backends.{name}_backend' does not expose create_backend()."
-        )
-    return module.create_backend()
-
-
-def get_backend(name: str = "jax") -> Backend:
-    """Retrieve a backend by name, loading built-ins on demand."""
-    normalized = name.lower()
-
-    if normalized not in _BACKENDS:
-        register_backend(normalized, lambda: _load_builtin_backend(normalized))
-
-    backend_factory = _BACKENDS[normalized]
-    backend = backend_factory()
-    return backend
-
-
-def available_backends() -> tuple[str, ...]:
-    """Return a tuple with the names of registered backends."""
-    builtins = ("jax", "pytorch")
-    return tuple(sorted(set(_BACKENDS) | set(builtins)))
-
-
-__all__ = ["Backend", "available_backends", "get_backend", "register_backend"]
+__all__ = [
+    # Protocol
+    "Backend",
+    "BackendFactory",
+    # Registry
+    "available_backends",
+    "get_backend",
+    "register_backend",
+    # Operations - Namespace
+    "get_namespace",
+    "to_backend_array",
+    "to_numpy",
+    # Operations - Linear algebra
+    "solve",
+    "cholesky",
+    "inv",
+    "det",
+    "slogdet",
+    "eigh",
+    "qr",
+    "lstsq",
+    # Operations - Array creation
+    "eye",
+    "zeros",
+    "ones",
+    # Operations - Array manipulation
+    "concatenate",
+    "stack",
+    "diag",
+    "trace",
+    "matmul",
+    "transpose",
+]

@@ -1,4 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """JAX numerical backend implementation."""
+
 from __future__ import annotations
 
 from functools import partial
@@ -19,7 +23,9 @@ class JAXBackend:
 
     def __init__(self) -> None:
         if jax is None or jnp is None:  # pragma: no cover - runtime check
-            raise BackendNotAvailableError("Install 'jax' and 'jaxlib' to enable the JAX backend.")
+            raise BackendNotAvailableError(
+                "Install 'jax' and 'jaxlib' to enable the JAX backend."
+            )
 
     def array(self, data: Any, dtype: Any | None = None):
         return jnp.array(data, dtype=dtype)
