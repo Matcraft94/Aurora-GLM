@@ -1,0 +1,15 @@
+Aurora-GLM is developed and maintained by:
+
+Lucy Eduardo Arias <mat.eduardo.arias@outlook.com> - Principal Author
+ORCID: https://orcid.org/0009-0003-1905-7138
+
+---
+
+Acknowledgments:
+- Inspired by R's mgcv package (Simon Wood)
+- Inspired by R's lme4 package (Bates et al.)
+- Inspired by Python's statsmodels
+- Inspired by the JAX ecosystem
+
+For a complete list of contributors, see:
+https://github.com/Matcraft94/Aurora-GLM/graphs/contributors

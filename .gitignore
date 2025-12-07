@@ -1,0 +1,98 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+*.pyd
+
+# Cython generated files
+*.c
+*.cpp
+*.html
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.hypothesis/
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+revn/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Environments
+.env
+.venv
+.r-libs
+
+# Pytest cache
+.pytest_cache/
+
+# Claude
+CLAUDE.md
+
+# Benchmark results
+benchmarks/results/
+*.json
+
+# Data files
+*.csv
+*.tsv
+
+# PDFs
+*.pdf

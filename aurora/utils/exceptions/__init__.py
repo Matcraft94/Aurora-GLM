@@ -1,4 +1,8 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Custom exception hierarchy for Aurora-GLM."""
+
 from __future__ import annotations
 
 
