@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Bayesian inference for GLM and GAM models.
 
 This module provides Bayesian fitting capabilities using probabilistic

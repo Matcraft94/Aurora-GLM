@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Student's t distribution family for robust GLM.
 
 This module implements the Student's t distribution for robust regression,

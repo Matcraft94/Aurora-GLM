@@ -9,7 +9,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.6.1-brightgreen.svg)](https://github.com/Matcraft94/Aurora-GLM)
+[![Version](https://img.shields.io/badge/version-0.7.0-brightgreen.svg)](https://github.com/Matcraft94/Aurora-GLM)
 [![Status](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/Matcraft94/Aurora-GLM)
 
 ## Project Identity
@@ -18,7 +18,7 @@
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.6.1
+- **Version**: 0.7.0
 - **Status**: Phase 5 (85% complete) - Extended distributions, temporal covariance, GPU acceleration
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
@@ -251,6 +251,97 @@ scores = cross_val_score(
 print(f"Mean deviance: {scores['deviance'].mean():.2f}")
 print(f"Mean pseudo R²: {scores['pseudo_r2'].mean():.3f}")
 ```
+
+## Case Studies and Examples
+
+Aurora-GLM includes **17 comprehensive case studies** covering diverse domains and real-world applications:
+
+### Available Case Studies
+
+**Finance & Insurance** (5 studies):
+- Insurance pricing (Gamma GLM)
+- Medical insurance costs prediction
+- Customer churn prediction (Binomial GLM)
+- Motor claims frequency (Poisson/Negative Binomial)
+- E-commerce conversion optimization (Binomial GAM)
+
+**Environmental & Ecological** (4 studies):
+- Air quality forecasting (Gaussian GAM)
+- Species distribution modeling (Binomial GAM)
+- Bike sharing demand prediction (GAM)
+- Traffic accident severity (GAMM)
+
+**Healthcare & Medicine** (5 studies):
+- Sleep study analysis (Random effects GAMM)
+- Clinical trials (Gaussian GLM)
+- Longitudinal clinical data (GAMM with AR1)
+- Psychometric measurement (GAMM with crossed effects)
+- Survival analysis (Cox models)
+
+**Education** (1 study):
+- Multilevel educational data (Nested GAMM)
+
+**Business & Retail** (2 studies):
+- Health inspection scoring (Beta GLM)
+
+Each case study is a self-contained Jupyter notebook with:
+- Problem statement and research questions
+- Data exploration and visualization
+- Model selection justification
+- Complete model fitting workflow
+- Results interpretation and diagnostics
+- Key findings and business implications
+
+**Getting started with examples:**
+
+```bash
+# Navigate to examples directory
+cd examples/06_case_studies
+
+# Start Jupyter and open any notebook
+jupyter notebook
+
+# Recommended learning path:
+# 1. 01_insurance_pricing.ipynb (Basic GLM)
+# 2. 02_air_quality_gam.ipynb (GAM with smooths)
+# 3. 04_sleep_study_gamm.ipynb (Random effects)
+# 4. 06_clinical_trial_longitudinal.ipynb (Temporal covariance)
+```
+
+See [examples/README.md](examples/README.md) for complete case study guide.
+
+## Recent Improvements (v0.7.0)
+
+### Code Quality Enhancements
+
+All 5 TODO items completed and fully tested:
+
+1. **Formula Parser Validation** - Prevents silent errors in R-style formulas
+   - Validates parenthesized terms require `|` for random effects
+   - Rejects empty parentheses
+   - Clear error messages for invalid syntax
+
+2. **Sparse EDF Computation** - Improved GAM smoothing parameter selection
+   - Hybrid exact/approximate approach
+   - Exact for small basis (n_basis ≤ 100), fast approximation for large
+   - More accurate GCV scores
+
+3. **GAMM Log-Likelihood & Model Comparison** - Enable AIC/BIC selection
+   - Proper log-likelihood computation for Gaussian GAMM
+   - AIC and BIC metrics for model comparison
+   - Critical for statistical inference
+
+4. **Memory-Mapped Streaming** - Handle datasets larger than RAM
+   - True streaming for .npy files via memory mapping
+   - Only chunks loaded into memory
+   - Maintains full backward compatibility
+
+5. **Data Loading Efficiency** - Production-ready ChunkedDataLoader
+   - Shuffling works correctly with streaming
+   - X and y remain aligned
+   - Fallback support for other formats (.npz, .csv)
+
+All implementations manually tested and verified for correctness.
 
 ## GAM API (Phase 3 - AVAILABLE NOW!)
 
@@ -1024,7 +1115,20 @@ Please ensure:
 
 ## Citation
 
-*Coming soon - research paper in preparation*
+If you use Aurora-GLM in your research, please cite it using the information in our [CITATION.cff](CITATION.cff) file, or use the following BibTeX entry:
+
+```bibtex
+@software{aurora_glm2025,
+  title = {Aurora-GLM: Generalized Linear and Additive Models},
+  author = {Arias, Lucy Eduardo},
+  year = {2025},
+  version = {0.7.0},
+  url = {https://github.com/Matcraft94/Aurora-GLM},
+  license = {MIT}
+}
+```
+
+GitHub users can use the "Cite this repository" button in the right sidebar to automatically generate citations in various formats.
 
 ## License
 
@@ -1043,7 +1147,7 @@ Special thanks to the open-source community for providing excellent tools and li
 ---
 
 **Status**: Phase 5 (85% complete) - Extended features, temporal covariance, GPU acceleration
-**Version**: 0.6.1
+**Version**: 0.7.0
 **Tests**: 494 tests collected (5,731 new lines added: benchmarks, Bayesian, count models, smoothing)
 **Python**: 3.10+
 **GPU**: Up to 141× speedup with PyTorch CUDA

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Additive GAM fitting with multiple smooth terms.
 
 This module implements multivariate Generalized Additive Models with

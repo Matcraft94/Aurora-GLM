@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Backend implementations for distributed computing.
 
 This module provides integration with distributed computing frameworks

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """LOESS (Locally Estimated Scatterplot Smoothing).
 
 LOESS (also known as LOWESS - Locally Weighted Scatterplot Smoothing) is a

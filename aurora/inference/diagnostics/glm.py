@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Residual and influence diagnostics for fitted GLMs."""
 
 from __future__ import annotations

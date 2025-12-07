@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Base abstractions shared by Aurora-GLM models.
 
 This module provides the unified result hierarchy for all model types:

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Utilities for chunked data loading.
 
 This module provides utilities for loading and iterating over

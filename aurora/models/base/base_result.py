@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Base result classes for Aurora-GLM models.
 
 This module defines the unified inheritance hierarchy for all model results:

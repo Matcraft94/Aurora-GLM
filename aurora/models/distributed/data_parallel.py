@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Data-parallel IRLS for distributed GLM fitting.
 
 This module provides data-parallel implementations of IRLS that

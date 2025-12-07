@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Generalized Additive Models (GAM) using Penalized Regression Splines.
 
 Mathematical Framework

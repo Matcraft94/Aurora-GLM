@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Zero-Inflated Negative Binomial (ZINB) Model.
 
 The Zero-Inflated Negative Binomial model handles count data with both

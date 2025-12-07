@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Abstract base classes for GLM distribution families and link functions.
 
 Mathematical Framework

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Tensor product smooths for modeling interactions between variables.
 
 Tensor product smooths allow for flexible modeling of interactions between

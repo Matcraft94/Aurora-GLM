@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Prediction utilities for fitted GLM models.
 
 This module provides functions for generating predictions from fitted GLM models,

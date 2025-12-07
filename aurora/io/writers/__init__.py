@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Result serialization and export utilities for Aurora-GLM.
 
 This module provides functions for saving model results and data to various formats.

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Gradient computation for scalar-valued functions.
 
 This module provides gradient computation across backends (NumPy, PyTorch, JAX).

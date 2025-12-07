@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Result classes for Bayesian inference.
 
 This module provides result objects that store posterior samples

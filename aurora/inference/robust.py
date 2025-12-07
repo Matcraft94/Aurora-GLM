@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Robust inference methods for GLM results.
 
 This module provides robust standard errors and confidence intervals that are

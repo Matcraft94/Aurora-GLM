@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Visualization tools for GAMM models.
 
 This module provides plotting functions for diagnosing and exploring

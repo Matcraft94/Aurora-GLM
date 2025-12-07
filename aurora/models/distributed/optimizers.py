@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Optimizers for mini-batch stochastic gradient descent.
 
 This module provides optimizer implementations for training GLMs

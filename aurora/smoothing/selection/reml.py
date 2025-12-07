@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """REML (Restricted Maximum Likelihood) for smoothing parameter selection.
 
 REML provides an alternative to GCV that is often more stable and

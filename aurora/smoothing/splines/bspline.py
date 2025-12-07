@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """B-Spline Basis Functions via Cox-de Boor Recursion.
 
 Mathematical Framework

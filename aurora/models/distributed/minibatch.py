@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Mini-batch stochastic gradient descent for GLM fitting.
 
 This module provides functions for fitting GLMs using mini-batch SGD,

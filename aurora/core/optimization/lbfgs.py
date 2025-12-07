@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Limited-Memory BFGS (L-BFGS) Quasi-Newton Optimization.
 
 Mathematical Framework

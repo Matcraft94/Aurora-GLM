@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Difference-based penalty matrices for spline smoothing.
 
 Difference penalties approximate integrated squared derivatives by penalizing

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 r"""Probability Distribution Families and Link Functions for Aurora-GLM.
 
 This module provides the mathematical foundation for Generalized Linear Models:

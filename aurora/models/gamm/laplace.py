@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Laplace Approximation for Generalized Linear Mixed Models.
 
 This module implements Laplace approximation for GLMMs, which provides

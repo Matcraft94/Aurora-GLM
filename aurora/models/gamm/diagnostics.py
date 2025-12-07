@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Diagnostic and interpretation utilities for GAMM models."""
 
 import numpy as np

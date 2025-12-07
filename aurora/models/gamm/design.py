@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Design matrix construction for random effects.
 
 This module provides functions to construct the random effects design

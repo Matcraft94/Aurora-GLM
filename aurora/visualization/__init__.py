@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Visualization helpers for Aurora-GLM models.
 
 This module provides a centralized interface to all plotting functions

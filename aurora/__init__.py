@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Aurora-GLM: A modular framework for generalized linear modeling.
 
 Aurora-GLM provides a unified interface for fitting:
@@ -191,4 +194,4 @@ __all__ = [
     "compare",
 ]
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"

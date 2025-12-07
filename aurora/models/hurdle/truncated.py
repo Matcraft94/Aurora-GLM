@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Truncated Count Distributions.
 
 Truncated distributions are used in hurdle models for modeling
