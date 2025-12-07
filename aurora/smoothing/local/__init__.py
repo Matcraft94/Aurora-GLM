@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Local regression smoothing methods.
 
 This module provides local regression methods including LOESS (Locally Estimated

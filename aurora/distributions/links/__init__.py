@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Standard link functions.
 
 Link functions map the mean μ to the linear predictor η = Xβ.

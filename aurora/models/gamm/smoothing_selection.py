@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Smoothing Parameter Selection for GAMM.
 
 This module implements methods for selecting smoothing parameters (λ) in

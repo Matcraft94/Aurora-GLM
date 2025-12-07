@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Model validation metrics and resampling strategies.
 
 This module provides comprehensive tools for model evaluation:

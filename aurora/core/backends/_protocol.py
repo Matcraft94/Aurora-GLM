@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Protocol definitions for Aurora backend abstraction layer.
 
 This module defines the interfaces that backend implementations must satisfy.

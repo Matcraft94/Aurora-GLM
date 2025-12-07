@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Hurdle Models for Count Data with Excess Zeros.
 
 Hurdle models are two-part models for count data where:

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Data ingestion interfaces for Aurora-GLM.
 
 This module provides functions for reading data from various formats

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """High-level interface for GAMM fitting.
 
 This module provides user-friendly functions for fitting GAMMs,

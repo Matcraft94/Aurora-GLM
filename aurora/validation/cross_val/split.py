@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Data splitting helpers for cross-validation."""
 
 from __future__ import annotations

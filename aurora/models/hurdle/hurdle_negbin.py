@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Hurdle Negative Binomial Model.
 
 The Hurdle Negative Binomial model combines:

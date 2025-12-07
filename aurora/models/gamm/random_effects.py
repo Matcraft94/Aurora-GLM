@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Random effects structures for GAMMs.
 
 This module provides dataclasses and utilities for specifying and working with

@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use Aurora-GLM in your research, please cite it as below."
+authors:
+  - family-names: Arias
+    given-names: Lucy Eduardo
+    email: mat.eduardo.arias@outlook.com
+    orcid: "https://orcid.org/0009-0003-1905-7138"
+title: "Aurora-GLM: Generalized Linear and Additive Models"
+version: 0.7.0
+date-released: 2025-12-06
+url: "https://github.com/Matcraft94/Aurora-GLM"
+repository-code: "https://github.com/Matcraft94/Aurora-GLM"
+license: MIT
+keywords:
+  - glm
+  - gam
+  - gamm
+  - statistics
+  - regression
+  - python
+  - generalized-linear-models
+  - additive-models
+  - mixed-models
+  - splines
+  - smoothing
+  - multi-backend
+  - pytorch
+  - jax
+  - numpy
+abstract: |
+  Aurora-GLM is a modular, extensible, and high-performance Python framework for
+  generalized linear models (GLM), generalized additive models (GAM), and generalized
+  additive mixed models (GAMM). It supports multiple distribution families, link functions,
+  smooth terms, random effects, and temporal covariance structures, with multi-backend
+  support for NumPy, PyTorch, and JAX.

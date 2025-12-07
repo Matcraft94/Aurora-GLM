@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Tweedie distribution family for zero-inflated continuous data.
 
 The Tweedie distribution is a member of the exponential dispersion family

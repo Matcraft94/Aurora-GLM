@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aurora-glm"
-version = "0.6.1"
+version = "0.7.0"
 description = "A modular, extensible, and high-performance Python framework for generalized linear models (GLM), generalized additive models (GAM), and generalized additive mixed models (GAMM)"
 authors = [{name = "Lucy E. Arias", email = "mat.eduardo.arias@outlook.com"}]
 readme = "README.md"

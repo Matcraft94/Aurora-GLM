@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Backend registry for Aurora's multi-backend architecture.
 
 This module manages the registration and retrieval of numerical backends.

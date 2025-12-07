@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Zero-Inflated Models for Count Data with Excess Zeros.
 
 This module provides Zero-Inflated Poisson (ZIP) and Zero-Inflated Negative

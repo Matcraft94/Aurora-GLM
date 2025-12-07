@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Negative Binomial distribution family for overdispersed count data.
 
 This module implements the Negative Binomial (NB2) distribution for modeling

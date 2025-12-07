@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """NumPyro backend for Bayesian inference.
 
 This module provides functions to build and sample from NumPyro models

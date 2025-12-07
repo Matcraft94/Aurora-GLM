@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Covariance structures for random effects.
 
 This module provides classes for different covariance parameterizations

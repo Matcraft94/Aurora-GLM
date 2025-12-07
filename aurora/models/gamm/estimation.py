@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """REML estimation for variance components in mixed models.
 
 This module implements Restricted Maximum Likelihood (REML) estimation

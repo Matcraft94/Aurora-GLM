@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """P-Splines: B-splines with Difference Penalty.
 
 P-Splines (Penalized B-splines) combine a large number of equally-spaced B-spline

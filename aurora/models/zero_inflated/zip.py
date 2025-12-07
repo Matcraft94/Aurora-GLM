@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Zero-Inflated Poisson (ZIP) Model.
 
 The Zero-Inflated Poisson model handles count data with excess zeros by

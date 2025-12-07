@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Beta distribution family implementation.
 
 The Beta distribution is suitable for modeling continuous proportions in (0, 1),

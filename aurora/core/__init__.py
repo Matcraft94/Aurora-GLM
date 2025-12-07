@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Core Numerical Primitives for Aurora-GLM.
 
 This module provides the foundational numerical operations and backend

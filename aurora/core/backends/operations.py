@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Backend-agnostic numerical operations for Aurora-GLM.
 
 This module provides unified interfaces for linear algebra and array operations

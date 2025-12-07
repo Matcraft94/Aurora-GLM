@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Linear algebra primitives with multi-backend support.
 
 This module provides backend-agnostic linear algebra operations

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Penalized Quasi-Likelihood (PQL) for Generalized Linear Mixed Models.
 
 This module implements PQL estimation for GLMMs, extending the Gaussian

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """High-Level Modeling Interface for Aurora-GLM.
 
 This module provides the main API for fitting Generalized Linear Models (GLM),

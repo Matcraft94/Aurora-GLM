@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Input validation decorators for Aurora-GLM.
 
 This module provides decorators for validating function inputs, reducing

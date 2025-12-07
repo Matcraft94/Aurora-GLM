@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Estimation Strategies for Smoothing and Mixed Models.
 
 This module provides various estimation methods for variance components

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """R-style formula parsing for GAM and GAMM models.
 
 This module provides a formula parser that supports syntax like:

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Prior specification classes for Bayesian inference.
 
 This module provides a flexible system for specifying priors on model

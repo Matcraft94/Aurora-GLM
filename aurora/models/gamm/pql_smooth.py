@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Penalized Quasi-Likelihood (PQL) with Smooth Terms for Non-Gaussian GAMM.
 
 This module extends PQL to support smooth functions in non-Gaussian GAMMs,

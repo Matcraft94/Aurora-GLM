@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Efficient matrix-vector products: HVP, JVP, VJP.
 
 These functions compute products without forming full matrices,

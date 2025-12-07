@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Generalized Cross-Validation (GCV) for smoothing parameter selection.
 
 GCV provides a computationally efficient approximation to leave-one-out

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Sensitivity analysis and influence diagnostics.
 
 This module provides tools for identifying influential observations

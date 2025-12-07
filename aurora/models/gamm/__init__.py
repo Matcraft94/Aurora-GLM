@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Generalized Additive Mixed Model routines."""
 
 from __future__ import annotations

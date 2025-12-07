@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Visualization tools for GAM smooth terms.
 
 This module provides plotting functions for visualizing fitted smooth

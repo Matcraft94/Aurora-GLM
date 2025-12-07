@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Inverse Gaussian (Wald) distribution family implementation.
 
 The Inverse Gaussian distribution is suitable for modeling positive continuous

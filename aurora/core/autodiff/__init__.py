@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Automatic differentiation helpers for Aurora-GLM.
 
 This module provides unified autodiff utilities across backends (NumPy, PyTorch, JAX),

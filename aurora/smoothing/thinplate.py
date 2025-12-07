@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Thin Plate Spline implementation for multidimensional smoothing.
 
 Thin plate splines provide a smooth interpolation/regression surface in

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Backend implementations for Bayesian inference.
 
 This module provides backends for different probabilistic programming

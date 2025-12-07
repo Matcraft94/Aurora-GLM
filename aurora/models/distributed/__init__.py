@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Lucy Eduardo Arias
+
 """Distributed and large-scale GLM fitting.
 
 This module provides tools for fitting GLMs on large datasets that
