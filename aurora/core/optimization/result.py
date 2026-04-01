@@ -24,6 +24,8 @@ class OptimizationResult:
     nfev: int = 0
     njev: int = 0
     nhev: int = 0
+    backtrack_iterations: int = 0
+    condition_number: float | None = None
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         status = "SUCCESS" if self.success else "FAILURE"
