@@ -4,7 +4,41 @@
 """Generalized Cross-Validation (GCV) for smoothing parameter selection.
 
 GCV provides a computationally efficient approximation to leave-one-out
-cross-validation without actually fitting n different models.
+cross-validation (LOO-CV) without actually fitting n different models.  It is
+the default method for selecting the smoothing parameter in penalized
+regression splines and GAMs.
+
+Mathematical Framework
+----------------------
+Given the penalized least-squares problem
+
+    min_beta  ||y - X beta||^2 + lambda * beta' S beta
+
+with hat matrix  H = X (X'WX + lambda S)^{-1} X'W  and effective degrees of
+freedom  edf = tr(H), the GCV score is
+
+    GCV(lambda) = n * RSS / (n - edf)^2
+
+where RSS = ||y - y_hat||^2_W is the weighted residual sum of squares.
+Minimizing GCV approximately minimizes the mean-squared prediction error.
+
+When to Use GCV vs. REML
+-------------------------
+* **GCV** -- fast, distribution-free, good for large samples; may undersmooth
+  slightly in small samples.
+* **REML** (see ``aurora.smoothing.selection.reml``) -- more stable for small
+  samples or multiple smoothing parameters; requires distributional assumptions.
+
+References
+----------
+Craven, P. & Wahba, G. (1978). Smoothing noisy data with spline functions.
+    *Numerische Mathematik*, 31, 377-403.
+Wood, S.N. (2017). *Generalized Additive Models: An Introduction with R*,
+    2nd ed. CRC Press. Section 4.5.
+
+See Also
+--------
+aurora.smoothing.selection.reml : REML-based smoothing parameter selection
 """
 
 from __future__ import annotations

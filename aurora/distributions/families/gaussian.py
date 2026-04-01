@@ -17,7 +17,46 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class GaussianFamily(Family):
-    """Gaussian family with optional variance parameter and link."""
+    """Gaussian (normal) distribution family for GLM.
+
+    The Gaussian family is the default for continuous response variables.
+    It uses the identity link function by default and has constant variance
+    V(mu) = variance.
+
+    Parameters
+    ----------
+    variance : float, default=1.0
+        Known variance parameter. Set to a known value for weighted least
+        squares; estimated from data when left at the default.
+    link : LinkFunction, optional
+        Link function. Defaults to IdentityLink(), which is the canonical
+        link for the Gaussian family.
+
+    Attributes
+    ----------
+    default_link : LinkFunction
+        The link function for this family (IdentityLink by default).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from aurora.distributions.families import GaussianFamily
+    >>> from aurora.models.glm import fit_glm
+    >>> family = GaussianFamily()
+    >>> mu = np.array([1.0, 2.0, 3.0])
+    >>> family.variance(mu)
+    array([1., 1., 1.])
+    >>> # Use with fit_glm
+    >>> X = np.random.randn(100, 2)
+    >>> y = X @ np.array([1.5, -0.5]) + np.random.randn(100)
+    >>> result = fit_glm(X, y, family=family)
+
+    See Also
+    --------
+    PoissonFamily : For count data.
+    GammaFamily : For positive continuous data.
+    BinomialFamily : For binary/proportion data.
+    """
 
     def __init__(self, variance: float = 1.0, link: LinkFunction | None = None) -> None:
         self._variance = variance

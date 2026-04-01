@@ -17,7 +17,33 @@ def mean_squared_error(
     sample_weight: Any | None = None,
     squared: bool = True,
 ) -> float:
-    """Return the (weighted) mean squared error between ``y_true`` and ``y_pred``."""
+    """Compute the (weighted) mean squared error between true and predicted values.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True target values. Supports NumPy arrays, PyTorch tensors, JAX arrays,
+        and any array-like object convertible to NumPy.
+    y_pred : array-like
+        Predicted values. Must have the same shape as ``y_true``.
+    sample_weight : array-like, optional
+        Sample weights. If provided, the weighted mean is computed.
+        Must be broadcastable to the shape of ``y_true``.
+    squared : bool, default=True
+        If True, return the mean squared error (MSE).
+        If False, return the root mean squared error (RMSE).
+
+    Returns
+    -------
+    float
+        The (weighted) mean squared error or its square root.
+
+    See Also
+    --------
+    root_mean_squared_error : Convenience wrapper always returning RMSE.
+    mean_absolute_error : Mean absolute error (less sensitive to outliers).
+    r_squared : Coefficient of determination.
+    """
 
     y_true_np = _to_numpy(y_true)
     y_pred_np = _to_numpy(y_pred)
@@ -37,7 +63,30 @@ def mean_absolute_error(
     *,
     sample_weight: Any | None = None,
 ) -> float:
-    """Return the (weighted) mean absolute error."""
+    """Compute the (weighted) mean absolute error between true and predicted values.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True target values. Supports NumPy arrays, PyTorch tensors, JAX arrays,
+        and any array-like object convertible to NumPy.
+    y_pred : array-like
+        Predicted values. Must have the same shape as ``y_true``.
+    sample_weight : array-like, optional
+        Sample weights. If provided, the weighted mean is computed.
+        Must be broadcastable to the shape of ``y_true``.
+
+    Returns
+    -------
+    float
+        The (weighted) mean absolute error.
+
+    See Also
+    --------
+    mean_squared_error : Mean squared error (more sensitive to outliers).
+    root_mean_squared_error : Root mean squared error.
+    r_squared : Coefficient of determination.
+    """
 
     y_true_np = _to_numpy(y_true)
     y_pred_np = _to_numpy(y_pred)
@@ -54,7 +103,30 @@ def root_mean_squared_error(
     *,
     sample_weight: Any | None = None,
 ) -> float:
-    """Convenience wrapper computing the square root of the mean squared error."""
+    """Compute the (weighted) root mean squared error.
+
+    This is equivalent to ``mean_squared_error(..., squared=False)``.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True target values.
+    y_pred : array-like
+        Predicted values. Must have the same shape as ``y_true``.
+    sample_weight : array-like, optional
+        Sample weights. If provided, the weighted RMSE is computed.
+
+    Returns
+    -------
+    float
+        The (weighted) root mean squared error.
+
+    See Also
+    --------
+    mean_squared_error : Mean squared error (optionally squared or not).
+    mean_absolute_error : Mean absolute error.
+    r_squared : Coefficient of determination.
+    """
 
     return mean_squared_error(
         y_true, y_pred, sample_weight=sample_weight, squared=False

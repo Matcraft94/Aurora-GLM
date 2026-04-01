@@ -1,7 +1,34 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Lucy Eduardo Arias
 
-"""Diagnostic and interpretation utilities for GAMM models."""
+"""Diagnostic and interpretation utilities for GAMM models.
+
+This module provides functions for interpreting variance components, computing
+goodness-of-fit measures, and creating diagnostic plots for fitted GAMM models.
+
+Functions
+---------
+interpret_variance_components
+    Produce a human-readable summary of random effect variance-covariance matrices.
+compute_r2_conditional_marginal
+    Compute marginal and conditional R-squared following Nakagawa & Schielzeth (2013).
+plot_diagnostics
+    Create a 2x2 panel of residual diagnostic plots.
+plot_random_effects
+    Visualize the distribution of random effects (caterpillar plots).
+
+References
+----------
+.. [1] Nakagawa, S., & Schielzeth, H. (2013). A general and simple method for
+   obtaining R2 from generalized linear mixed-effects models. Methods in Ecology
+   and Evolution, 4(2), 133-142.
+.. [2] Pinheiro & Bates (2000). Mixed-Effects Models in S and S-PLUS.
+
+See Also
+--------
+aurora.models.gamm.fitting : GAMM model fitting functions
+aurora.models.gamm.estimation : REML variance component estimation
+"""
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,17 +40,31 @@ def interpret_variance_components(
 ) -> str:
     """Interpret variance-covariance components of random effects.
 
+    Produces a human-readable summary of the estimated variance-covariance
+    matrices for each grouping variable, including standard deviations,
+    correlations, and qualitative interpretation of effect sizes.
+
     Parameters
     ----------
     variance_components : list of ndarray
-        List of variance-covariance matrices for each grouping variable.
+        List of variance-covariance matrices, one per grouping variable.
+        Each matrix has shape ``(q, q)`` where ``q`` is the number of
+        random effects for that grouping factor.
     group_names : list of str, optional
-        Names of grouping variables. If None, uses generic names.
+        Names of grouping variables corresponding to the entries in
+        ``variance_components``. If None, generic names
+        (``Group_1``, ``Group_2``, ...) are used.
 
     Returns
     -------
     interpretation : str
-        Human-readable interpretation of variance components.
+        Formatted multi-line string with variance, standard deviation,
+        covariance, and correlation estimates together with qualitative
+        interpretation (e.g., weak/strong correlation, compensatory effects).
+
+    See Also
+    --------
+    plot_random_effects : Visualize random effects distribution.
 
     Examples
     --------
@@ -144,27 +185,49 @@ def interpret_variance_components(
 def compute_r2_conditional_marginal(
     result,
 ) -> tuple[float, float]:
-    """Compute marginal and conditional R² for GAMM.
+    """Compute marginal and conditional R-squared for GAMM.
 
-    Based on Nakagawa & Schielzeth (2013) method for mixed models.
+    Implements the method of Nakagawa & Schielzeth (2013) for partitioning
+    variance explained in mixed models into fixed-effects-only (marginal)
+    and fixed-plus-random (conditional) components.
 
     Parameters
     ----------
     result : GAMMResult
-        Fitted GAMM result.
+        Fitted GAMM result. Must expose attributes ``_X_parametric``,
+        ``beta_parametric``, ``fitted_values``, ``residuals``,
+        ``residual_variance``, and ``variance_components``.
 
     Returns
     -------
     r2_marginal : float
-        R² marginal - variance explained by fixed effects only.
+        Proportion of total variance explained by fixed effects alone,
+        computed as ``var_fixed / var_total``.
     r2_conditional : float
-        R² conditional - variance explained by fixed + random effects.
+        Proportion of total variance explained by both fixed and random
+        effects, computed as ``(var_fixed + var_random) / var_total``.
+
+    Notes
+    -----
+    Total variance is decomposed as::
+
+        var_total = var_fixed + var_random + var_residual
+
+    where ``var_fixed`` is the variance of the fixed-effects predictions,
+    ``var_random`` is the mean trace of the variance-covariance components,
+    and ``var_residual`` is the residual variance from the fitted model.
+
+    For non-Gaussian families, these R-squared values are approximate.
 
     References
     ----------
-    Nakagawa, S., & Schielzeth, H. (2013). A general and simple method for
-    obtaining R2 from generalized linear mixed-effects models. Methods in
-    Ecology and Evolution, 4(2), 133-142.
+    .. [1] Nakagawa, S., & Schielzeth, H. (2013). A general and simple method for
+       obtaining R2 from generalized linear mixed-effects models. *Methods in
+       Ecology and Evolution*, 4(2), 133-142.
+
+    See Also
+    --------
+    interpret_variance_components : Textual summary of variance components.
 
     Examples
     --------
@@ -198,21 +261,41 @@ def compute_r2_conditional_marginal(
 
 
 def plot_diagnostics(result, figsize=(12, 10)):
-    """Create diagnostic plots for GAMM model.
+    """Create a 2x2 panel of diagnostic plots for a fitted GAMM model.
+
+    The four panels are:
+
+    1. **Residuals vs Fitted** -- checks for non-linearity and heteroscedasticity.
+       A blue spline smoother is overlaid to reveal systematic patterns.
+    2. **Normal Q-Q Plot** -- assesses normality of residuals.
+    3. **Scale-Location** -- plots sqrt(|residuals|) against fitted values to
+       detect heteroscedasticity. A red smoother is overlaid.
+    4. **Histogram of Residuals** -- visualises the residual distribution with
+       a theoretical normal density curve overlaid.
 
     Parameters
     ----------
     result : GAMMResult
-        Fitted GAMM result.
-    figsize : tuple, default=(12, 10)
-        Figure size (width, height).
+        Fitted GAMM result. Must expose ``fitted_values`` and ``residuals``
+        attributes.
+    figsize : tuple of float, default=(12, 10)
+        Figure size as ``(width, height)`` in inches.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        Figure with diagnostic plots.
-    axes : array of matplotlib.axes.Axes
-        Array of axes objects.
+        The created figure object.
+    axes : numpy.ndarray of matplotlib.axes.Axes
+        Array of shape ``(2, 2)`` containing the individual Axes.
+
+    Raises
+    ------
+    ImportError
+        If matplotlib or scipy is not installed.
+
+    See Also
+    --------
+    plot_random_effects : Caterpillar and correlation plots for random effects.
 
     Examples
     --------
@@ -306,23 +389,46 @@ def plot_diagnostics(result, figsize=(12, 10)):
 
 
 def plot_random_effects(result, group_name=None, figsize=(15, 5)):
-    """Visualize random effects distribution.
+    """Visualize random effects distribution with caterpillar and correlation plots.
+
+    For random-intercept-only models, produces a single sorted caterpillar
+    plot. For random intercept + slope models, produces a 1x3 panel:
+
+    1. **Caterpillar plot (intercepts)** -- random intercepts sorted by value.
+    2. **Caterpillar plot (slopes)** -- random slopes sorted by value.
+    3. **Intercept-slope scatter** -- scatter plot of intercepts vs slopes
+       with the estimated correlation annotated.
 
     Parameters
     ----------
     result : GAMMResult
-        Fitted GAMM result.
+        Fitted GAMM result. Must expose ``random_effects`` and
+        ``variance_components`` attributes.
     group_name : str, optional
-        Name of grouping variable to plot. If None, uses first group.
-    figsize : tuple, default=(15, 5)
-        Figure size (width, height).
+        Name of the grouping variable to plot. If None, the first grouping
+        variable in ``result.random_effects`` is used.
+    figsize : tuple of float, default=(15, 5)
+        Figure size as ``(width, height)`` in inches (only used when there
+        are two random effect components).
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        Figure with random effects plots.
-    axes : array of matplotlib.axes.Axes
-        Array of axes objects.
+        The created figure object.
+    axes : matplotlib.axes.Axes or numpy.ndarray of matplotlib.axes.Axes
+        A single Axes (1 component) or an array of 3 Axes (2 components).
+
+    Raises
+    ------
+    NotImplementedError
+        If the grouping variable has more than 2 random effect components.
+    ImportError
+        If matplotlib is not installed.
+
+    See Also
+    --------
+    interpret_variance_components : Textual summary of variance components.
+    plot_diagnostics : Residual diagnostic plots.
 
     Examples
     --------

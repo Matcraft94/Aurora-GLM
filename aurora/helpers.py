@@ -131,7 +131,22 @@ def summary(
 
 
 def _brief_summary(result: Any) -> str:
-    """Generate a one-line brief summary."""
+    """Generate a one-line brief summary of a model result.
+
+    Extracts key attributes (model type, number of observations,
+    convergence status, R-squared, log-likelihood, AIC) into a
+    compact ``TypeName(key=val, ...)`` string.
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result object.
+
+    Returns
+    -------
+    summary_str : str
+        One-line summary string.
+    """
     parts = []
 
     # Class name
@@ -172,7 +187,22 @@ def _brief_summary(result: Any) -> str:
 
 
 def _detailed_summary(result: Any) -> str:
-    """Generate detailed summary with diagnostics."""
+    """Generate detailed summary with diagnostics.
+
+    Produces the standard summary output followed by a Diagnostics
+    section containing residual quantiles, R-squared, adjusted
+    R-squared, AIC, and BIC (where available).
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result object with a ``.summary()`` method.
+
+    Returns
+    -------
+    summary_str : str
+        Multi-line detailed summary string.
+    """
     lines = []
 
     # Base summary
@@ -323,7 +353,23 @@ def plot(
 
 
 def _plot_residuals(result: Any, ax: Any = None, **kwargs) -> Any:
-    """Plot residuals vs fitted values."""
+    """Plot residuals vs fitted values.
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result with ``fitted_values`` and ``residuals``
+        attributes.
+    ax : matplotlib.axes.Axes, optional
+        Axes to draw on.  If ``None``, a new figure is created.
+    **kwargs
+        Additional keyword arguments forwarded to ``ax.scatter``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure containing the plot.
+    """
     import matplotlib.pyplot as plt
 
     if ax is None:
@@ -344,7 +390,23 @@ def _plot_residuals(result: Any, ax: Any = None, **kwargs) -> Any:
 
 
 def _plot_qq(result: Any, ax: Any = None, **kwargs) -> Any:
-    """Create Q-Q plot of residuals."""
+    """Create a normal Q-Q plot of standardized residuals.
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result with a ``residuals`` attribute.
+    ax : matplotlib.axes.Axes, optional
+        Axes to draw on.  If ``None``, a new figure is created.
+    **kwargs
+        Additional keyword arguments (currently unused, reserved for
+        future extensions).
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure containing the Q-Q plot.
+    """
     import matplotlib.pyplot as plt
     from scipy import stats
 
@@ -486,7 +548,21 @@ def compare(
 def _extract_comparison_metrics(
     results: tuple[Any, ...], criterion: str
 ) -> dict[str, list[float]]:
-    """Extract comparison metrics from results."""
+    """Extract comparison metrics from a sequence of model results.
+
+    Parameters
+    ----------
+    results : tuple of ModelResult
+        Fitted model result objects.
+    criterion : str
+        One of ``'aic'``, ``'bic'``, ``'loglik'``, or ``'all'``.
+
+    Returns
+    -------
+    metrics : dict[str, list[float]]
+        Dictionary mapping metric names (``'n_obs'``, ``'n_params'``,
+        plus the requested criteria) to lists of values, one per model.
+    """
     metrics: dict[str, list[float]] = {}
 
     # Always try to get n_obs and n_params
@@ -535,7 +611,22 @@ def _extract_comparison_metrics(
 
 
 def _get_aic(result: Any) -> float:
-    """Extract or compute AIC."""
+    """Extract or compute the Akaike Information Criterion (AIC).
+
+    If ``result.aic`` exists it is returned directly; otherwise AIC is
+    computed as ``-2 * loglik + 2 * k`` where ``k`` is the number of
+    parameters.
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result.
+
+    Returns
+    -------
+    aic : float
+        The AIC value, or ``np.nan`` if it cannot be computed.
+    """
     if hasattr(result, "aic"):
         return result.aic
 
@@ -555,7 +646,22 @@ def _get_aic(result: Any) -> float:
 
 
 def _get_bic(result: Any) -> float:
-    """Extract or compute BIC."""
+    """Extract or compute the Bayesian Information Criterion (BIC).
+
+    If ``result.bic`` exists it is returned directly; otherwise BIC is
+    computed as ``-2 * loglik + k * log(n)`` where ``k`` is the number
+    of parameters and ``n`` is the number of observations.
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result.
+
+    Returns
+    -------
+    bic : float
+        The BIC value, or ``np.nan`` if it cannot be computed.
+    """
     if hasattr(result, "bic"):
         return result.bic
 
@@ -582,7 +688,21 @@ def _get_bic(result: Any) -> float:
 
 
 def _get_loglik(result: Any) -> float:
-    """Extract log-likelihood."""
+    """Extract the log-likelihood from a model result.
+
+    Checks for ``log_likelihood_``, ``loglik``, or ``llf`` attributes
+    in order.
+
+    Parameters
+    ----------
+    result : ModelResult
+        A fitted model result.
+
+    Returns
+    -------
+    loglik : float
+        The log-likelihood value, or ``np.nan`` if unavailable.
+    """
     if hasattr(result, "log_likelihood_"):
         return result.log_likelihood_
     if hasattr(result, "loglik"):
@@ -595,7 +715,24 @@ def _get_loglik(result: Any) -> float:
 def _format_comparison_table(
     names: Sequence[str], metrics: dict[str, list[float]], criterion: str
 ) -> str:
-    """Format comparison table as string."""
+    """Format a model comparison table as a string.
+
+    Parameters
+    ----------
+    names : sequence of str
+        Display names for each model.
+    metrics : dict[str, list[float]]
+        Metric values keyed by metric name, each value being a list
+        of floats with one entry per model.
+    criterion : str
+        The primary criterion used for ranking (``'aic'``,
+        ``'bic'``, ``'loglik'``, or ``'all'``).
+
+    Returns
+    -------
+    table : str
+        A formatted multi-line comparison table.
+    """
     lines = []
     sep = "=" * 70
 

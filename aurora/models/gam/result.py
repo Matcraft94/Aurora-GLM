@@ -41,6 +41,37 @@ class GAMResult:
     All parameters are stored as attributes.
     n_obs_ : int
         Number of observations.
+
+    lambda_opt : float
+        Alias for ``lambda_`` (optimal smoothing parameter).
+
+    r_squared : float
+        Coefficient of determination (R-squared), where R-squared = 1 - rss /sum(tss) / tss
+
+**2, Note: R-squared is computed only from residualss and not residuals so the can be negative.
+
+    >>> # Predict at new points
+    >>> y_pred = result.predict(np.linspace(0, 2 * np.pi, 2))
+    >>> print(result.summary())
+    >>> # Using dict with named variables
+    >>> data = {
+    ...     'response': y,
+    ...     'temp': X[:, 0],
+    ...     'humidity': X[:, 1]
+    ... }
+    >>> result = fit_gam_formula("response ~ s(temp) + humidity", data)
+    >>> print(result.summary())
+
+    See Also
+    --------
+    AdditiveGAMResult : Additive GAM with multiple smooth terms.
+    fit_gam_formula : R-style formula interface.
+    fit_glm : GLM fitting function.
+
+    References
+    ----------
+    Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
+    CRC Press.
     """
 
     def __init__(

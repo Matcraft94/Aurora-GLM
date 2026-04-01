@@ -52,12 +52,10 @@ except ImportError:  # pragma: no cover - optional dependency
 class TweedieFamily(Family):
     """Tweedie distribution for zero-inflated positive continuous data.
 
-    The Tweedie distribution is a compound Poisson-Gamma distribution that
-    naturally handles data with:
-    - A point mass at zero (no events)
-    - Continuous positive values (sum of event magnitudes)
-
-    The variance function is: Var(Y) = φ × μ^p
+    A compound Poisson-Gamma distribution that naturally handles data with
+    a point mass at zero (no events) and continuous positive values (sum of
+    event magnitudes). The variance function is Var(Y) = phi * mu^p, where
+    the power parameter p controls the shape.
 
     Special cases based on power parameter p:
     - p = 0: Gaussian
@@ -69,26 +67,44 @@ class TweedieFamily(Family):
     Parameters
     ----------
     power : float, default=1.5
-        Variance power parameter p. For compound Poisson-Gamma, must be in (1, 2).
-        Common choices:
+        Variance power parameter p. For compound Poisson-Gamma, must be
+        in (1, 2). Common choices:
         - p = 1.5: Balanced, works well for many applications
         - p = 1.6-1.7: More right-skewed, common for insurance claims
         - p closer to 1: More mass at zero
         - p closer to 2: Less mass at zero, more Gamma-like
-
     link : str, default='log'
-        Link function: 'log' (default), 'identity', or 'power'
+        Link function: 'log' (default), 'identity', or 'power'.
+    phi : float, default=1.0
+        Dispersion parameter (scale).
+
+    Attributes
+    ----------
+    power : float
+        Variance power parameter in (1, 2).
+    phi : float
+        Dispersion (scale) parameter.
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.CompoundPoissonGammaFamily : Explicit compound
+        Poisson-Gamma alias for TweedieFamily
+    aurora.distributions.families.GammaFamily : Tweedie with power=2
+    aurora.distributions.families.InverseGaussianFamily : Tweedie with power=3
+    aurora.models.glm.fit_glm : Fit a GLM with this family
 
     Notes
     -----
     The Tweedie distribution can be viewed as:
-    - N ~ Poisson(λ) events occur
-    - Each event has magnitude X_i ~ Gamma(α, β)
+    - N ~ Poisson(lambda) events occur
+    - Each event has magnitude X_i ~ Gamma(alpha, beta)
     - Total Y = X_1 + ... + X_N
 
     This naturally creates exact zeros (N=0) and continuous positives (N>0).
 
-    The probability of zero is: P(Y=0) = exp(-λ)
+    The probability of zero is: P(Y=0) = exp(-lambda)
 
     Examples
     --------
@@ -103,8 +119,8 @@ class TweedieFamily(Family):
 
     References
     ----------
-    .. [1] Jørgensen (1987). Exponential dispersion models.
-    .. [2] Smyth & Jørgensen (2002). Fitting Tweedie's compound Poisson model.
+    .. [1] Jorgensen (1987). Exponential dispersion models.
+    .. [2] Smyth & Jorgensen (2002). Fitting Tweedie's compound Poisson model.
     """
 
     name = "tweedie"
@@ -534,20 +550,52 @@ class TweedieFamily(Family):
 
 
 class CompoundPoissonGammaFamily(TweedieFamily):
-    """Alias for Tweedie with explicit compound Poisson-Gamma interpretation.
+    """Compound Poisson-Gamma distribution, an alias for TweedieFamily.
 
-    This is identical to TweedieFamily but with more descriptive naming
-    for users familiar with the compound Poisson-Gamma formulation.
+    Identical to TweedieFamily but with more descriptive naming for users
+    familiar with the compound Poisson-Gamma formulation.
 
     The model assumes:
-    - N ~ Poisson(λ) events occur
-    - Each event has magnitude G_i ~ Gamma(α, β)
+    - N ~ Poisson(lambda) events occur
+    - Each event has magnitude G_i ~ Gamma(alpha, beta)
     - Total Y = G_1 + ... + G_N (or 0 if N=0)
 
     Parameters are related to Tweedie by:
-    - λ = μ^(2-p) / [φ(2-p)]  (Poisson rate)
-    - α = (2-p)/(p-1)  (Gamma shape)
-    - β = φ(p-1)μ^(p-1)  (Gamma rate)
+    - lambda = mu^(2-p) / [phi(2-p)]  (Poisson rate)
+    - alpha = (2-p)/(p-1)  (Gamma shape)
+    - beta = phi(p-1)mu^(p-1)  (Gamma rate)
+
+    Parameters
+    ----------
+    power : float, default=1.5
+        Variance power parameter p. Must be in (1, 2).
+    link : str, default='log'
+        Link function name.
+    phi : float, default=1.0
+        Dispersion parameter (scale).
+
+    Attributes
+    ----------
+    power : float
+        Variance power parameter in (1, 2).
+    phi : float
+        Dispersion (scale) parameter.
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.TweedieFamily : Parent class with identical behavior
+
+    Examples
+    --------
+    >>> from aurora.distributions.families import CompoundPoissonGammaFamily
+    >>> family = CompoundPoissonGammaFamily(power=1.5, phi=1.0)
+    >>> mu = np.array([1.0, 2.0, 3.0])
+    >>> family.get_poisson_rate(mu)       # lambda
+    array([...])
+    >>> family.get_gamma_shape()           # alpha
+    1.0
     """
 
     name = "compound_poisson_gamma"

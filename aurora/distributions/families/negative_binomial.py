@@ -48,38 +48,47 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class NegativeBinomialFamily(Family):
-    """Negative Binomial distribution for overdispersed count data.
+    """Negative Binomial (NB2) distribution for overdispersed count data.
 
-    The Negative Binomial (NB2 parameterization) models count data where
-    the variance exceeds the mean: Var(Y) = μ + μ²/θ
-
-    This is an extension of Poisson regression for overdispersed data,
-    commonly arising from:
-    - Unobserved heterogeneity
-    - Clustered/hierarchical data
-    - Temporal/spatial correlation
+    Models count data where the variance exceeds the mean:
+    Var(Y) = mu + mu^2 / theta. This is an extension of Poisson regression
+    for overdispersed data, commonly arising from unobserved heterogeneity,
+    clustered or hierarchical data, and temporal or spatial correlation.
 
     Parameters
     ----------
     theta : float or str, default=1.0
         Dispersion parameter (also called 'size' or 'k').
-        - theta → ∞: Converges to Poisson
+        - theta -> inf: Converges to Poisson
         - theta small: High overdispersion
         - 'estimate': Estimate from data during fitting
-
     link : str, default='log'
-        Link function: 'log' (default), 'identity', or 'sqrt'
+        Link function: 'log' (default), 'identity', or 'sqrt'.
+
+    Attributes
+    ----------
+    theta : float
+        Dispersion parameter (accessed via property; raises ValueError
+        if not yet estimated when theta='estimate' was specified).
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.PoissonFamily : Poisson for equidispersed counts
+    aurora.distributions.families.ZeroInflatedPoisson : ZIP for excess zeros
+    aurora.models.glm.fit_glm : Fit a GLM with this family
 
     Notes
     -----
     The NB2 parameterization is used:
-        P(Y=y) = Γ(y+θ) / [Γ(θ)y!] × (θ/(θ+μ))^θ × (μ/(θ+μ))^y
+        P(Y=y) = Gamma(y+theta) / [Gamma(theta) y!] x (theta/(theta+mu))^theta x (mu/(theta+mu))^y
 
     Properties:
-        E[Y] = μ
-        Var(Y) = μ + μ²/θ
+        E[Y] = mu
+        Var(Y) = mu + mu^2 / theta
 
-    The negative binomial is a member of the exponential family when θ is fixed.
+    The negative binomial is a member of the exponential family when theta is fixed.
 
     Examples
     --------
@@ -88,7 +97,7 @@ class NegativeBinomialFamily(Family):
     >>> result = fit_glm(X, y, family='negativebinomial',
     ...                  family_params={'theta': 2.0})
 
-    >>> # Estimate dispersion
+    >>> # Estimate dispersion from data
     >>> result = fit_glm(X, y, family='negativebinomial',
     ...                  family_params={'theta': 'estimate'})
 

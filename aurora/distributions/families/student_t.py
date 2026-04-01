@@ -36,29 +36,45 @@ if TYPE_CHECKING:
 class StudentTFamily(Family):
     """Student's t distribution family for robust regression.
 
-    The Student's t distribution provides robust regression that is less
-    sensitive to outliers compared to Gaussian regression. The degree of
-    robustness is controlled by the degrees of freedom parameter.
+    Provides robust regression that is less sensitive to outliers compared
+    to Gaussian regression. The degree of robustness is controlled by the
+    degrees of freedom parameter -- lower values produce heavier tails and
+    greater downweighting of extreme observations.
 
     Parameters
     ----------
     df : float, default=5.0
-        Degrees of freedom (ν). Controls tail heaviness:
+        Degrees of freedom (nu). Controls tail heaviness:
         - df=1: Cauchy distribution (very heavy tails, no moments)
         - df=3-5: Heavy tails, robust to outliers
         - df=10: Moderate tails
-        - df→∞: Converges to Gaussian
-
+        - df -> inf: Converges to Gaussian
     link : str, default='identity'
-        Link function: 'identity' or 'log' (for positive responses)
+        Link function: 'identity' or 'log' (for positive responses).
+
+    Attributes
+    ----------
+    df : float
+        Degrees of freedom parameter controlling tail heaviness.
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.CauchyFamily : Special case with df=1
+    aurora.distributions.families.GaussianFamily : Limiting case as df -> inf
+    aurora.models.glm.fit_glm : Fit a GLM with this family
 
     Notes
     -----
     The t-distribution is NOT in the exponential family, so standard
     IRLS does not apply directly. We use iteratively reweighted least
-    squares with adaptive weights that downweight outliers.
+    squares with adaptive weights that downweight outliers:
+        w_i = (nu + 1) / (nu + z_i^2)
 
-    The variance is ν/(ν-2) for ν > 2. For ν ≤ 2, variance is infinite.
+    where z_i = (y_i - mu_i) / sigma is the standardized residual.
+
+    The variance is nu / (nu - 2) for nu > 2. For nu <= 2, variance is infinite.
 
     Examples
     --------
@@ -348,8 +364,23 @@ class CauchyFamily(StudentTFamily):
 
     The Cauchy distribution has extremely heavy tails and no finite moments.
     It is maximally robust to outliers but may have convergence issues.
+    Use with caution -- suitable only when extreme robustness is needed.
 
-    Use with caution - suitable only when extreme robustness is needed.
+    Parameters
+    ----------
+    link : str, default='identity'
+        Link function: 'identity' or 'log'.
+
+    Attributes
+    ----------
+    df : float
+        Fixed at 1.0 for Cauchy.
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.StudentTFamily : General t-distribution family
 
     Examples
     --------

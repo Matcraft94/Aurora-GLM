@@ -109,7 +109,7 @@ all = [
 [project.urls]
 Homepage = "https://github.com/Matcraft94/Aurora-GLM"
 Repository = "https://github.com/Matcraft94/Aurora-GLM"
-Documentation = "https://github.com/Matcraft94/Aurora-GLM"
+Documentation = "https://matcraft94.github.io/Aurora-GLM"
 
 [tool.setuptools]
 include-package-data = true

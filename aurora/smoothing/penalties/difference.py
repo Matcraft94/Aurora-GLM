@@ -3,9 +3,44 @@
 
 """Difference-based penalty matrices for spline smoothing.
 
-Difference penalties approximate integrated squared derivatives by penalizing
-differences in adjacent coefficients. They are computationally efficient and
-work well with B-spline bases.
+Difference penalties approximate integrated squared derivatives by penalising
+finite differences of adjacent B-spline coefficients.  They are computationally
+efficient (O(K) construction for K basis functions), yield sparse banded
+matrices, and are the standard choice for P-splines and penalised GAMs.
+
+Mathematical Background
+-----------------------
+For a spline with coefficients beta = (beta_0, ..., beta_{K-1}) the m-th order
+difference operator produces
+
+    D_m beta  =  [sum_{j=0}^{m} (-1)^j C(m,j) beta_{i+j}]_{i=0}^{K-m-1}
+
+and the corresponding penalty matrix is  S = D_m' D_m  so that
+beta' S beta = ||D_m beta||^2 approximates  integral [f^{(m)}(x)]^2 dx  for
+equally-spaced knots.
+
+Available Penalties
+-------------------
+* ``difference_penalty`` -- standard m-th order difference penalty (S = D'D)
+* ``weighted_difference_penalty`` -- accounts for non-uniform knot spacing
+* ``ridge_penalty`` -- L2 shrinkage (identity matrix, optionally excluding
+  the intercept)
+* ``null_space_penalty`` -- difference penalty whose null space has a
+  user-specified dimension
+* ``combine_penalties`` -- weighted sum of multiple penalty matrices
+
+References
+----------
+Eilers, P.H.C. & Marx, B.D. (1996). Flexible smoothing with B-splines and
+    penalties. *Statistical Science*, 11(2), 89-121.
+Wood, S.N. (2017). *Generalized Additive Models: An Introduction with R*,
+    2nd ed. CRC Press. Chapter 4.
+
+See Also
+--------
+aurora.smoothing.splines.bspline : B-spline basis that uses these penalties
+aurora.smoothing.splines.pspline : P-splines combining B-splines with
+    difference penalties
 """
 
 from __future__ import annotations
@@ -108,6 +143,13 @@ def weighted_difference_penalty(
     where h_i = knots[i+1] - knots[i]
 
     This gives better approximation to ∫[f''(x)]² dx for irregular knots.
+
+    Examples
+    --------
+    >>> knots = np.array([0.0, 0.3, 0.7, 1.0, 1.5, 2.0])
+    >>> S = weighted_difference_penalty(5, knots, order=2)
+    >>> S.shape
+    (5, 5)
     """
     if n_basis < 1:
         raise ValueError("n_basis must be positive")
@@ -169,6 +211,15 @@ def ridge_penalty(n_basis: int, exclude_intercept: bool = True) -> np.ndarray:
     -----
     Ridge penalty is rarely used for smoothing in GAMs, but can be useful
     for regularization or in hierarchical models.
+
+    Examples
+    --------
+    >>> S = ridge_penalty(4, exclude_intercept=True)
+    >>> S
+    array([[0., 0., 0., 0.],
+           [0., 1., 0., 0.],
+           [0., 0., 1., 0.],
+           [0., 0., 0., 1.]])
     """
     if n_basis < 1:
         raise ValueError("n_basis must be positive")
@@ -208,6 +259,14 @@ def null_space_penalty(
     -----
     This is equivalent to a difference penalty of order = null_space_dim.
     For GAMs, typically want null_space_dim = 2 (don't penalize constant/linear).
+
+    Examples
+    --------
+    >>> S = null_space_penalty(6, null_space_dim=2)
+    >>> # Constant and linear coefficients have zero penalty
+    >>> beta_linear = np.array([3.0, 3.0, 3.0, 3.0, 3.0, 3.0])
+    >>> float(beta_linear @ S @ beta_linear) < 1e-10
+    True
     """
     if n_basis < 1:
         raise ValueError("n_basis must be positive")

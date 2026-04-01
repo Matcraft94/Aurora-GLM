@@ -23,7 +23,42 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class PoissonFamily(Family):
-    """Poisson distribution family."""
+    """Poisson distribution family for count data.
+
+    The Poisson family models count response variables where the variance
+    equals the mean: V(mu) = mu. The canonical link is the log function.
+
+    Parameters
+    ----------
+    link : LinkFunction, optional
+        Link function. Defaults to LogLink(), which is the canonical link
+        for the Poisson family.
+
+    Attributes
+    ----------
+    default_link : LinkFunction
+        The link function for this family (LogLink by default).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from aurora.distributions.families import PoissonFamily
+    >>> from aurora.models.glm import fit_glm
+    >>> family = PoissonFamily()
+    >>> mu = np.array([1.0, 2.0, 5.0])
+    >>> family.variance(mu)  # V(mu) = mu
+    array([1., 2., 5.])
+    >>> # Use with fit_glm
+    >>> X = np.random.randn(200, 2)
+    >>> y = np.random.poisson(np.exp(X @ np.array([0.5, -0.3])))
+    >>> result = fit_glm(X, y, family=family)
+
+    See Also
+    --------
+    GaussianFamily : For continuous data.
+    NegativeBinomialFamily : For overdispersed count data.
+    BinomialFamily : For binary/proportion data.
+    """
 
     def __init__(self, link: LinkFunction | None = None) -> None:
         self._link = link or LogLink()

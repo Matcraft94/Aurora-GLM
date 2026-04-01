@@ -50,7 +50,48 @@ __all__ = ["ModelResult"]
 
 @dataclass
 class GLMResult:
-    """Structured container describing the outcome of a GLM fit."""
+    """Structured container describing the outcome of a GLM fit.
+
+    The Attributes
+    ----------
+    coef_ : Array
+        Fitted coefficients (excluding intercept if present).
+    intercept_ : float or optional
+        Fitted intercept. None when fit_intercept=False.
+    family : Family
+        Distribution family instance.
+    link : LinkFunction
+        Link function instance.
+    mu_ : Array
+        Fitted mean values.
+    eta_ : Array
+        Fitted linear predictor values.
+    deviance_ : float
+        Model deviance.
+    null_deviance_ : float
+        Null model deviance (intercept-only model).
+    aic_ : float
+        Akaike Information Criterion.
+    bic_ : float
+        Bayesian Information Criterion.
+    n_iter_ : int
+        Number of IRLS iterations.
+    converged_ : bool
+        Whether fitting converged.
+    std_errors_ : Array
+        Standard errors for fitted coefficients (computed on demand).
+    p_values_ : Array
+        Wald p-values for fitted coefficients (computed on demand).
+    coef_cov : : Array
+        Covariance matrix of fitted coefficients (computed on demand).
+    intercept_std_error_ : float, optional
+        Standard error of the intercept (computed on demand).
+    intercept_p_value_ : float, optional
+        Wald p-value for the intercept (computed on demand).
+    diagnostics_ : : GLMDiagnosticResult
+        Residual and influence diagnostics (computed on demand).
+
+    """
 
     coef_: Array
     intercept_: float | None

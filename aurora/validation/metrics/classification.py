@@ -1,7 +1,29 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Lucy Eduardo Arias
 
-"""Classification-oriented evaluation metrics."""
+"""Classification-oriented evaluation metrics.
+
+This module provides standard metrics for evaluating binary and
+multi-class classification models, including accuracy, log-loss,
+Brier score, concordance index (AUC-ROC), precision, recall, F1,
+and confusion matrices.
+
+All public functions accept NumPy arrays, PyTorch tensors, or any
+array-like input.  Sample weights are supported where applicable.
+
+Examples
+--------
+>>> from aurora.validation.metrics.classification import accuracy_score, log_loss
+>>> import numpy as np
+>>> y_true = np.array([0, 1, 1, 0, 1])
+>>> y_pred = np.array([0, 1, 0, 0, 1])
+>>> accuracy_score(y_true, y_pred)
+0.8
+
+See Also
+--------
+aurora.validation.metrics : Top-level metrics interface.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +39,52 @@ def accuracy_score(
     sample_weight: Any | None = None,
     normalize: bool = True,
 ) -> float:
-    """Compute classification accuracy, optionally weighted."""
+    """Compute classification accuracy, optionally weighted.
+
+    Accuracy is the fraction of correct predictions among the total
+    number of cases evaluated.
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True labels.
+    y_pred : array-like of shape (n_samples,)
+        Predicted labels.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights.  If provided, the weighted fraction of correct
+        predictions is returned when ``normalize=True``.
+    normalize : bool, default=True
+        If True, return the (weighted) fraction of correctly classified
+        samples.  If False, return the (weighted) count of correctly
+        classified samples.
+
+    Returns
+    -------
+    accuracy : float
+        If ``normalize=True``, a value in [0, 1].  Otherwise the
+        (weighted) count of correct predictions.
+
+    Raises
+    ------
+    ValueError
+        If ``y_true`` and ``y_pred`` have different shapes, or if
+        ``sample_weight`` sums to zero or less.
+
+    Examples
+    --------
+    >>> y_true = np.array([0, 1, 1, 0, 1])
+    >>> y_pred = np.array([0, 1, 0, 0, 1])
+    >>> accuracy_score(y_true, y_pred)
+    0.8
+    >>> accuracy_score(y_true, y_pred, normalize=False)
+    4.0
+
+    See Also
+    --------
+    confusion_matrix : Full confusion matrix for binary labels.
+    precision : Positive predictive value.
+    recall : True positive rate (sensitivity).
+    """
 
     true = _to_numpy(y_true)
     pred = _to_numpy(y_pred)
@@ -40,7 +107,51 @@ def log_loss(
     eps: float = 1e-15,
     sample_weight: Any | None = None,
 ) -> float:
-    """Compute the negative log-likelihood for probabilistic predictions."""
+    """Compute the negative log-likelihood (log-loss) for probabilistic predictions.
+
+    Log-loss measures the divergence between predicted probabilities
+    and the true labels.  Lower values indicate better calibrated
+    predictions.
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True labels.  For binary classification, labels should be 0/1.
+        For multi-class, integer labels in ``[0, n_classes)``.
+    y_prob : array-like
+        Predicted probabilities.  Shape must be either ``(n_samples,)``
+        for binary classification or ``(n_samples, n_classes)`` for
+        multi-class classification.
+    eps : float, default=1e-15
+        Clipping threshold for predicted probabilities to avoid
+        ``log(0)``.
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights.
+
+    Returns
+    -------
+    loss : float
+        The (weighted) average log-loss.
+
+    Raises
+    ------
+    ValueError
+        If ``y_true`` is not one-dimensional, ``y_prob`` has an
+        unexpected shape, probability rows do not sum to 1, or labels
+        are out of range.
+
+    Examples
+    --------
+    >>> y_true = np.array([1, 0, 1])
+    >>> y_prob = np.array([0.9, 0.1, 0.8])
+    >>> log_loss(y_true, y_prob)
+    0.164252033486...
+
+    See Also
+    --------
+    brier_score_loss : Brier score for binary probabilistic predictions.
+    accuracy_score : Classification accuracy.
+    """
 
     true = _to_numpy(y_true)
     prob = _to_numpy(y_prob)
@@ -76,7 +187,48 @@ def brier_score_loss(
     *,
     sample_weight: Any | None = None,
 ) -> float:
-    """Compute the Brier score for probabilistic binary predictions."""
+    """Compute the Brier score for probabilistic binary predictions.
+
+    The Brier score is the mean squared difference between the
+    predicted probabilities and the true binary labels.
+
+    .. math::
+
+        \\text{BS} = \\frac{1}{n} \\sum_{i=1}^{n} (y_i - p_i)^2
+
+    Lower values indicate better calibration and sharpness.
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        True binary labels (must contain exactly the values 0 and 1).
+    y_prob : array-like of shape (n_samples,)
+        Predicted probabilities for the positive class, in [0, 1].
+    sample_weight : array-like of shape (n_samples,), optional
+        Sample weights.
+
+    Returns
+    -------
+    score : float
+        The (weighted) mean Brier score.  Ranges from 0.0 (perfect)
+        to 1.0 (worst).
+
+    Raises
+    ------
+    ValueError
+        If ``y_prob`` is not one-dimensional or labels are not binary.
+
+    Examples
+    --------
+    >>> y_true = np.array([1, 0, 1, 1])
+    >>> y_prob = np.array([0.9, 0.2, 0.8, 0.7])
+    >>> brier_score_loss(y_true, y_prob)
+    0.045000...
+
+    See Also
+    --------
+    log_loss : Negative log-likelihood loss.
+    """
 
     true = _to_numpy(y_true)
     prob = _to_numpy(y_prob)

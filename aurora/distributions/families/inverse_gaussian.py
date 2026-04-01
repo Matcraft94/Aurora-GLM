@@ -67,13 +67,12 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class InverseGaussianFamily(Family):
-    """Inverse Gaussian (Wald) distribution for positive durations.
+    """Inverse Gaussian (Wald) distribution for positive continuous data.
 
-    Suitable for modeling:
-    - Time-to-event data (failure times)
-    - Reaction times
-    - Right-skewed positive continuous data
-    - Insurance claim amounts
+    Suitable for modeling time-to-event data (failure times), reaction times,
+    right-skewed positive continuous data, and insurance claim amounts. The
+    distribution arises naturally as the first passage time of Brownian motion
+    with positive drift.
 
     Parameters
     ----------
@@ -82,7 +81,6 @@ class InverseGaussianFamily(Family):
         - lambda large: Low variance, concentrated
         - lambda small: High variance, dispersed
         - 'estimate': Estimate from data via method-of-moments
-
     link : LinkFunction or None, default=None
         Link function. If None, uses InverseSquareLink (canonical).
         Common alternatives: LogLink, InverseLink, IdentityLink.
@@ -91,6 +89,14 @@ class InverseGaussianFamily(Family):
     ----------
     lambda_ : float or str
         Shape parameter or 'estimate' for automatic estimation.
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.GammaFamily : Gamma for positive continuous data
+    aurora.distributions.families.TweedieFamily : Tweedie with power=3 is inverse Gaussian
+    aurora.distributions.links.InverseSquareLink : Canonical link for inverse Gaussian
 
     Examples
     --------
@@ -101,7 +107,7 @@ class InverseGaussianFamily(Family):
     >>> # Basic usage with canonical link
     >>> family = InverseGaussianFamily(lambda_=2.0)
     >>> mu = np.array([1.0, 2.0, 3.0])
-    >>> family.variance(mu)  # μ³
+    >>> family.variance(mu)  # V(mu) = mu^3
     array([ 1.,  8., 27.])
 
     >>> # With log link (more common in practice)
@@ -109,7 +115,7 @@ class InverseGaussianFamily(Family):
 
     Notes
     -----
-    The variance function is V(μ) = μ³, which means variance increases
+    The variance function is V(mu) = mu^3, which means variance increases
     rapidly with the mean. This makes the inverse Gaussian suitable for
     data where larger values are more variable.
 

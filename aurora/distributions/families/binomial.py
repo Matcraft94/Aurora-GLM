@@ -53,7 +53,47 @@ def _safe_log(value, xp, eps: float = 1e-12):
 
 
 class BinomialFamily(Family):
-    """Binomial family with optional trials parameter ``n`` and link."""
+    """Binomial distribution family for binary and proportion data.
+
+    The Binomial family models binary outcomes or proportions. For binary
+    data (0/1), use n=1 (default). For grouped binomial data, set n to
+    the number of trials. The variance function is V(mu) = n * mu * (1 - mu/n).
+
+    Parameters
+    ----------
+    n : float, default=1.0
+        Number of trials. Use 1.0 for binary (Bernoulli) data. For grouped
+        binomial responses, set to the number of trials per observation.
+    link : LinkFunction, optional
+        Link function. Defaults to LogitLink(), which is the canonical link
+        for the Binomial family. Alternatives include ProbitLink and CLogLogLink.
+
+    Attributes
+    ----------
+    default_link : LinkFunction
+        The link function for this family (LogitLink by default).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from aurora.distributions.families import BinomialFamily
+    >>> from aurora.models.glm import fit_glm
+    >>> family = BinomialFamily()
+    >>> mu = np.array([0.2, 0.5, 0.8])
+    >>> family.variance(mu)  # V(mu) = mu * (1 - mu)
+    array([0.16, 0.25, 0.16])
+    >>> # Use with fit_glm for logistic regression
+    >>> X = np.random.randn(200, 2)
+    >>> p = 1.0 / (1.0 + np.exp(-(X @ np.array([1.0, -0.5])))
+    >>> y = np.random.binomial(1, p)
+    >>> result = fit_glm(X, y, family=family)
+
+    See Also
+    --------
+    GaussianFamily : For continuous data.
+    PoissonFamily : For count data.
+    BetaFamily : For continuous proportions in (0, 1).
+    """
 
     def __init__(self, n: float = 1.0, link: LinkFunction | None = None) -> None:
         self._n = n

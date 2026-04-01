@@ -355,7 +355,81 @@ def lbfgs(
     line_search: str = "strong-wolfe",
     callback: OptimizationCallback | None = None,
 ) -> OptimizationResult:
-    """L-BFGS (Limited-memory BFGS) optimization."""
+    """Run L-BFGS (Limited-memory BFGS) quasi-Newton optimization.
+
+    L-BFGS is a quasi-Newton method that approximates Newton's method
+    without explicitly forming or storing the full Hessian matrix.  It
+    uses the two-loop recursion algorithm to compute the search direction
+    from the ``m`` most recent curvature pairs ``(s, y)`` and supports
+    multi-backend computation (NumPy, PyTorch, and JAX).
+
+    Automatic differentiation is used when available (PyTorch / JAX);
+    otherwise, central finite differences are used for gradient
+    computation.
+
+    Parameters
+    ----------
+    loss_fn : callable
+        Objective function to minimise.  Must accept the parameter vector
+        as its first argument and return a scalar.
+    init_params : array-like of shape (p,)
+        Initial parameter values.
+    backend : object, optional
+        Computational backend (NumPy, PyTorch, or JAX).  If ``None``,
+        defaults to the JAX backend.
+    args : tuple, default=()
+        Additional positional arguments forwarded to ``loss_fn``.
+    kwargs : dict, optional
+        Additional keyword arguments forwarded to ``loss_fn``.
+    max_iter : int, default=100
+        Maximum number of L-BFGS iterations.
+    tol : float, default=1e-6
+        Convergence tolerance on the gradient norm.  The algorithm
+        stops when ``||grad|| < tol``.
+    m : int, default=10
+        Number of past curvature correction pairs ``(s, y)`` to store.
+        Larger values give a better Hessian approximation at the cost
+        of more memory (``O(m * p)``).
+    line_search : {'strong-wolfe', 'backtracking'}, default='strong-wolfe'
+        Line search method.  ``'strong-wolfe'`` satisfies the Armijo
+        and curvature conditions (recommended for quasi-Newton methods).
+        ``'backtracking'`` uses a simpler Armijo-only backtracking search.
+    callback : callable, optional
+        Function called after each iteration with signature
+        ``(iteration, params, loss_value)``.
+
+    Returns
+    -------
+    OptimizationResult
+        Optimisation result containing:
+
+        - ``x`` : final parameter vector
+        - ``fun`` : final objective value
+        - ``grad`` : final gradient vector
+        - ``success`` : whether convergence was achieved
+        - ``nit`` : number of iterations performed
+        - ``nfev`` : number of function evaluations
+        - ``njev`` : number of gradient evaluations
+        - ``message`` : human-readable status message
+
+    Notes
+    -----
+    The algorithm maintains positive definiteness of the inverse Hessian
+    approximation by discarding curvature pairs that violate the
+    curvature condition ``y^T s > 0``.
+
+    Examples
+    --------
+    >>> from aurora.core.optimization import lbfgs
+    >>> result = lbfgs(lambda x: ((x - 3) ** 2).sum(), np.zeros(5))
+    >>> result.x  # Should be close to [3, 3, 3, 3, 3]
+
+    See Also
+    --------
+    newton_raphson : Classical Newton-Raphson method.
+    modified_newton : Newton-Raphson with Levenberg-Marquardt regularisation.
+    irls : IRLS for GLMs (preferred for canonical-link models).
+    """
 
     kwargs = kwargs or {}
 

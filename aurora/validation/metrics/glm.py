@@ -16,7 +16,36 @@ from ...models.base import GLMResult
 
 
 def generalized_deviance(y_true: Any, mu_pred: Any, family: Family) -> float:
-    """Compute the generalized deviance for predictions under a GLM family."""
+    """Compute the generalized deviance for predictions under a GLM family.
+
+    The deviance measures the goodness of fit of a generalized linear model,
+    defined as twice the difference between the saturated log-likelihood and
+    the fitted model log-likelihood:
+
+        D(y, mu) = 2 * [l(y; y) - l(y; mu)]
+
+    Parameters
+    ----------
+    y_true : array-like
+        Observed response values. Supports NumPy arrays, PyTorch tensors,
+        and JAX arrays.
+    mu_pred : array-like
+        Predicted mean values on the response scale. Must have the same
+        shape as ``y_true``.
+    family : Family
+        Distribution family object (e.g., ``GaussianFamily()``,
+        ``PoissonFamily()``). Must implement the ``deviance`` method.
+
+    Returns
+    -------
+    float
+        The generalized deviance.
+
+    See Also
+    --------
+    aic : Akaike Information Criterion from deviance.
+    bic : Bayesian Information Criterion from deviance.
+    """
 
     xp = namespace(y_true, mu_pred)
     y_arr = as_namespace_array(y_true, xp)
@@ -26,13 +55,62 @@ def generalized_deviance(y_true: Any, mu_pred: Any, family: Family) -> float:
 
 
 def aic(deviance: float, n_params: int) -> float:
-    """Compute Akaike's Information Criterion from deviance and parameter count."""
+    """Compute Akaike's Information Criterion from deviance and parameter count.
+
+    AIC = deviance + 2 * n_params
+
+    Parameters
+    ----------
+    deviance : float
+        The model deviance (or -2 * log-likelihood up to a constant).
+    n_params : int
+        Number of estimated parameters (including intercept).
+
+    Returns
+    -------
+    float
+        The AIC value. Lower values indicate a better trade-off between
+        goodness of fit and model complexity.
+
+    See Also
+    --------
+    bic : Bayesian Information Criterion (penalizes complexity more for n > 8).
+    generalized_deviance : Compute deviance from predictions.
+    """
 
     return float(deviance + 2.0 * n_params)
 
 
 def bic(deviance: float, n_params: int, n_samples: int) -> float:
-    """Compute Bayesian Information Criterion from deviance and sample size."""
+    """Compute Bayesian Information Criterion from deviance and sample size.
+
+    BIC = deviance + log(n_samples) * n_params
+
+    Parameters
+    ----------
+    deviance : float
+        The model deviance (or -2 * log-likelihood up to a constant).
+    n_params : int
+        Number of estimated parameters (including intercept).
+    n_samples : int
+        Number of observations. Must be positive.
+
+    Returns
+    -------
+    float
+        The BIC value. Lower values indicate better models. BIC penalizes
+        model complexity more strongly than AIC when n_samples > 8.
+
+    Raises
+    ------
+    ValueError
+        If ``n_samples`` is not positive.
+
+    See Also
+    --------
+    aic : Akaike Information Criterion (less complexity penalty).
+    generalized_deviance : Compute deviance from predictions.
+    """
 
     if n_samples <= 0:
         raise ValueError("n_samples must be positive for BIC calculation")
@@ -40,7 +118,44 @@ def bic(deviance: float, n_params: int, n_samples: int) -> float:
 
 
 def pseudo_r2(result: GLMResult, *, method: str = "mcfadden") -> float:
-    """Compute pseudo :math:`R^2` scores from a fitted GLM result."""
+    """Compute pseudo :math:`R^2` scores from a fitted GLM result.
+
+    Several pseudo R-squared measures are provided, each offering a different
+    interpretation of model fit for non-Gaussian GLMs where the classical
+    R-squared does not apply directly.
+
+    Parameters
+    ----------
+    result : GLMResult
+        A fitted GLM model result. Must have ``deviance_``, ``null_deviance_``,
+        ``coef_``, and ``intercept_`` attributes.
+    method : str, default='mcfadden'
+        Pseudo R-squared method. One of:
+
+        - ``'mcfadden'`` (or ``'deviance'``): 1 - deviance / null_deviance.
+        - ``'mcfadden_adj'``: Adjusted McFadden, penalising for the number
+          of parameters.
+        - ``'cox_snell'``: Cox & Snell's measure, bounded below 1.
+        - ``'nagelkerke'`` (or ``'cragg_uhler'``): Nagelkerke's rescaled
+          version, bounded to [0, 1].
+
+    Returns
+    -------
+    float
+        The pseudo R-squared value, clipped to [0, 1].
+
+    Raises
+    ------
+    ValueError
+        If ``null_deviance_`` is not positive for McFadden-style methods,
+        or if ``n_samples`` is zero.
+    NotImplementedError
+        If an unsupported method name is provided.
+
+    See Also
+    --------
+    generalized_deviance : Compute the deviance used in pseudo R-squared.
+    """
 
     method_key = method.lower()
     deviance = float(result.deviance_)
