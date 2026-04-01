@@ -102,3 +102,6 @@ benchmarks/results/
 # PDFs
 *.pdf
 .gitnexus
+
+# Sphinx docs build
+docs/_build/
