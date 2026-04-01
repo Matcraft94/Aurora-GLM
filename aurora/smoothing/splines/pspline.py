@@ -162,7 +162,18 @@ class PSplineBasis:
         self._penalty_matrix: NDArray | None = None
 
     def _setup(self, x: NDArray) -> None:
-        """Setup basis and penalty matrix for given data range."""
+        """Set up the B-spline basis and penalty matrix for the given data range.
+
+        Creates equally-spaced interior knots (plus repeated boundary knots),
+        initialises the underlying ``BSplineBasis``, and computes the
+        difference penalty matrix.  Called automatically by ``basis_matrix``
+        or ``fit`` if the basis has not yet been set up.
+
+        Parameters
+        ----------
+        x : ndarray, shape (n,)
+            Predictor data used to determine the knot domain.
+        """
         x = np.asarray(x).ravel()
 
         # Determine domain
@@ -371,12 +382,31 @@ class PSplineBasis:
         weights: NDArray,
         lambda_range: tuple[float, float],
     ) -> float:
-        """Select λ by minimizing Generalized Cross-Validation score.
+        """Select the smoothing parameter by minimising the GCV score.
 
-        GCV(λ) = n × RSS / (n - edf)²
+        GCV(lambda) = n * RSS / (n - edf)^2
 
-        GCV is an approximation to leave-one-out cross-validation that
-        avoids n separate fits.
+        GCV is an approximation to leave-one-out cross-validation that avoids
+        n separate fits.  Optimisation is performed on the log(lambda) scale
+        via bounded scalar minimisation.
+
+        Parameters
+        ----------
+        B : ndarray, shape (n, k)
+            B-spline basis matrix.
+        y : ndarray, shape (n,)
+            Response variable.
+        S : ndarray, shape (k, k)
+            Difference penalty matrix.
+        weights : ndarray, shape (n,)
+            Observation weights.
+        lambda_range : tuple of float
+            ``(lambda_min, lambda_max)`` search bounds.
+
+        Returns
+        -------
+        lambda_opt : float
+            Smoothing parameter that minimises the GCV score.
         """
         n = len(y)
         W = np.diag(weights)
@@ -417,9 +447,30 @@ class PSplineBasis:
         weights: NDArray,
         lambda_range: tuple[float, float],
     ) -> float:
-        """Select λ by minimizing AIC.
+        """Select the smoothing parameter by minimising the AIC.
 
-        AIC = n × log(RSS/n) + 2 × edf
+        AIC(lambda) = n * log(RSS / n) + 2 * edf
+
+        The Akaike Information Criterion balances goodness-of-fit against
+        model complexity measured by the effective degrees of freedom.
+
+        Parameters
+        ----------
+        B : ndarray, shape (n, k)
+            B-spline basis matrix.
+        y : ndarray, shape (n,)
+            Response variable.
+        S : ndarray, shape (k, k)
+            Difference penalty matrix.
+        weights : ndarray, shape (n,)
+            Observation weights.
+        lambda_range : tuple of float
+            ``(lambda_min, lambda_max)`` search bounds.
+
+        Returns
+        -------
+        lambda_opt : float
+            Smoothing parameter that minimises the AIC.
         """
         n = len(y)
         W = np.diag(weights)
@@ -458,10 +509,30 @@ class PSplineBasis:
         weights: NDArray,
         lambda_range: tuple[float, float],
     ) -> float:
-        """Select λ by maximizing REML (Restricted Maximum Likelihood).
+        """Select the smoothing parameter by maximising the REML likelihood.
 
-        REML provides unbiased variance estimation and often works better
-        than GCV for small samples or when edf is large relative to n.
+        Minimises the negative REML criterion over lambda on the log scale.
+        REML provides unbiased variance-component estimation and is generally
+        more stable than GCV for small samples or when the effective degrees
+        of freedom are large relative to n.
+
+        Parameters
+        ----------
+        B : ndarray, shape (n, k)
+            B-spline basis matrix.
+        y : ndarray, shape (n,)
+            Response variable.
+        S : ndarray, shape (k, k)
+            Difference penalty matrix.
+        weights : ndarray, shape (n,)
+            Observation weights.
+        lambda_range : tuple of float
+            ``(lambda_min, lambda_max)`` search bounds.
+
+        Returns
+        -------
+        lambda_opt : float
+            Smoothing parameter that maximises the REML likelihood.
         """
         n, k = B.shape
         W = np.diag(weights)

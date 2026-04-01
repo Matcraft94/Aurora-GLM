@@ -304,7 +304,57 @@ def newton_raphson(
     tol: float = 1e-6,
     callback: OptimizationCallback | None = None,
 ) -> OptimizationResult:
-    """Run the Newton-Raphson method with automatic differentiation support."""
+    """Run the Newton-Raphson method with automatic differentiation support.
+
+    Minimises ``loss_fn`` using the classical Newton-Raphson algorithm. The
+    Hessian is computed via automatic differentiation (PyTorch or JAX) when
+    available, falling back to central finite differences otherwise.
+
+    Parameters
+    ----------
+    loss_fn : callable
+        Objective function to minimise. Must accept a parameter array as its
+        first argument and return a scalar.
+    init_params : array-like, shape (p,)
+        Initial parameter values.
+    backend : object, optional
+        Array backend (NumPy, PyTorch, JAX). Defaults to JAX when available.
+    args : tuple, default=()
+        Additional positional arguments forwarded to ``loss_fn``.
+    kwargs : dict, optional
+        Additional keyword arguments forwarded to ``loss_fn``.
+    max_iter : int, default=100
+        Maximum number of Newton iterations.
+    tol : float, default=1e-6
+        Convergence tolerance on gradient norm and step size.
+    callback : callable, optional
+        Function called as ``callback(iteration, params, loss_value)`` after
+        each iteration.
+
+    Returns
+    -------
+    OptimizationResult
+        Result containing the solution, final loss, gradient, convergence
+        status, and diagnostic counts.
+
+    Notes
+    -----
+    Convergence is quadratic near the solution when the Hessian is positive
+    definite. The method may diverge from poor starting points; consider
+    using ``modified_newton`` for robustness.
+
+    Raises
+    ------
+    numpy.linalg.LinAlgError
+        (Returned, not raised) When the Hessian is singular at the current
+        iterate, the result is returned with ``success=False``.
+
+    See Also
+    --------
+    modified_newton : Newton-Raphson with Levenberg-Marquardt regularisation.
+    irls : IRLS for GLMs (preferred for canonical-link models).
+    lbfgs : L-BFGS quasi-Newton method for large-scale problems.
+    """
     if kwargs is None:
         kwargs = {}
 

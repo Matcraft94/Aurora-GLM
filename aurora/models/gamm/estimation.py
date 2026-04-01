@@ -88,27 +88,38 @@ def compute_V_matrix(
 ) -> np.ndarray:
     """Compute marginal covariance matrix V = ZΨZ' + σ²I.
 
+    Constructs the marginal covariance of the response vector under the
+    linear mixed model y = Xβ + Zb + ε, where b ~ N(0, Ψ) and
+    ε ~ N(0, σ²I).
+
     Parameters
     ----------
     Z : ndarray, shape (n, q)
         Random effects design matrix.
     psi : ndarray, shape (q_effects, q_effects)
-        Random effects covariance matrix (per group).
+        Random effects covariance matrix (per-group structure).
     sigma2 : float
-        Residual variance.
+        Residual variance σ².
     n_effects : int or None, optional
-        Number of random effects per group. If provided and psi is smaller,
-        will expand psi to block-diagonal structure.
+        Number of random effects per group. If provided and ``psi`` is
+        smaller than the full dimension ``q``, the per-group ``psi`` is
+        expanded to a block-diagonal matrix with ``q // n_effects``
+        repeated blocks.
 
     Returns
     -------
     V : ndarray, shape (n, n)
-        Marginal covariance matrix.
+        Marginal covariance matrix V = Z Ψ_full Z' + σ² I.
 
     Notes
     -----
-    For random intercept model, psi is (1,1) but Z may have q columns for q groups.
-    This function handles the expansion from per-group covariance to full structure.
+    For a random intercept model with m groups, ``psi`` is (1, 1) but Z
+    has m columns. This function automatically expands ``psi`` to
+    ``diag(σ²_b, ..., σ²_b)`` when ``n_effects`` is provided.
+
+    See Also
+    --------
+    compute_P_matrix : REML projection matrix using V.
     """
     n = Z.shape[0]
     q = Z.shape[1]
@@ -133,17 +144,33 @@ def compute_P_matrix(
 ) -> np.ndarray:
     """Compute REML projection matrix P = V⁻¹ - V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹.
 
+    The REML projection matrix removes the contribution of fixed effects
+    from the inverse covariance, yielding the restricted (REML) likelihood
+    that accounts for degrees of freedom lost in estimating β.
+
     Parameters
     ----------
     V : ndarray, shape (n, n)
-        Marginal covariance matrix.
+        Marginal covariance matrix V = ZΨZ' + σ²I.
     X : ndarray, shape (n, p)
         Fixed effects design matrix.
 
     Returns
     -------
     P : ndarray, shape (n, n)
-        REML projection matrix.
+        REML projection matrix. Satisfies PX = 0 and is symmetric
+        positive semi-definite.
+
+    Notes
+    -----
+    Computation uses Cholesky decomposition for numerical stability.
+    Both V⁻¹ and (X'V⁻¹X)⁻¹ are computed via Cholesky solves rather
+    than explicit inversion.
+
+    See Also
+    --------
+    compute_V_matrix : Constructs V from Z, Ψ, and σ².
+    reml_log_likelihood : Uses P to compute the REML log-likelihood.
     """
     # Use Cholesky decomposition for numerical stability
     L = linalg.cholesky(V, lower=True)
@@ -171,6 +198,10 @@ def reml_log_likelihood(
 ) -> float:
     """Compute REML log-likelihood.
 
+    Evaluates the Restricted Maximum Likelihood (REML) criterion, which
+    accounts for the loss of degrees of freedom from estimating fixed
+    effects.
+
     Parameters
     ----------
     y : ndarray, shape (n,)
@@ -178,18 +209,33 @@ def reml_log_likelihood(
     X : ndarray, shape (n, p)
         Fixed effects design matrix.
     V : ndarray, shape (n, n)
-        Marginal covariance matrix.
+        Marginal covariance matrix V = ZΨZ' + σ²I.
     P : ndarray, shape (n, n)
-        REML projection matrix.
+        REML projection matrix (from :func:`compute_P_matrix`).
 
     Returns
     -------
     log_lik : float
-        REML log-likelihood.
+        REML log-likelihood value.
 
     Notes
     -----
-    l_REML = -0.5 * [log|V| + log|X'V⁻¹X| + y'Py]
+    The REML log-likelihood is::
+
+        l_REML = -0.5 [log|V| + log|X'V⁻¹X| + y'Py + (n-p)log(2π)]
+
+    Determinants are computed via Cholesky decomposition for numerical
+    stability (``log|A| = 2 Σ log diag(L)`` where ``A = LL'``).
+
+    References
+    ----------
+    Harville, D. A. (1974). "Bayesian inference for variance components
+    using only error contrasts." *Biometrika*, 61(2), 383-385.
+
+    See Also
+    --------
+    compute_P_matrix : Computes the REML projection matrix P.
+    reml_objective : Negative REML log-likelihood (for optimization).
     """
     n = len(y)
     p = X.shape[1]
@@ -225,12 +271,19 @@ def reml_objective(
     n_effects: int | list[int],
     Z_info: list[dict] | None = None,
 ) -> float:
-    """REML objective function (negative log-likelihood).
+    """REML objective function (negative log-likelihood) for optimization.
+
+    This is the function passed to ``scipy.optimize.minimize``. It evaluates
+    the negative REML log-likelihood for a given parameter vector ``theta``,
+    constructing the covariance matrices, the marginal covariance V, and
+    the projection matrix P at each evaluation.
 
     Parameters
     ----------
     theta : ndarray
-        Covariance parameters [psi_params_1..., psi_params_2..., log(sigma2)].
+        Concatenated covariance parameters for all random effect terms
+        followed by ``log(sigma2)`` as the last element. Internal parameterization
+        ensures positivity and variance components.
     y : ndarray, shape (n,)
         Response vector.
     X : ndarray, shape (n, p)
@@ -238,16 +291,31 @@ def reml_objective(
     Z : ndarray, shape (n, q)
         Random effects design matrix.
     cov_structure : CovarianceStructure or list of CovarianceStructure
-        Covariance structure(s) for Ψ. If list, one per random effect term.
+        Covariance structure(s) for Ψ. Pass a list for multiple
+        random effect terms.
     n_effects : int or list of int
-        Number of random effects per group. If list, one per random effect term.
+        Number of random effects per group. Pass a list when
+        ``cov_structure`` is a list.
     Z_info : list of dict, optional
-        Information about Z structure (required for multiple terms).
+        Metadata about Z structure (from ``construct_Z_matrix``).
+        Required when multiple random effect terms are present.
 
     Returns
     -------
     neg_log_lik : float
-        Negative REML log-likelihood.
+        Negative REML log-likelihood value. Returns a large value
+        (1e10) on numerical failure.
+
+    Notes
+    -----
+    If matrix operations fail (singular matrix, invalid Cholesky),
+    the function catches the exception and returns 1e10 to allow
+    the optimizer to move away from the problematic region.
+
+    See Also
+    --------
+    estimate_variance_components : Top-level REML estimation interface.
+    reml_log_likelihood : Computes the REML log-likelihood directly.
     """
     try:
         # Handle single vs multiple random effects

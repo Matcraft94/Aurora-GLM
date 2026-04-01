@@ -5,13 +5,41 @@
 
 REML provides an alternative to GCV that is often more stable and
 theoretically justified, especially for models with multiple smoothing
-parameters.
+parameters or small sample sizes.
+
+Mathematical Framework
+----------------------
+REML treats spline coefficients as random effects and estimates the smoothing
+parameter(s) by maximising the restricted (or marginal) likelihood.  For a
+single smoothing parameter lambda the REML criterion (up to constants) is
+
+    -2 log(REML) = log|X'WX + lambda S| - log|X'WX| + (n - p) log(RSS)
+
+where RSS is the penalised residual sum of squares.  Minimising this expression
+over lambda yields the REML-optimal smoothing parameter.
+
+For *multiple* smoothing parameters the alternating scheme implemented in
+``select_multiple_smoothing_parameters_reml`` cycles through each lambda_j,
+optimising one at a time while holding the others fixed, until convergence.
+
+When to Use REML vs. GCV
+-------------------------
+* **REML** -- preferred for multiple smoothing parameters, small samples, or
+  when unbiased variance estimation matters.
+* **GCV** (see ``aurora.smoothing.selection.gcv``) -- faster, distribution-free,
+  good default for large samples and a single smooth term.
 
 References
 ----------
 Wood, S.N. (2011). Fast stable restricted maximum likelihood and marginal
     likelihood estimation of semiparametric generalized linear models.
     Journal of the Royal Statistical Society: Series B, 73(1), 3-36.
+Wood, S.N. (2017). *Generalized Additive Models: An Introduction with R*,
+    2nd ed. CRC Press. Section 4.6.
+
+See Also
+--------
+aurora.smoothing.selection.gcv : GCV-based smoothing parameter selection
 """
 
 from __future__ import annotations

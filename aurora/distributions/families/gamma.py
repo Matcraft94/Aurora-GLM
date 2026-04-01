@@ -22,7 +22,53 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class GammaFamily(Family):
-    """Gamma family with optional shape parameter and inverse link."""
+    """Gamma distribution family for positive continuous data.
+
+    The Gamma family is suitable for modeling strictly positive continuous
+    responses such as durations, costs, or sizes. The variance function is
+    V(mu) = mu^2 / shape. The canonical link is the inverse function.
+
+    Parameters
+    ----------
+    shape : float, default=1.0
+        Shape parameter (also called the dispersion parameter). Must be
+        positive. Controls the relationship between mean and variance:
+        Var(Y) = mu^2 / shape.
+    link : LinkFunction, optional
+        Link function. Defaults to InverseLink(), which is the canonical link
+        for the Gamma family. Common alternatives include LogLink and
+        IdentityLink.
+
+    Attributes
+    ----------
+    default_link : LinkFunction
+        The link function for this family (InverseLink by default).
+
+    Raises
+    ------
+    ValueError
+        If shape is not positive.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from aurora.distributions.families import GammaFamily
+    >>> from aurora.models.glm import fit_glm
+    >>> family = GammaFamily(shape=2.0)
+    >>> mu = np.array([1.0, 2.0, 4.0])
+    >>> family.variance(mu)  # mu^2 / shape
+    array([0.5, 2. , 8. ])
+    >>> # Use with fit_glm
+    >>> X = np.random.randn(200, 2)
+    >>> y = np.exp(X @ np.array([0.5, -0.3]) + np.random.randn(200))
+    >>> result = fit_glm(X, y, family=GammaFamily(link=None))
+
+    See Also
+    --------
+    GaussianFamily : For continuous data.
+    InverseGaussianFamily : For positive skewed data with V(mu) = mu^3.
+    PoissonFamily : For count data.
+    """
 
     def __init__(self, shape: float = 1.0, link: LinkFunction | None = None) -> None:
         if shape <= 0:

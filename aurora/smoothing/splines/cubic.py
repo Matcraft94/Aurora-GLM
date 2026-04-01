@@ -144,11 +144,25 @@ class CubicSplineBasis:
         return B
 
     def _apply_natural_constraints(self, B: Any, all_knots: Any, xp: Any) -> Any:
-        """Apply natural boundary conditions to transform basis.
+        """Apply natural boundary conditions to transform the basis matrix.
 
-        Natural splines have zero second derivative at boundaries.
-        This is achieved by subtracting appropriate combinations of
-        the truncated power terms.
+        Natural cubic splines have zero second derivative at both boundary
+        knots.  This method enforces the condition by subtracting appropriate
+        linear combinations of the truncated power terms.
+
+        Parameters
+        ----------
+        B : array, shape (n_samples, n_basis)
+            Basis matrix with raw truncated-power columns (modified in place).
+        all_knots : array
+            Full knot vector including boundary knots.
+        xp : module
+            Array namespace for backend-agnostic operations.
+
+        Returns
+        -------
+        B : array, shape (n_samples, n_basis)
+            Basis matrix after applying natural boundary constraints.
         """
         k = len(self.knots_)
         if k < 2:
@@ -218,11 +232,28 @@ class CubicSplineBasis:
     def _integrate_second_derivatives(
         self, i: int, j: int, all_knots: np.ndarray
     ) -> float:
-        """Compute ∫ f_i''(x) f_j''(x) dx for cubic basis functions.
+        """Compute the penalty integral for a pair of cubic basis functions.
 
-        For truncated power basis b(x) = (x - t)_+^3:
-        - b'(x) = 3(x - t)_+^2
-        - b''(x) = 6(x - t)_+
+        Evaluates  integral f_i''(x) f_j''(x) dx  analytically, where each
+        basis function is a truncated power term  b(x) = (x - t)_+^3  with
+        second derivative  b''(x) = 6(x - t)_+.
+
+        Parameters
+        ----------
+        i : int
+            Index of the first basis function (offset by 2 from the linear
+            terms).
+        j : int
+            Index of the second basis function (offset by 2 from the linear
+            terms).
+        all_knots : ndarray
+            Full knot vector including boundary knots.
+
+        Returns
+        -------
+        penalty : float
+            Value of the integrated product of second derivatives.
+            Returns 0.0 when the integration interval is degenerate.
         """
         # Get corresponding knots (offset by 2 because first two basis are linear)
         knot_i = all_knots[i - 1]
@@ -254,18 +285,33 @@ class CubicSplineBasis:
         Parameters
         ----------
         x : array-like
-            Data values
-        n_knots : int
-            Number of interior knots
-        method : str
+            Data values used to determine knot positions.
+        n_knots : int, default=10
+            Number of interior knots to place.
+        method : str, default='quantile'
             Knot placement method:
-            - 'quantile': Place knots at quantiles of x
-            - 'uniform': Place knots uniformly between min and max
+
+            - ``'quantile'``: Place knots at quantiles of *x*, adapting to the
+              empirical data distribution.
+            - ``'uniform'``: Place knots uniformly between min(x) and max(x).
 
         Returns
         -------
-        knots : ndarray
-            Knot locations
+        knots : ndarray, shape (n_knots,) or fewer
+            Sorted interior knot locations.  May contain fewer than *n_knots*
+            entries if duplicate quantiles are merged.
+
+        Raises
+        ------
+        ValueError
+            If *n_knots* is less than 1 or *method* is unknown.
+
+        Examples
+        --------
+        >>> x = np.random.randn(500)
+        >>> knots = CubicSplineBasis.create_knots(x, n_knots=8)
+        >>> len(knots) <= 8
+        True
         """
         x_np = np.asarray(x)
 

@@ -19,7 +19,17 @@ ScoreFunc = Callable[[Any, Sequence[Any], Sequence[Any]], float]
 
 @dataclass(frozen=True)
 class CrossValResult:
-    """Aggregate statistics for a cross-validation run."""
+    """Aggregate statistics for a cross-validation run.
+
+    Attributes
+    ----------
+    scores : ndarray, shape (n_splits,)
+        Per-fold score values.
+    mean : float
+        Mean of the per-fold scores.
+    std : float
+        Standard deviation of the per-fold scores (ddof=1).
+    """
 
     scores: np.ndarray
     mean: float
@@ -49,6 +59,50 @@ def cross_val_score(
 
     Set ``return_result`` to ``True`` to obtain a ``CrossValResult`` with summary
     statistics in addition to the fold scores.
+
+    Parameters
+    ----------
+    fit_func : callable
+        Model fitting function with signature
+        ``fit_func(X_train, y_train, **fit_kwargs) -> model``.
+    score_func : callable
+        Scoring function with signature
+        ``score_func(model, X_test, y_test, **score_kwargs) -> float``.
+        Higher scores indicate better performance.
+    X : array-like, shape (n_samples, n_features)
+        Design matrix.
+    y : array-like, shape (n_samples,)
+        Response vector.
+    n_splits : int, default=5
+        Number of cross-validation folds.
+    shuffle : bool, default=False
+        Whether to shuffle data before splitting into folds.
+    random_state : int or None, default=None
+        Random seed for reproducibility when ``shuffle=True``.
+    splitter : str, object, or None, default=None
+        Cross-validation strategy. Pass ``'kfold'`` for standard K-fold,
+        ``'stratified'`` for stratified K-fold, or any object with a
+        ``split(X, y)`` method. If None, uses ``KFold``.
+    fit_kwargs : dict, optional
+        Additional keyword arguments forwarded to ``fit_func``.
+    score_kwargs : dict, optional
+        Additional keyword arguments forwarded to ``score_func``.
+    return_result : bool, default=False
+        If True, return a ``CrossValResult`` with mean and std.
+        If False, return only the array of per-fold scores.
+
+    Returns
+    -------
+    scores : ndarray, shape (n_splits,)
+        Per-fold scores. Returned when ``return_result=False``.
+    result : CrossValResult
+        Aggregate statistics including mean and std. Returned when
+        ``return_result=True``.
+
+    See Also
+    --------
+    KFold : Standard K-fold splitter.
+    StratifiedKFold : Stratified K-fold splitter.
     """
 
     if fit_kwargs is None:

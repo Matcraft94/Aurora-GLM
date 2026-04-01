@@ -258,8 +258,54 @@ def _compute_gcv_score(
 ) -> float:
     """Compute GCV score for given smoothing parameters.
 
-    This performs a simplified PQL iteration to get working response,
-    then computes GCV on the penalized weighted least squares problem.
+    Performs a single simplified PQL iteration to obtain the working response
+    and weights, then evaluates the Generalized Cross-Validation criterion on
+    the resulting penalized weighted least squares problem.
+
+    Parameters
+    ----------
+    X_parametric : ndarray, shape (n, p_para)
+        Parametric design matrix.
+    X_smooth_dict : dict[str, ndarray]
+        Smooth term basis matrices keyed by term name.
+    S_smooth_dict : dict[str, ndarray]
+        Penalty matrices keyed by term name.
+    Z : ndarray, shape (n, q)
+        Random effects design matrix (currently ignored for speed).
+    y : ndarray, shape (n,)
+        Response vector.
+    family_obj : Family
+        Distribution family object with ``variance`` and ``default_link``.
+    link : LinkFunction
+        Link function object.
+    Psi : ndarray
+        Current random effects covariance (currently ignored).
+    lambda_dict : dict[str, float]
+        Smoothing parameter for each smooth term.
+
+    Returns
+    -------
+    gcv : float
+        GCV score. Lower values indicate better smoothing trade-offs.
+        Returns ``np.inf`` in degenerate cases (e.g., edf >= n - 1).
+
+    Notes
+    -----
+    The GCV criterion is::
+
+        GCV(λ) = (n × RSS_w) / (n - edf)²
+
+    where ``RSS_w`` is the weighted residual sum of squares on the working
+    response and ``edf = tr(H)`` is the effective degrees of freedom
+    (trace of the hat matrix).
+
+    For computational efficiency, random effects (Z, Psi) are currently
+    ignored. This is a fast approximation that is usually sufficient for
+    smoothing parameter selection.
+
+    See Also
+    --------
+    select_smoothing_gcv : Optimizes GCV over a grid of λ values.
     """
     n = len(y)
 
@@ -361,41 +407,61 @@ def select_smoothing_performance_iter(
 ) -> dict:
     """Select smoothing parameters via performance iteration.
 
-    This alternates between:
-    1. Fitting (β, b) with fixed λ
-    2. Updating λ via GCV with fixed (β, b)
+    Alternates between two steps until convergence:
+
+    1. **Coefficient update**: Fix smoothing parameters λ and fit the model
+       (fixed effects β, random effects b, variance components Ψ) using
+       PQL via :func:`fit_pql_with_smooth`.
+    2. **Smoothing update**: Fix coefficients and update λ by minimizing the
+       GCV criterion via :func:`select_smoothing_gcv`.
+
+    Convergence is reached when the maximum absolute log-change in all λ
+    values drops below 0.05.
 
     Parameters
     ----------
-    X_parametric : ndarray
-        Parametric design matrix.
-    X_smooth_dict : dict
-        Smooth basis matrices.
-    S_smooth_dict : dict
-        Penalty matrices.
-    Z : ndarray
+    X_parametric : ndarray, shape (n, p_para)
+        Parametric fixed effects design matrix.
+    X_smooth_dict : dict[str, ndarray]
+        Smooth term basis matrices keyed by term name.
+    S_smooth_dict : dict[str, ndarray]
+        Penalty matrices keyed by term name.
+    Z : ndarray, shape (n, q)
         Random effects design matrix.
-    Z_info : list
-        Random effects metadata.
-    y : ndarray
+    Z_info : list of dict
+        Metadata about Z structure from :func:`construct_Z_matrix`.
+    y : ndarray, shape (n,)
         Response vector.
     family : str
-        Distribution family.
+        Distribution family name (``'poisson'``, ``'binomial'``, or ``'gamma'``).
     max_iter : int, default=5
-        Maximum performance iterations.
-    verbose : bool
-        Print progress.
+        Maximum number of performance iterations.
+    verbose : bool, default=False
+        If True, print progress information at each iteration.
 
     Returns
     -------
     result : dict
-        Contains:
-        - 'lambda_opt': Optimal smoothing parameters
-        - 'beta_parametric': Final parametric coefficients
-        - 'beta_smooth': Final smooth coefficients
-        - 'random_effects': Final random effects
-        - 'variance_components': Final Psi
-        - 'converged': Whether algorithm converged
+        Dictionary with keys:
+
+        - ``'lambda_opt'`` : dict[str, float] -- optimal smoothing parameters.
+        - ``'beta_parametric'`` : ndarray -- final parametric coefficients.
+        - ``'beta_smooth'`` : ndarray or dict -- final smooth coefficients.
+        - ``'random_effects'`` : dict -- final random effects by group.
+        - ``'variance_components'`` : list of ndarray -- final Ψ per term.
+        - ``'converged'`` : bool -- whether the algorithm converged.
+
+    Notes
+    -----
+    Performance iteration (also called "performance-oriented iteration" or
+    "outer iteration") is described in Wood (2017, Section 6.6). It is
+    simpler than Fellner-Schall or Newton-based methods but may converge
+    slowly or oscillate for difficult problems.
+
+    See Also
+    --------
+    select_smoothing_gcv : GCV-based smoothing parameter selection.
+    aurora.models.gamm.pql_smooth.fit_pql_with_smooth : PQL with smooth terms.
     """
     from aurora.distributions.families import (
         BinomialFamily,

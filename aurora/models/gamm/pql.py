@@ -658,35 +658,47 @@ def _update_variance_components(
 ) -> np.ndarray:
     """Update variance-covariance matrix for random effects.
 
+    Computes the empirical covariance of the BLUP estimates and applies
+    shrinkage regularization to ensure numerical stability.
+
     Parameters
     ----------
     X : ndarray, shape (n, p)
-        Fixed effects design matrix
+        Fixed effects design matrix.
     Z : ndarray, shape (n, q)
-        Random effects design matrix
+        Random effects design matrix.
     z : ndarray, shape (n,)
-        Working response
+        Working response vector.
     w : ndarray, shape (n,)
-        Weights
+        Iteration weights.
     beta : ndarray, shape (p,)
-        Current fixed effects
+        Current fixed effect estimates.
     b : ndarray, shape (q,)
-        Current random effects
+        Current random effect estimates (BLUPs).
     n_effects : int
-        Number of random effects per group
+        Number of random effects per group.
     method : str, default='empirical'
-        Update method ('empirical' for now)
-    group_sizes : ndarray, optional
-        Array of group sizes for bias correction
+        Update method. Currently only ``'empirical'`` is supported, which
+        computes Ψ = (1/m) Σ b_i b_i^T with 5% shrinkage toward a
+        scaled identity matrix.
 
     Returns
     -------
     psi : ndarray, shape (n_effects, n_effects)
-        Updated variance-covariance matrix
+        Updated variance-covariance matrix. Guaranteed to be symmetric
+        positive definite.
 
     Notes
     -----
-    Phase 1.4 enhancement: Add shrinkage for numerical stability
+    Shrinkage is applied as::
+
+        Ψ = (1 - α) Ψ_emp + α (tr(Ψ_emp) / q) I_q
+
+    with α = 0.05, where q = n_effects. If eigenvalues fall below 1e-6,
+    the matrix is regularised to enforce positive definiteness.
+
+    If NaN or Inf values are detected in the random effects or the
+    resulting covariance, the function falls back to the identity matrix.
     """
     q = Z.shape[1]
     n_groups = q // n_effects

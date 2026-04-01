@@ -224,44 +224,194 @@ from ..core.types import Array, Scalar
 
 
 class LinkFunction(ABC):
-    """Abstract base class for link functions."""
+    """Abstract base class for GLM link functions.
+
+    A link function g() relates the mean mu to the linear predictor eta:
+        g(mu) = eta = X^T beta
+
+    Subclasses must implement the forward link, its inverse, and its
+    derivative. The link must be monotonic and differentiable.
+
+    See Also
+    --------
+    aurora.distributions.links.LogitLink : Canonical link for binomial/beta
+    aurora.distributions.links.LogLink : Canonical link for Poisson/Gamma
+    aurora.distributions.links.IdentityLink : Canonical link for Gaussian
+
+    Examples
+    --------
+    >>> from aurora.distributions.links import LogitLink
+    >>> link = LogitLink()
+    >>> mu = np.array([0.2, 0.5, 0.8])
+    >>> eta = link.link(mu)      # logit(mu)
+    >>> link.inverse(eta)        # recovers mu
+    >>> link.derivative(mu)      # d(mu)/d(eta)
+    """
 
     @abstractmethod
     def link(self, mu: Array) -> Array:
-        """Apply the link function ``g(mu)``."""
+        """Apply the link function g(mu) to map mean to linear predictor.
+
+        Parameters
+        ----------
+        mu : array
+            Mean parameter values.
+
+        Returns
+        -------
+        array
+            Linear predictor eta = g(mu).
+        """
 
     @abstractmethod
     def inverse(self, eta: Array) -> Array:
-        """Apply the inverse link ``g^{-1}(eta)``."""
+        """Apply the inverse link g^{-1}(eta) to map linear predictor to mean.
+
+        Parameters
+        ----------
+        eta : array
+            Linear predictor values.
+
+        Returns
+        -------
+        array
+            Mean parameter mu = g^{-1}(eta).
+        """
 
     @abstractmethod
     def derivative(self, mu: Array) -> Array:
-        """Return the derivative ``dg/dmu`` evaluated at ``mu``."""
+        """Compute the derivative dg/dmu of the link function.
+
+        Parameters
+        ----------
+        mu : array
+            Mean parameter values at which to evaluate the derivative.
+
+        Returns
+        -------
+        array
+            Derivative dg/dmu evaluated at mu.
+        """
 
 
 class Family(ABC):
-    """Abstract base class for probability distribution families."""
+    """Abstract base class for exponential family distributions.
+
+    Defines the interface that all distribution families must implement
+    for use in GLM, GAM, and GAMM fitting. Each subclass provides the
+    log-likelihood, deviance, variance function, and initialization
+    logic required by the IRLS fitting algorithm.
+
+    Subclasses include GaussianFamily, PoissonFamily, BinomialFamily,
+    GammaFamily, BetaFamily, InverseGaussianFamily, NegativeBinomialFamily,
+    StudentTFamily, TweedieFamily, and others.
+
+    See Also
+    --------
+    aurora.distributions.families : Concrete family implementations
+    aurora.distributions.links : Link function implementations
+    aurora.models.glm.fit_glm : GLM fitting using families
+
+    Examples
+    --------
+    >>> from aurora.distributions.families import GaussianFamily
+    >>> family = GaussianFamily()
+    >>> mu = np.array([1.0, 2.0, 3.0])
+    >>> family.variance(mu)
+    array([1., 1., 1.])
+    >>> family.log_likelihood(np.array([1.1, 1.9, 3.1]), mu)
+    np.float64(...)
+    """
 
     @abstractmethod
     def log_likelihood(self, y: Array, mu: Array, **params) -> Scalar:
-        """Return the log-likelihood of observations ``y`` given mean ``mu``."""
+        """Compute the total log-likelihood of observations given the mean.
+
+        Parameters
+        ----------
+        y : array
+            Observed response values.
+        mu : array
+            Fitted mean values.
+        **params : dict
+            Additional family-specific parameters (e.g., dispersion).
+
+        Returns
+        -------
+        scalar
+            Sum of log-likelihoods across all observations.
+        """
 
     @abstractmethod
     def deviance(self, y: Array, mu: Array, **params) -> Scalar:
-        """Return the deviance contribution for observations ``y`` and mean ``mu``."""
+        """Compute the deviance between observed and fitted values.
+
+        The deviance measures goodness-of-fit:
+            D(y; mu) = 2 phi [l(y; y) - l(mu; y)]
+
+        Parameters
+        ----------
+        y : array
+            Observed response values.
+        mu : array
+            Fitted mean values.
+        **params : dict
+            Additional family-specific parameters.
+
+        Returns
+        -------
+        scalar
+            Total deviance (non-negative, zero when mu = y).
+        """
 
     @abstractmethod
     def variance(self, mu: Array, **params) -> Array:
-        """Return the variance function evaluated at ``mu``."""
+        """Evaluate the variance function V(mu) at given mean values.
+
+        The variance function characterizes the mean-variance relationship:
+            Var(Y) = phi * V(mu)
+
+        Parameters
+        ----------
+        mu : array
+            Mean parameter values.
+        **params : dict
+            Additional family-specific parameters.
+
+        Returns
+        -------
+        array
+            Variance function values (same shape as mu).
+        """
 
     @abstractmethod
     def initialize(self, y: Array) -> Array:
-        """Return starting values for the mean parameter ``mu`` given data ``y``."""
+        """Compute starting values for the mean parameter from data.
+
+        Used by IRLS to obtain initial mu^(0) before the first iteration.
+        The returned values must be in the valid range of the distribution.
+
+        Parameters
+        ----------
+        y : array
+            Observed response values.
+
+        Returns
+        -------
+        array
+            Initial mean estimates (same shape as y).
+        """
 
     @property
     @abstractmethod
     def default_link(self) -> LinkFunction:
-        """Return the canonical link for this family."""
+        """Return the default (canonical) link function for this family.
+
+        Returns
+        -------
+        LinkFunction
+            The canonical link function instance.
+        """
 
 
 __all__ = ["Family", "LinkFunction"]

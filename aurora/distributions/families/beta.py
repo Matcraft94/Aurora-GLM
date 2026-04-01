@@ -73,12 +73,12 @@ def _log_beta(a, b, xp):
 
 
 class BetaFamily(Family):
-    """Beta distribution for continuous proportions in (0, 1).
+    """Beta distribution for modeling continuous proportions in (0, 1).
 
-    Suitable for modeling:
-    - Success rates, conversion rates
-    - Market shares, proportions
-    - Any continuous outcome bounded in (0, 1)
+    Suitable for modeling success rates, conversion rates, market shares,
+    and any continuous outcome bounded in (0, 1). The distribution uses a
+    mean-precision parameterization where the precision parameter phi
+    controls dispersion independently of the mean.
 
     Parameters
     ----------
@@ -87,7 +87,6 @@ class BetaFamily(Family):
         - phi large: Low variance, concentrated around mean
         - phi small: High variance, dispersed
         - 'estimate': Estimate from data via method-of-moments
-
     link : LinkFunction or None, default=None
         Link function. If None, uses LogitLink (canonical).
         Also supports ProbitLink, CLogLogLink.
@@ -96,6 +95,14 @@ class BetaFamily(Family):
     ----------
     phi : float or str
         Precision parameter or 'estimate' for automatic estimation.
+    default_link : LinkFunction
+        The link function used to map the mean to the linear predictor.
+
+    See Also
+    --------
+    aurora.distributions.families.BinomialFamily : Binomial for discrete proportions
+    aurora.distributions.links.LogitLink : Canonical link for Beta regression
+    aurora.distributions.links.ProbitLink : Alternative link for Beta regression
 
     Examples
     --------
@@ -113,13 +120,13 @@ class BetaFamily(Family):
 
     Notes
     -----
-    The precision φ controls the dispersion:
-    - φ = 1: Uniform(0,1) when μ = 0.5
-    - φ → ∞: Concentration at μ (degenerate)
-    - φ → 0: Bimodal distribution at 0 and 1
+    The precision phi controls the dispersion:
+    - phi = 1: Uniform(0,1) when mu = 0.5
+    - phi -> inf: Concentration at mu (degenerate)
+    - phi -> 0: Bimodal distribution at 0 and 1
 
-    The variance function is V(μ) = μ(1-μ), same as binomial, but
-    the actual variance also depends on φ: Var(Y) = V(μ)/(φ+1).
+    The variance function is V(mu) = mu(1-mu), same as binomial, but
+    the actual variance also depends on phi: Var(Y) = V(mu)/(phi+1).
     """
 
     def __init__(
