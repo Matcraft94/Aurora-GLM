@@ -150,6 +150,10 @@ class LRTResult:
         P-value from chi-squared distribution.
     model_names : tuple of str
         Names of the compared models.
+    boundary_conditions : list of str
+        Variance parameters detected at or near boundary.
+    boundary_correction_applied : bool
+        Whether Self & Liang (1987) mixture correction was applied.
     """
 
     statistic: float
@@ -158,6 +162,8 @@ class LRTResult:
     model_names: tuple[str, str]
     ll_reduced: float
     ll_full: float
+    boundary_conditions: list[str] | None = None
+    boundary_correction_applied: bool = False
 
     def __repr__(self) -> str:
         return f"LRTResult(χ²={self.statistic:.4f}, df={self.df}, p={self.p_value:.4e})"
@@ -439,8 +445,22 @@ def likelihood_ratio_test(
     # Compute test statistic
     statistic = 2 * (ll_full - ll_reduced)
 
-    # P-value from chi-squared distribution
-    p_value = 1 - stats.chi2.cdf(statistic, df)
+    # Check for boundary conditions (Self & Liang, 1987)
+    boundary_full = _detect_boundary_conditions(model_full)
+    boundary_reduced = _detect_boundary_conditions(model_reduced)
+    boundary_params = boundary_full + boundary_reduced
+
+    if boundary_params:
+        # Self & Liang (1987) correction: mixture of chi2 distributions
+        # P-value = 0.5 * P(χ²_df <= statistic) + 0.5 * P(χ²_{df-1} <= statistic)
+        p_df = 1 - stats.chi2.cdf(statistic, df)
+        p_df_minus_1 = 1 - stats.chi2.cdf(statistic, df - 1) if df > 1 else 1.0
+        p_value = 0.5 * p_df + 0.5 * p_df_minus_1
+        boundary_correction_applied = True
+    else:
+        # Standard chi-squared test
+        p_value = 1 - stats.chi2.cdf(statistic, df)
+        boundary_correction_applied = False
 
     # Model names
     if names is None:
@@ -453,7 +473,55 @@ def likelihood_ratio_test(
         model_names=names,
         ll_reduced=ll_reduced,
         ll_full=ll_full,
+        boundary_conditions=boundary_params if boundary_params else None,
+        boundary_correction_applied=boundary_correction_applied,
     )
+
+
+def _detect_boundary_conditions(model: Any, threshold: float = 1e-10) -> list[str]:
+    """Detect variance components at or near the boundary (e.g., σ² ≈ 0).
+
+    Parameters
+    ----------
+    model : ModelResult
+        A fitted model.
+    threshold : float, default=1e-10
+        Below this value, a variance parameter is considered at boundary.
+
+    Returns
+    -------
+    boundary_params : list of str
+        Names of parameters detected at the boundary.
+    """
+    boundary_params = []
+
+    if hasattr(model, "variance_components_") and model.variance_components_:
+        if isinstance(model.variance_components_, dict):
+            for name, value in model.variance_components_.items():
+                if abs(value) < threshold:
+                    boundary_params.append(name)
+        elif isinstance(model.variance_components_, (list, np.ndarray)):
+            for i, val in enumerate(model.variance_components_):
+                val_arr = np.asarray(val)
+                if np.any(np.abs(val_arr) < threshold):
+                    boundary_params.append(f"variance_component_{i}")
+
+    if hasattr(model, "residual_variance_"):
+        if abs(model.residual_variance_) < threshold:
+            boundary_params.append("residual_variance")
+
+    if hasattr(model, "random_effects_variance_"):
+        for i, var in enumerate(model.random_effects_variance_):
+            var_arr = np.asarray(var)
+            if np.any(np.abs(var_arr) < threshold):
+                boundary_params.append(f"re_{i}")
+
+    if hasattr(model, "psi"):
+        psi = np.asarray(model.psi)
+        if np.any(np.abs(psi) < threshold):
+            boundary_params.append("psi")
+
+    return boundary_params
 
 
 def _get_loglik(model: Any) -> float:
