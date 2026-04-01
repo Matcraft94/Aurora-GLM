@@ -337,6 +337,9 @@ def fit_pql(
     beta = np.zeros(p)
     b = np.zeros(q)
 
+    # Compute group sizes for bias correction
+    group_sizes = _compute_group_sizes(Z, n_effects)
+
     # Convergence tracking
     converged = False
     n_iter_inner_total = 0
@@ -405,6 +408,14 @@ def fit_pql(
                 converged = True
                 break
 
+    # Apply Breslow & Lin (1995) bias correction to final estimates
+    beta = _apply_fixed_effect_correction(beta, group_sizes)
+
+    # Apply bias correction to random effects for final variance estimation
+    b_matrix_final = b.reshape(group_sizes.shape[0], n_effects)
+    b_matrix_corrected = _apply_random_effect_correction(b_matrix_final, group_sizes)
+    b = b_matrix_corrected.ravel()
+
     # Compute final fitted values
     eta = X @ beta + Z @ b
     mu = family_obj.default_link.inverse(eta)
@@ -429,6 +440,95 @@ def fit_pql(
         deviance=deviance,
         log_likelihood=log_likelihood,
     )
+
+
+def _compute_group_sizes(Z: np.ndarray, n_effects: int) -> np.ndarray:
+    """Compute individual group sizes from Z matrix.
+
+    Parameters
+    ----------
+    Z : ndarray, shape (n, q)
+        Random effects design matrix
+    n_effects : int
+        Number of random effects per group
+
+    Returns
+    -------
+    group_sizes : ndarray, shape (n_groups,)
+        Array of group sizes (number of observations per group)
+    """
+    n_groups = Z.shape[1] // n_effects
+    group_sizes = np.zeros(n_groups, dtype=int)
+
+    for g in range(n_groups):
+        start_col = g * n_effects
+        end_col = (g + 1) * n_effects
+        # Count rows with non-zero entries in this group's block
+        block = Z[:, start_col:end_col]
+        group_sizes[g] = int(np.sum(np.any(block != 0, axis=1)))
+
+    # Ensure all groups have at least 1 observation
+    group_sizes = np.maximum(group_sizes, 1)
+    return group_sizes
+
+
+def _apply_fixed_effect_correction(
+    beta: np.ndarray,
+    group_sizes: np.ndarray,
+) -> np.ndarray:
+    """Apply Breslow & Lin (1995) bias correction to fixed effects.
+
+    The correction inflates estimates by: 1 / (1 - Σ(1/(2*m_i)))
+    where m_i is the group size, correcting O(1/m_i) bias.
+
+    Parameters
+    ----------
+    beta : ndarray, shape (p,)
+        Fixed effect estimates
+    group_sizes : ndarray, shape (n_groups,)
+        Array of group sizes
+
+    Returns
+    -------
+    corrected_beta : ndarray, shape (p,)
+        Bias-corrected fixed effects
+    """
+    # Compute correction factor
+    correction = 1.0 - np.sum(1.0 / (2.0 * group_sizes))
+    if abs(correction) < 1e-10:
+        return beta  # Avoid division by near-zero
+    correction = 1.0 / correction
+
+    return beta * correction
+
+
+def _apply_random_effect_correction(
+    b_matrix: np.ndarray,
+    group_sizes: np.ndarray,
+) -> np.ndarray:
+    """Apply bias correction to random effects before variance estimation.
+
+    Inflates random effects for small groups to counteract shrinkage bias.
+
+    Parameters
+    ----------
+    b_matrix : ndarray, shape (n_groups, n_effects)
+        Random effects matrix
+    group_sizes : ndarray, shape (n_groups,)
+        Array of group sizes
+
+    Returns
+    -------
+    corrected_b : ndarray, shape (n_groups, n_effects)
+        Bias-corrected random effects
+    """
+    b_corrected = b_matrix.copy()
+    for i, m in enumerate(group_sizes):
+        if m > 1:
+            inflation = m / (m - 1)
+            b_corrected[i] = b_matrix[i] * inflation
+
+    return b_corrected
 
 
 def _solve_pql_equations(
@@ -576,6 +676,8 @@ def _update_variance_components(
         Number of random effects per group
     method : str, default='empirical'
         Update method ('empirical' for now)
+    group_sizes : ndarray, optional
+        Array of group sizes for bias correction
 
     Returns
     -------
