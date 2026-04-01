@@ -582,6 +582,39 @@ def condition_number(
     return np.linalg.cond(A, p=p)
 
 
+def weighted_condition_number(
+    X: np.ndarray,
+    weights: np.ndarray | None = None,
+) -> float:
+    """Compute condition number of weighted design matrix X^T W X.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n, p)
+        Design matrix.
+    weights : ndarray, shape (n,), optional
+        Observation weights. If None, computes condition of X^T X.
+
+    Returns
+    -------
+    kappa : float
+        Condition number κ = σ_max / σ_min of X^T W X.
+    """
+    if weights is not None:
+        W_sqrt = np.sqrt(weights)
+        XtWX = (W_sqrt[:, None] * X).T @ (W_sqrt[:, None] * X)
+    else:
+        XtWX = X.T @ X
+
+    try:
+        s = np.linalg.svd(XtWX, compute_uv=False)
+        if s[-1] == 0:
+            return np.inf
+        return float(s[0] / s[-1])
+    except np.linalg.LinAlgError:
+        return np.inf
+
+
 __all__ = [
     # Decompositions
     "qr_decomposition",
@@ -600,4 +633,5 @@ __all__ = [
     "log_determinant",
     "matrix_rank",
     "condition_number",
+    "weighted_condition_number",
 ]

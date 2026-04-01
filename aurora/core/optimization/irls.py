@@ -256,6 +256,9 @@ import numpy as np
 from ..types import Array, OptimizationCallback
 from .result import OptimizationResult
 
+# Condition number monitoring threshold
+_ILL_CONDITIONED_THRESHOLD = 1e8
+
 
 # =============================================================================
 # Sparse matrix utilities
@@ -411,6 +414,8 @@ def _irls_sparse(
     offset_arr = np.zeros_like(y) if offset is None else np.asarray(offset)
 
     nfev = 0
+    total_backtrack = 0
+    max_cond_number = 0.0
 
     for iteration in range(max_iter):
         # Linear predictor without offset: η* = Xβ
@@ -445,11 +450,49 @@ def _irls_sparse(
         delta = beta_new - beta
         step_norm = np.sqrt(np.sum(delta**2))
 
-        beta = beta_new
+        # Monitor condition number of X^T W X
+        from ..linalg import weighted_condition_number
 
-        # Evaluate loss for monitoring
+        cond_number = weighted_condition_number(np.asarray(X.todense()), weights)
+        if cond_number > max_cond_number:
+            max_cond_number = cond_number
+
+        if cond_number > _ILL_CONDITIONED_THRESHOLD:
+            import warnings
+
+            warnings.warn(
+                f"Ill-conditioned system detected: κ = {cond_number:.2e} > 1e8. "
+                "Results may be numerically unstable.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
+        # Evaluate current loss before step-halving
         nfev += 1
-        loss_value = float(loss_fn(beta, *args, **kwargs))
+        current_loss = float(loss_fn(beta, *args, **kwargs))
+
+        # Step-halving (backtracking line search)
+        step_size = 1.0
+        alpha = 0.5
+        max_backtrack = 10
+        min_step_size = 1.0 / 64.0
+
+        for backtrack in range(max_backtrack + 1):
+            trial_beta = beta + step_size * delta
+            nfev += 1
+            trial_loss = float(loss_fn(trial_beta, *args, **kwargs))
+
+            if trial_loss <= current_loss or step_size < min_step_size:
+                beta = trial_beta
+                loss_value = trial_loss
+                if backtrack > 0:
+                    total_backtrack += 1
+                break
+            step_size *= alpha
+        else:
+            beta = trial_beta
+            loss_value = trial_loss
+            total_backtrack += 1
 
         if callback is not None:
             callback(iteration, beta.copy(), loss_value)
@@ -465,6 +508,8 @@ def _irls_sparse(
                 nfev=nfev,
                 njev=0,
                 nhev=0,
+                backtrack_iterations=total_backtrack,
+                condition_number=max_cond_number,
             )
 
     # Max iterations reached
@@ -481,6 +526,8 @@ def _irls_sparse(
         nfev=nfev,
         njev=0,
         nhev=0,
+        backtrack_iterations=total_backtrack,
+        condition_number=max_cond_number,
     )
 
 
@@ -610,6 +657,8 @@ def irls(
     }
 
     nfev = 0
+    total_backtrack = 0
+    max_cond_number = 0.0
 
     def _to_backend(data):
         return backend.array(data, dtype=getattr(beta, "dtype", None))
@@ -656,10 +705,51 @@ def irls(
         delta = beta_new - beta
         step_norm = backend.as_numpy((delta * delta).sum() ** 0.5)
 
-        beta = beta_new
+        # Monitor condition number of weighted normal equations
+        from ..linalg import weighted_condition_number
 
+        X_np = backend.as_numpy(X)
+        weights_np = backend.as_numpy(weights)
+        cond_number = weighted_condition_number(X_np, weights_np)
+        if cond_number > max_cond_number:
+            max_cond_number = cond_number
+
+        if cond_number > _ILL_CONDITIONED_THRESHOLD:
+            import warnings
+
+            warnings.warn(
+                f"Ill-conditioned system detected: κ = {cond_number:.2e} > 1e8. "
+                "Results may be numerically unstable.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
+        # Evaluate current loss before step-halving
         nfev += 1
-        loss_value = loss_fn(beta, *converted_args, **converted_kwargs)
+        current_loss = float(backend.as_numpy(loss_fn(beta, *converted_args, **converted_kwargs)))
+
+        # Step-halving (backtracking line search)
+        step_size = 1.0
+        alpha = 0.5
+        max_backtrack = 10
+        min_step_size = 1.0 / 64.0
+
+        for backtrack in range(max_backtrack + 1):
+            trial_beta = beta + step_size * delta
+            nfev += 1
+            trial_loss = float(backend.as_numpy(loss_fn(trial_beta, *converted_args, **converted_kwargs)))
+
+            if trial_loss <= current_loss or step_size < min_step_size:
+                beta = trial_beta
+                loss_value = trial_loss
+                if backtrack > 0:
+                    total_backtrack += 1
+                break
+            step_size *= alpha
+        else:
+            beta = trial_beta
+            loss_value = trial_loss
+            total_backtrack += 1
 
         if callback is not None:
             callback(
@@ -677,6 +767,8 @@ def irls(
                 nfev=nfev,
                 njev=0,
                 nhev=0,
+                backtrack_iterations=total_backtrack,
+                condition_number=max_cond_number,
             )
 
     loss_value = loss_fn(beta, *converted_args, **converted_kwargs)
@@ -691,6 +783,8 @@ def irls(
         nfev=nfev,
         njev=0,
         nhev=0,
+        backtrack_iterations=total_backtrack,
+        condition_number=max_cond_number,
     )
 
 
