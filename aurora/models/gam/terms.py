@@ -74,17 +74,14 @@ class SmoothTerm:
             raise ValueError(f"n_basis must be at least 3, got {self.n_basis}")
 
         if self.penalty_order < 1:
-            raise ValueError(
-                f"penalty_order must be positive, got {self.penalty_order}"
-            )
+            raise ValueError(f"penalty_order must be positive, got {self.penalty_order}")
 
         if self.basis_type not in ["bspline", "cubic", "tp", "cr", "ps"]:
             raise ValueError(f"Unknown basis_type: {self.basis_type}")
 
         if self.basis_type not in ["bspline", "cubic"]:
             raise NotImplementedError(
-                f"basis_type='{self.basis_type}' not yet implemented. "
-                f"Use 'bspline' or 'cubic'."
+                f"basis_type='{self.basis_type}' not yet implemented. Use 'bspline' or 'cubic'."
             )
 
         if self.lambda_ is not None and self.lambda_ < 0:
@@ -179,14 +176,12 @@ class TensorTerm:
             self.n_basis = (10,) * n_vars
         elif len(self.n_basis) != n_vars:
             raise ValueError(
-                f"n_basis must have same length as variables, "
-                f"got {len(self.n_basis)} vs {n_vars}"
+                f"n_basis must have same length as variables, got {len(self.n_basis)} vs {n_vars}"
             )
 
         if self.lambdas is not None and len(self.lambdas) != n_vars:
             raise ValueError(
-                f"lambdas must have same length as variables, "
-                f"got {len(self.lambdas)} vs {n_vars}"
+                f"lambdas must have same length as variables, got {len(self.lambdas)} vs {n_vars}"
             )
 
         # Validate basis types

@@ -336,7 +336,8 @@ algorithm in machine learning and statistics.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ..types import Array, OptimizationCallback
 from .result import OptimizationResult
@@ -439,9 +440,7 @@ def lbfgs(
         backend = get_backend("jax")
 
     converted_args = tuple(_convert_to_backend(backend, value) for value in args)
-    converted_kwargs = {
-        key: _convert_to_backend(backend, value) for key, value in kwargs.items()
-    }
+    converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
 
     grad_fn = backend.grad(loss_fn)
     x = backend.array(init_params)
@@ -828,7 +827,6 @@ def _zoom(
         if phi > armijo_threshold or phi >= phi_lo:
             # Shrink from above
             alpha_hi = alpha
-            phi_hi = phi
         else:
             g_new = grad_fn(x_new, *args, **kwargs)
             dphi = _to_scalar((g_new * d).sum(), backend)
@@ -840,11 +838,9 @@ def _zoom(
             # Update bracket
             if dphi * (alpha_hi - alpha_lo) >= 0:
                 alpha_hi = alpha_lo
-                phi_hi = phi_lo
 
             alpha_lo = alpha
             phi_lo = phi
-            dphi_lo = dphi
 
         # Check for convergence (bracket too small)
         if abs(alpha_hi - alpha_lo) < 1e-12:

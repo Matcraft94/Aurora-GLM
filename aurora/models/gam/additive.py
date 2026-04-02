@@ -153,7 +153,7 @@ class AdditiveGAMResult:
             y_pred = np.zeros(n_new)
 
         # Add smooth terms
-        for i, term in enumerate(self.smooth_terms):
+        for _i, term in enumerate(self.smooth_terms):
             term_name = f"s({term.variable})"
 
             # Get predictor values
@@ -200,9 +200,7 @@ class AdditiveGAMResult:
             lines.append("Parametric Coefficients:")
             lines.append(f"  Intercept:           {self.parametric_coef[0]:.4f}")
             for i, term in enumerate(self.parametric_terms):
-                lines.append(
-                    f"  {term.variable}:             {self.parametric_coef[i + 1]:.4f}"
-                )
+                lines.append(f"  {term.variable}:             {self.parametric_coef[i + 1]:.4f}")
             lines.append("")
 
         # Smooth terms
@@ -336,9 +334,7 @@ def fit_additive_gam(
 
     n, p = X_arr.shape
     if len(y_arr) != n:
-        raise ValueError(
-            f"X and y must have same number of rows, got {n} and {len(y_arr)}"
-        )
+        raise ValueError(f"X and y must have same number of rows, got {n} and {len(y_arr)}")
 
     if len(smooth_terms) == 0:
         raise ValueError("Must specify at least one smooth term")
@@ -370,9 +366,7 @@ def fit_additive_gam(
         # Extract predictor
         if isinstance(term.variable, int):
             if term.variable >= p:
-                raise ValueError(
-                    f"Variable index {term.variable} out of range (0-{p - 1})"
-                )
+                raise ValueError(f"Variable index {term.variable} out of range (0-{p - 1})")
             x_smooth = X_arr[:, term.variable]
         else:
             raise NotImplementedError("Named variables require DataFrame support")
@@ -389,9 +383,7 @@ def fit_additive_gam(
             )
             basis = CubicSplineBasis(knots_interior)
         else:
-            raise NotImplementedError(
-                f"basis_type='{term.basis_type}' not yet implemented"
-            )
+            raise NotImplementedError(f"basis_type='{term.basis_type}' not yet implemented")
 
         # Compute basis matrix and penalty
         X_smooth = basis.basis_matrix(x_smooth)
@@ -411,9 +403,7 @@ def fit_additive_gam(
     for term in parametric_terms:
         if isinstance(term.variable, int):
             if term.variable >= p:
-                raise ValueError(
-                    f"Variable index {term.variable} out of range (0-{p - 1})"
-                )
+                raise ValueError(f"Variable index {term.variable} out of range (0-{p - 1})")
             X_parametric_list.append(X_arr[:, term.variable])
         else:
             raise NotImplementedError("Named variables require DataFrame support")
@@ -471,7 +461,6 @@ def fit_additive_gam(
     fitted_values = selection_result["fitted_values"]
 
     # All terms use same lambda (no per-term optimization yet)
-    use_per_term_lambda = False
 
     # Split coefficients back into parametric and smooth components
     idx = 0
@@ -523,8 +512,7 @@ def fit_additive_gam(
                     # Fall back to simple division
                     edf_j = max(
                         0.0,
-                        (selection_result.get("edf", n_basis) - n_parametric)
-                        / len(smooth_terms),
+                        (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms),
                     )
 
                 edf_values[term_name] = edf_j
@@ -532,15 +520,13 @@ def fit_additive_gam(
                 # Fallback: equal division (subtract parametric)
                 edf_values[term_name] = max(
                     0.0,
-                    (selection_result.get("edf", n_basis) - n_parametric)
-                    / len(smooth_terms),
+                    (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms),
                 )
         except (np.linalg.LinAlgError, ValueError):
             # Numerical issues - use fallback
             edf_values[term_name] = max(
                 0.0,
-                (selection_result.get("edf", n_basis) - n_parametric)
-                / len(smooth_terms),
+                (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms),
             )
 
         idx += n_basis
@@ -693,7 +679,7 @@ def fit_gam_formula(
         except ValueError:
             raise ValueError(
                 f"When using array data, response must be a column index, got '{spec.response}'"
-            )
+            ) from None
 
         y = data_arr[:, response_idx]
 
@@ -724,9 +710,7 @@ def fit_gam_formula(
         X = data_arr[:, predictor_indices_sorted]
 
         # Remap variable indices in terms to new X matrix
-        idx_map = {
-            old_idx: new_idx for new_idx, old_idx in enumerate(predictor_indices_sorted)
-        }
+        idx_map = {old_idx: new_idx for new_idx, old_idx in enumerate(predictor_indices_sorted)}
 
         smooth_terms = [
             SmoothTerm(
@@ -741,8 +725,7 @@ def fit_gam_formula(
         ]
 
         parametric_terms = [
-            ParametricTerm(variable=idx_map[term.variable])
-            for term in spec.parametric_terms
+            ParametricTerm(variable=idx_map[term.variable]) for term in spec.parametric_terms
         ]
 
     # Fit GAM

@@ -25,13 +25,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from aurora.distributions.base import Family
-from aurora.distributions.links import LogLink, IdentityLink, SqrtLink
 from aurora.distributions._utils import (
-    namespace,
     as_namespace_array,
     log_gamma,
+    namespace,
 )
+from aurora.distributions.base import Family
+from aurora.distributions.links import IdentityLink, LogLink, SqrtLink
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -140,9 +140,7 @@ class NegativeBinomialFamily(Family):
         elif link == "sqrt":
             self._link = SqrtLink()
         else:
-            raise ValueError(
-                f"Unsupported link: {link}. Use 'log', 'identity', or 'sqrt'"
-            )
+            raise ValueError(f"Unsupported link: {link}. Use 'log', 'identity', or 'sqrt'")
 
     @property
     def theta(self) -> float:
@@ -251,9 +249,7 @@ class NegativeBinomialFamily(Family):
         # log Γ(y+θ) - log Γ(θ) - log(y!) + θ log(θ/(θ+μ)) + y log(μ/(θ+μ))
         log_lik = (
             log_gamma(y_arr + theta, xp)
-            - log_gamma(
-                xp.full_like(y_arr, theta) if hasattr(xp, "full_like") else theta, xp
-            )
+            - log_gamma(xp.full_like(y_arr, theta) if hasattr(xp, "full_like") else theta, xp)
             - log_gamma(y_arr + 1, xp)
             + theta * xp.log(theta / (theta + mu_arr))
             + y_arr * xp.log(mu_arr / (theta + mu_arr))
@@ -343,7 +339,7 @@ class NegativeBinomialFamily(Family):
         """
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
-        mu_arr = as_namespace_array(mu, xp, like=y_arr)
+        as_namespace_array(mu, xp, like=y_arr)
 
         # Compute mean and variance
         mean_y = float(xp.mean(y_arr))
@@ -369,8 +365,8 @@ class NegativeBinomialFamily(Family):
         Note: This method converts inputs to NumPy since it uses
         scipy.optimize which requires NumPy arrays.
         """
-        from scipy.optimize import brentq
         from scipy import special
+        from scipy.optimize import brentq
 
         # Convert to NumPy for scipy.optimize
         y_np = np.asarray(y, dtype=float)

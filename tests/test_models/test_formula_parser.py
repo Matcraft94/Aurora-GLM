@@ -1,4 +1,5 @@
 """Tests for R-style formula parsing."""
+
 from __future__ import annotations
 
 import pytest
@@ -160,7 +161,7 @@ def test_parse_integer_variable_names():
 
     # Random effect with column indices
     re = spec.random_effects[0]
-    assert re.grouping == '3'  # Grouping is parsed as string
+    assert re.grouping == "3"  # Grouping is parsed as string
     assert re.variables == (2,)
 
 

@@ -1,4 +1,5 @@
 """Tests for PQL with smooth terms (Phase 5.1)."""
+
 import numpy as np
 import pytest
 
@@ -42,34 +43,34 @@ def test_pql_smooth_poisson_basic():
     # Fit model
     result = fit_pql_with_smooth(
         X_parametric=np.ones((n, 1)),  # Intercept only
-        X_smooth_dict={'s(x)': B},
+        X_smooth_dict={"s(x)": B},
         Z=Z,
-        Z_info=[{'n_levels': n_groups, 'dim': 1, 'type': 'intercept'}],
+        Z_info=[{"n_levels": n_groups, "dim": 1, "type": "intercept"}],
         y=y,
-        family='poisson',
-        S_smooth_dict={'s(x)': S},
-        lambda_smooth={'s(x)': 1.0},  # Fixed smoothing parameter
+        family="poisson",
+        S_smooth_dict={"s(x)": S},
+        lambda_smooth={"s(x)": 1.0},  # Fixed smoothing parameter
         maxiter_outer=10,
         maxiter_inner=10,
         verbose=False,
     )
 
     # Check results
-    assert result['converged'], "PQL should converge"
-    assert 's(x)' in result['beta_smooth']
-    assert result['beta_smooth']['s(x)'].shape == (10,)
-    assert result['random_effects'].shape == (n_groups,)
-    assert len(result['variance_components']) == 1
-    assert result['variance_components'][0].shape == (1, 1)
+    assert result["converged"], "PQL should converge"
+    assert "s(x)" in result["beta_smooth"]
+    assert result["beta_smooth"]["s(x)"].shape == (10,)
+    assert result["random_effects"].shape == (n_groups,)
+    assert len(result["variance_components"]) == 1
+    assert result["variance_components"][0].shape == (1, 1)
 
     # Check EDF
-    assert 's(x)' in result['edf_smooth']
-    edf = result['edf_smooth']['s(x)']
+    assert "s(x)" in result["edf_smooth"]
+    edf = result["edf_smooth"]["s(x)"]
     assert 1.0 < edf < 10.0, f"EDF should be between 1 and 10, got {edf}"
 
     # Check fitted values
-    assert result['fitted_values'].shape == (n,)
-    assert np.all(np.isfinite(result['fitted_values']))
+    assert result["fitted_values"].shape == (n,)
+    assert np.all(np.isfinite(result["fitted_values"]))
 
 
 def test_pql_smooth_multiple_smooths():
@@ -115,27 +116,27 @@ def test_pql_smooth_multiple_smooths():
     # Fit model
     result = fit_pql_with_smooth(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x1)': B1, 's(x2)': B2},
+        X_smooth_dict={"s(x1)": B1, "s(x2)": B2},
         Z=Z,
-        Z_info=[{'n_levels': n_groups, 'dim': 1, 'type': 'intercept'}],
+        Z_info=[{"n_levels": n_groups, "dim": 1, "type": "intercept"}],
         y=y,
-        family='poisson',
-        S_smooth_dict={'s(x1)': S1, 's(x2)': S2},
-        lambda_smooth={'s(x1)': 1.0, 's(x2)': 1.0},
+        family="poisson",
+        S_smooth_dict={"s(x1)": S1, "s(x2)": S2},
+        lambda_smooth={"s(x1)": 1.0, "s(x2)": 1.0},
         maxiter_outer=10,
         maxiter_inner=10,
     )
 
     # Check results
-    assert result['converged']
-    assert 's(x1)' in result['beta_smooth']
-    assert 's(x2)' in result['beta_smooth']
-    assert result['beta_smooth']['s(x1)'].shape == (8,)
-    assert result['beta_smooth']['s(x2)'].shape == (8,)
+    assert result["converged"]
+    assert "s(x1)" in result["beta_smooth"]
+    assert "s(x2)" in result["beta_smooth"]
+    assert result["beta_smooth"]["s(x1)"].shape == (8,)
+    assert result["beta_smooth"]["s(x2)"].shape == (8,)
 
     # Check EDF for both terms
-    assert 's(x1)' in result['edf_smooth']
-    assert 's(x2)' in result['edf_smooth']
+    assert "s(x1)" in result["edf_smooth"]
+    assert "s(x2)" in result["edf_smooth"]
 
 
 def test_pql_smooth_binomial():
@@ -174,21 +175,21 @@ def test_pql_smooth_binomial():
     # Fit model with more iterations for binomial convergence
     result = fit_pql_with_smooth(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x)': B},
+        X_smooth_dict={"s(x)": B},
         Z=Z,
-        Z_info=[{'n_levels': n_groups, 'dim': 1, 'type': 'intercept'}],
+        Z_info=[{"n_levels": n_groups, "dim": 1, "type": "intercept"}],
         y=y,
-        family='binomial',
-        S_smooth_dict={'s(x)': S},
-        lambda_smooth={'s(x)': 2.0},
+        family="binomial",
+        S_smooth_dict={"s(x)": S},
+        lambda_smooth={"s(x)": 2.0},
         maxiter_outer=20,  # More iterations for non-Gaussian
         maxiter_inner=25,
     )
 
     # Check results - binomial PQL may not always converge with stochastic data
     # Focus on shape correctness rather than strict convergence
-    assert result['beta_smooth']['s(x)'].shape == (8,)
-    assert result['random_effects'].shape == (n_groups,)
+    assert result["beta_smooth"]["s(x)"].shape == (8,)
+    assert result["random_effects"].shape == (n_groups,)
 
 
 def test_pql_smooth_validation():
@@ -206,40 +207,40 @@ def test_pql_smooth_validation():
     with pytest.raises(ValueError, match="has.*rows, expected"):
         fit_pql_with_smooth(
             X_parametric=np.ones((n, 1)),
-            X_smooth_dict={'s(x)': B[:n-5, :]},  # Wrong number of rows
+            X_smooth_dict={"s(x)": B[: n - 5, :]},  # Wrong number of rows
             Z=np.eye(n),
-            Z_info=[{'n_levels': n, 'dim': 1}],
+            Z_info=[{"n_levels": n, "dim": 1}],
             y=np.random.poisson(1, size=n),
-            family='poisson',
-            S_smooth_dict={'s(x)': S},
+            family="poisson",
+            S_smooth_dict={"s(x)": S},
         )
 
     # Missing penalty matrix
     with pytest.raises(ValueError, match="Missing penalty matrix"):
         fit_pql_with_smooth(
             X_parametric=np.ones((n, 1)),
-            X_smooth_dict={'s(x)': B, 's(z)': B},  # Two smooths
+            X_smooth_dict={"s(x)": B, "s(z)": B},  # Two smooths
             Z=np.eye(n),
-            Z_info=[{'n_levels': n, 'dim': 1}],
+            Z_info=[{"n_levels": n, "dim": 1}],
             y=np.random.poisson(1, size=n),
-            family='poisson',
-            S_smooth_dict={'s(x)': S},  # Only one penalty
+            family="poisson",
+            S_smooth_dict={"s(x)": S},  # Only one penalty
         )
 
     # Unsupported family
     with pytest.raises(ValueError, match="Unsupported family"):
         fit_pql_with_smooth(
             X_parametric=np.ones((n, 1)),
-            X_smooth_dict={'s(x)': B},
+            X_smooth_dict={"s(x)": B},
             Z=np.eye(n),
-            Z_info=[{'n_levels': n, 'dim': 1}],
+            Z_info=[{"n_levels": n, "dim": 1}],
             y=np.random.poisson(1, size=n),
-            family='unknown_family',
-            S_smooth_dict={'s(x)': S},
+            family="unknown_family",
+            S_smooth_dict={"s(x)": S},
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run basic test
     test_pql_smooth_poisson_basic()
     print("✓ Basic Poisson test passed")

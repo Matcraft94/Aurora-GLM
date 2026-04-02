@@ -8,7 +8,7 @@ from __future__ import annotations
 from .base import Optimizer
 from .irls import irls
 from .lbfgs import lbfgs
-from .newton import newton_raphson, modified_newton
+from .newton import modified_newton, newton_raphson
 from .result import OptimizationResult
 from .sparse_solvers import solve_sparse_penalized_ls
 
@@ -48,9 +48,7 @@ def optimize(
 
     key = method.lower()
     if key not in optimizers:
-        raise ValueError(
-            f"Unknown optimization method: {method}. Available: {list(optimizers)}"
-        )
+        raise ValueError(f"Unknown optimization method: {method}. Available: {list(optimizers)}")
 
     optimizer_fn = optimizers[key]
     return optimizer_fn(loss_fn, init_params, backend=backend_obj, **kwargs)

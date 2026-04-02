@@ -9,9 +9,10 @@ large datasets in chunks, supporting various file formats.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -117,7 +118,7 @@ class ChunkedDataLoader:
 
         if suffix == ".npy":
             # Use memory mapping for streaming
-            return np.load(path, mmap_mode='r')
+            return np.load(path, mmap_mode="r")
         elif suffix == ".npz":
             # NPZ doesn't support mmap, load fully
             data = np.load(path)
@@ -128,7 +129,7 @@ class ChunkedDataLoader:
         else:
             # Try numpy load with mmap if possible
             try:
-                return np.load(path, mmap_mode='r')
+                return np.load(path, mmap_mode="r")
             except (ValueError, OSError):
                 # Fall back to regular load
                 return np.load(path)
@@ -294,7 +295,7 @@ def data_iterator_from_arrays(
 
     rng = np.random.default_rng(seed)
 
-    for epoch in range(n_epochs):
+    for _epoch in range(n_epochs):
         indices = np.arange(n)
         if shuffle:
             rng.shuffle(indices)

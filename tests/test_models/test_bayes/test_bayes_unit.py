@@ -4,23 +4,22 @@ These tests verify individual components of the Bayesian module
 in isolation, without requiring the full MCMC backends.
 """
 
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose
+import pytest
 
 from aurora.models.bayes import (
-    Normal,
+    BayesianGLMResult,
     Cauchy,
-    HalfNormal,
-    HalfCauchy,
-    StudentT,
-    Laplace,
     Exponential,
     Gamma,
+    HalfCauchy,
+    HalfNormal,
     InverseGamma,
-    Uniform,
+    Laplace,
+    Normal,
     PriorSpec,
-    BayesianGLMResult,
+    StudentT,
+    Uniform,
 )
 
 
@@ -331,11 +330,13 @@ class TestBayesianGLMResult:
 
         # Simulate posterior samples - beta has shape (n_samples, n_params)
         posterior_samples = {
-            "beta": np.column_stack([
-                np.random.normal(1.0, 0.1, n_samples),
-                np.random.normal(-0.5, 0.2, n_samples),
-                np.random.normal(0.3, 0.15, n_samples),
-            ]),
+            "beta": np.column_stack(
+                [
+                    np.random.normal(1.0, 0.1, n_samples),
+                    np.random.normal(-0.5, 0.2, n_samples),
+                    np.random.normal(0.3, 0.15, n_samples),
+                ]
+            ),
             "sigma": np.random.exponential(1.0, n_samples),
         }
 

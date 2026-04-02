@@ -1,4 +1,5 @@
 """Tests for the PyTorch backend implementation."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -33,7 +34,7 @@ def test_as_numpy_roundtrip(backend):
 
 def test_grad_returns_correct_derivative(backend):
     def loss_fn(x: torch.Tensor) -> torch.Tensor:
-        return (x ** 2).sum()
+        return (x**2).sum()
 
     grad_fn = backend.grad(loss_fn)
     grad = grad_fn(torch.tensor([3.0, -2.0]))

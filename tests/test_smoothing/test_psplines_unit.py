@@ -4,11 +4,11 @@ These tests verify individual components of the P-spline implementation
 in isolation.
 """
 
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less
+import pytest
+from numpy.testing import assert_allclose
 
-from aurora.smoothing.splines import PSplineBasis, PSplineResult, fit_pspline
+from aurora.smoothing.splines import PSplineBasis, fit_pspline
 
 
 class TestPSplineBasisConstruction:

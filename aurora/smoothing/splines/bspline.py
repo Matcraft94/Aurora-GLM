@@ -425,9 +425,7 @@ class BSplineBasis:
         self.n_basis_ = len(knots_arr) - degree - 1
 
         if self.n_basis_ < 1:
-            raise ValueError(
-                f"Need at least {degree + 2} knots for degree {degree} B-splines"
-            )
+            raise ValueError(f"Need at least {degree + 2} knots for degree {degree} B-splines")
 
     def basis_matrix(self, x: Any, sparse: bool = False) -> Any:
         """Compute B-spline basis matrix using Cox-de Boor recursion.
@@ -543,9 +541,8 @@ class BSplineBasis:
             from scipy.sparse import csr_matrix
         except ImportError:
             raise ImportError(
-                "scipy is required for sparse B-spline evaluation. "
-                "Install with: pip install scipy"
-            )
+                "scipy is required for sparse B-spline evaluation. Install with: pip install scipy"
+            ) from None
 
         n = x_arr.shape[0]
         xp = np  # NumPy namespace
@@ -595,9 +592,7 @@ class BSplineBasis:
         indptr = np.array(indptr, dtype=np.int32)
 
         # Create CSR matrix
-        B_sparse = csr_matrix(
-            (data, indices, indptr), shape=(n, self.n_basis_), dtype=x_arr.dtype
-        )
+        B_sparse = csr_matrix((data, indices, indptr), shape=(n, self.n_basis_), dtype=x_arr.dtype)
 
         return B_sparse
 
@@ -695,9 +690,7 @@ class BSplineBasis:
         denom_right = knots[i + p + 1] - knots[i + 1]
         if float(denom_right) > 1e-10:
             w_right = (x - knots[i + 1]) / denom_right
-            right_term = (1.0 - w_right) * self._evaluate_basis(
-                x, i + 1, p - 1, knots, xp
-            )
+            right_term = (1.0 - w_right) * self._evaluate_basis(x, i + 1, p - 1, knots, xp)
         else:
             right_term = xp.zeros_like(x)
 
@@ -732,9 +725,7 @@ class BSplineBasis:
             raise ValueError("order must be positive")
 
         if order > self.n_basis_:
-            raise ValueError(
-                f"order {order} too large for {self.n_basis_} basis functions"
-            )
+            raise ValueError(f"order {order} too large for {self.n_basis_} basis functions")
 
         # Create difference matrix
         D = np.diff(np.eye(self.n_basis_), n=order, axis=0)

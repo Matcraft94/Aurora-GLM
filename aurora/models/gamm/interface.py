@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 
 from aurora.models.gamm.design import construct_Z_matrix
 from aurora.models.gamm.fitting import GAMMResult, fit_gamm_gaussian, predict_gamm
@@ -291,9 +292,7 @@ def fit_gamm(
                 # Get the data for this variable
                 if isinstance(var_name, int):
                     if var_name >= len(data.columns):
-                        raise ValueError(
-                            f"Smooth variable index {var_name} out of range"
-                        )
+                        raise ValueError(f"Smooth variable index {var_name} out of range")
                     x_smooth = data.iloc[:, var_name].values
                 elif var_name in data.columns:
                     x_smooth = data[var_name].values
@@ -329,9 +328,7 @@ def fit_gamm(
                     lambda_smooth_dict[term_name] = lambda_val
 
         # Use lambda_smooth_dict only if some values were specified
-        if len(lambda_smooth_dict) > 0 and len(lambda_smooth_dict) == len(
-            spec.smooth_terms
-        ):
+        if len(lambda_smooth_dict) > 0 and len(lambda_smooth_dict) == len(spec.smooth_terms):
             lambda_smooth_final = lambda_smooth_dict
         else:
             lambda_smooth_final = None  # Will use automatic selection
@@ -351,9 +348,7 @@ def fit_gamm(
     # Input validation
     valid_families = ["gaussian", "poisson", "binomial", "gamma"]
     if family not in valid_families:
-        raise ValueError(
-            f"Family '{family}' not supported. Valid families: {valid_families}"
-        )
+        raise ValueError(f"Family '{family}' not supported. Valid families: {valid_families}")
 
     # Convert inputs to numpy arrays
     if isinstance(y, pd.Series):
@@ -369,9 +364,7 @@ def fit_gamm(
 
     # Validate dimensions
     if len(y) != X.shape[0]:
-        raise ValueError(
-            f"Length of y ({len(y)}) must match number of rows in X ({X.shape[0]})"
-        )
+        raise ValueError(f"Length of y ({len(y)}) must match number of rows in X ({X.shape[0]})")
 
     # Handle random effects
     if random_effects is None:
@@ -379,9 +372,7 @@ def fit_gamm(
 
     if len(random_effects) > 0:
         if groups_data is None:
-            raise ValueError(
-                "groups_data must be provided when random_effects are specified"
-            )
+            raise ValueError("groups_data must be provided when random_effects are specified")
 
         # Convert groups_data if DataFrame
         if isinstance(groups_data, pd.DataFrame):
@@ -393,9 +384,7 @@ def fit_gamm(
         Z, Z_info = construct_Z_matrix(X, random_effects, groups_dict)
 
         if Z.shape[0] != len(y):
-            raise ValueError(
-                f"Z matrix has {Z.shape[0]} rows but y has {len(y)} elements"
-            )
+            raise ValueError(f"Z matrix has {Z.shape[0]} rows but y has {len(y)} elements")
 
     else:
         # No random effects - use dummy Z matrix
@@ -490,10 +479,25 @@ def fit_gamm(
                 fitted_values=result_dict["fitted_values"],
                 residuals=residuals,
                 log_likelihood=_compute_gaussian_gamm_loglik(
-                    y, result_dict["fitted_values"], residuals, len(result_dict["variance_components"])
+                    y,
+                    result_dict["fitted_values"],
+                    residuals,
+                    len(result_dict["variance_components"]),
                 ),
-                aic=_compute_aic(residuals, len(y), result_dict["edf_smooth"], len(result_dict["beta_parametric"]), len(result_dict["variance_components"])),
-                bic=_compute_bic(residuals, len(y), result_dict["edf_smooth"], len(result_dict["beta_parametric"]), len(result_dict["variance_components"])),
+                aic=_compute_aic(
+                    residuals,
+                    len(y),
+                    result_dict["edf_smooth"],
+                    len(result_dict["beta_parametric"]),
+                    len(result_dict["variance_components"]),
+                ),
+                bic=_compute_bic(
+                    residuals,
+                    len(y),
+                    result_dict["edf_smooth"],
+                    len(result_dict["beta_parametric"]),
+                    len(result_dict["variance_components"]),
+                ),
                 converged=result_dict["converged"],
                 n_iterations=result_dict["n_iterations_outer"],
                 n_obs=len(y),
@@ -727,7 +731,7 @@ def predict_from_gamm(
         # For now, reconstruct based on Z_info
         Z_info = result._Z_info[0]  # Assuming single random effect term
         n_effects = Z_info["n_effects"]
-        grouping_var = Z_info["grouping"]
+        Z_info["grouping"]
 
         # Reconstruct Z for new data using construct_Z_matrix
         # But we need the original random_effects specification...

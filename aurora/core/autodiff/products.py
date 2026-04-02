@@ -9,7 +9,9 @@ providing O(p) memory complexity vs O(p²) for full matrices.
 
 from __future__ import annotations
 
-from typing import Callable, Any, Tuple
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 
 from .backends import detect_backend
@@ -94,7 +96,7 @@ def _hvp_numerical(func, x, v, *args, **kwargs):
 
 def jvp(
     func: VectorFunc, x: ArrayLike, v: ArrayLike, *args, **kwargs
-) -> Tuple[ArrayLike, ArrayLike]:
+) -> tuple[ArrayLike, ArrayLike]:
     """Compute Jacobian-vector product (forward mode).
 
     Computes (f(x), J(x) @ v) efficiently in a single forward pass.
@@ -142,7 +144,7 @@ def jvp(
 
 def vjp(
     func: VectorFunc, x: ArrayLike, v: ArrayLike, *args, **kwargs
-) -> Tuple[ArrayLike, ArrayLike]:
+) -> tuple[ArrayLike, ArrayLike]:
     """Compute vector-Jacobian product (reverse mode).
 
     Computes (f(x), v^T @ J(x)) efficiently.
@@ -173,7 +175,6 @@ def vjp(
         cotangents = vjp_fn(v)[0]
         return primals, cotangents
     elif backend == "torch":
-
         x_t = x.clone().detach().requires_grad_(True)
         f_x = func(x_t, *args, **kwargs)
         f_x.backward(v)

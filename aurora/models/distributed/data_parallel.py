@@ -13,8 +13,9 @@ can be computed locally and summed across workers.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -145,15 +146,13 @@ class DataParallelIRLS:
         beta = np.zeros(p)
 
         converged = False
-        for iteration in range(self.max_iter):
+        for iteration in range(self.max_iter):  # noqa: B007
             # Aggregate sufficient statistics across chunks
             XtWX_total = np.zeros((p, p))
             XtWz_total = np.zeros(p)
 
-            for X_chunk, y_chunk in zip(X_chunks, y_chunks):
-                XtWX, XtWz = self._compute_sufficient_stats(
-                    X_chunk, y_chunk, beta
-                )
+            for X_chunk, y_chunk in zip(X_chunks, y_chunks, strict=False):
+                XtWX, XtWz = self._compute_sufficient_stats(X_chunk, y_chunk, beta)
                 XtWX_total += XtWX
                 XtWz_total += XtWz
 
@@ -206,7 +205,7 @@ class DataParallelIRLS:
         XtWz : ndarray, shape (p,)
             X'Wz for this chunk
         """
-        n = len(y)
+        len(y)
         eta = X @ beta
         mu = _apply_inverse_link(eta, self.link)
 

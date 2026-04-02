@@ -1,4 +1,5 @@
 """Unit tests for the Binomial distribution family with multi-backend support."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def _as_array(xp, data):
     """Convert data to array in specified namespace."""
@@ -78,6 +80,7 @@ if _jax_available():
 # Test Functions
 # ============================================================================
 
+
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
 def test_binomial_log_likelihood(xp):
     """Test binomial log-likelihood computation across backends.
@@ -121,7 +124,7 @@ def test_binomial_deviance(xp):
     mu_safe = np.clip(mu_np, eps, 1 - eps)
 
     dev_terms = []
-    for yi, yi_safe, mui_safe in zip(y_np, y_safe, mu_safe):
+    for yi, yi_safe, mui_safe in zip(y_np, y_safe, mu_safe, strict=False):
         term1 = yi * np.log(yi_safe / mui_safe)
         term2 = (1 - yi) * np.log((1 - yi_safe) / (1 - mui_safe))
         dev_terms.append(2.0 * (term1 + term2))

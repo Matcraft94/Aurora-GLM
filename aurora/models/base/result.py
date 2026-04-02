@@ -114,7 +114,7 @@ class GLMResult:
     _fit_intercept: bool = True
     _intercept_std_error: float | None = None
     _intercept_p_value: float | None = None
-    _diagnostics_cache: "GLMDiagnosticResult" | None = None
+    _diagnostics_cache: GLMDiagnosticResult | None = None
 
     @property
     def std_errors_(self) -> Array:
@@ -171,13 +171,9 @@ class GLMResult:
         std_full = np.sqrt(diag)
 
         coef_np = _to_numpy(self.coef_)
-        coef_full = _combine_coefficients_numpy(
-            self.intercept_, coef_np, self._fit_intercept
-        )
+        coef_full = _combine_coefficients_numpy(self.intercept_, coef_np, self._fit_intercept)
 
-        z_scores = np.divide(
-            coef_full, std_full, out=np.zeros_like(std_full), where=std_full > 0
-        )
+        z_scores = np.divide(coef_full, std_full, out=np.zeros_like(std_full), where=std_full > 0)
         p_full = 2.0 * (1.0 - _standard_normal_cdf_numpy(np.abs(z_scores)))
 
         if self._fit_intercept and self.intercept_ is not None:
@@ -212,7 +208,7 @@ class GLMResult:
         return self._intercept_p_value
 
     @property
-    def diagnostics_(self) -> "GLMDiagnosticResult":
+    def diagnostics_(self) -> GLMDiagnosticResult:
         """Return (and cache) residual and influence diagnostics for this fit."""
 
         if self._diagnostics_cache is None:
@@ -278,9 +274,7 @@ class GLMResult:
         if self._coef_cov is None or self._std_errors is None or self._p_values is None:
             self._compute_inference()
 
-        design_np = _design_with_intercept_numpy(
-            X_arr, fit_intercept=self._fit_intercept
-        )
+        design_np = _design_with_intercept_numpy(X_arr, fit_intercept=self._fit_intercept)
         cov = np.asarray(self._coef_cov, dtype=np.float64)
         se_eta = _prediction_standard_errors(design_np, cov)
 
@@ -354,12 +348,8 @@ class GLMResult:
         df_model = n_params - (1 if self._fit_intercept else 0)
 
         # Two-column layout for header
-        lines.append(
-            f"{'Family:':<25} {family_name:<26} {'Link function:':<15} {link_name}"
-        )
-        lines.append(
-            f"{'No. Observations:':<25} {n_obs:<26} {'Df Residuals:':<15} {df_resid}"
-        )
+        lines.append(f"{'Family:':<25} {family_name:<26} {'Link function:':<15} {link_name}")
+        lines.append(f"{'No. Observations:':<25} {n_obs:<26} {'Df Residuals:':<15} {df_resid}")
         lines.append(f"{'Df Model:':<25} {df_model:<26}")
 
         converged_str = "Yes" if self.converged_ else "No"
@@ -391,9 +381,7 @@ class GLMResult:
                             f"{'X' + str(i):>12} {float(coef_val):>10.4f} {'N/A':>10} {'N/A':>10} {'N/A':>10} {'N/A':>10} {'N/A':>10}"
                         )
                     lines.append(sep)
-                    lines.append(
-                        "(Inference statistics unavailable: design matrix not stored)"
-                    )
+                    lines.append("(Inference statistics unavailable: design matrix not stored)")
                     return "\n".join(lines)
 
             # Confidence interval quantile (95%)
@@ -439,17 +427,11 @@ class GLMResult:
                 )
 
             lines.append(sep)
-            lines.append(
-                "Significance codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1"
-            )
+            lines.append("Significance codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
             lines.append(sep)
 
         # Goodness of fit
-        pseudo_r2 = (
-            1.0 - (self.deviance_ / self.null_deviance_)
-            if self.null_deviance_ > 0
-            else 0.0
-        )
+        pseudo_r2 = 1.0 - (self.deviance_ / self.null_deviance_) if self.null_deviance_ > 0 else 0.0
 
         lines.append(
             f"{'Deviance:':<30} {self.deviance_:>15.2f} {'Null Deviance:':<20} {self.null_deviance_:>10.2f}"
@@ -515,9 +497,7 @@ class GLMResult:
 
         # Plot 1: Residuals vs Fitted
         ax1 = axes[0, 0]
-        ax1.scatter(
-            mu, diag.response_residuals, alpha=0.6, s=20, edgecolors="k", linewidths=0.5
-        )
+        ax1.scatter(mu, diag.response_residuals, alpha=0.6, s=20, edgecolors="k", linewidths=0.5)
         ax1.axhline(y=0, color="red", linestyle="--", linewidth=1.5, alpha=0.7)
         ax1.set_xlabel("Fitted values")
         ax1.set_ylabel("Residuals")
@@ -548,9 +528,7 @@ class GLMResult:
         studentized = diag.studentized_residuals
         studentized_sorted = np.sort(studentized)
         n = len(studentized)
-        theoretical_quantiles = np.array(
-            [NormalDist().inv_cdf((i + 0.5) / n) for i in range(n)]
-        )
+        theoretical_quantiles = np.array([NormalDist().inv_cdf((i + 0.5) / n) for i in range(n)])
 
         ax2.scatter(
             theoretical_quantiles,
@@ -563,9 +541,7 @@ class GLMResult:
         # Add reference line
         min_val = min(theoretical_quantiles.min(), studentized_sorted.min())
         max_val = max(theoretical_quantiles.max(), studentized_sorted.max())
-        ax2.plot(
-            [min_val, max_val], [min_val, max_val], "r--", linewidth=1.5, alpha=0.7
-        )
+        ax2.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=1.5, alpha=0.7)
         ax2.set_xlabel("Theoretical Quantiles")
         ax2.set_ylabel("Studentized Residuals")
         ax2.set_title("Normal Q-Q Plot")
@@ -574,9 +550,7 @@ class GLMResult:
         # Plot 3: Scale-Location
         ax3 = axes[1, 0]
         sqrt_abs_studentized = np.sqrt(np.abs(studentized))
-        ax3.scatter(
-            mu, sqrt_abs_studentized, alpha=0.6, s=20, edgecolors="k", linewidths=0.5
-        )
+        ax3.scatter(mu, sqrt_abs_studentized, alpha=0.6, s=20, edgecolors="k", linewidths=0.5)
         ax3.set_xlabel("Fitted values")
         ax3.set_ylabel(r"$\sqrt{|Studentized\ Residuals|}$")
         ax3.set_title("Scale-Location")
@@ -594,9 +568,7 @@ class GLMResult:
             if window % 2 == 0:
                 window += 1
             if window >= 5:
-                smooth = savgol_filter(
-                    sqrt_resid_sorted, window_length=window, polyorder=3
-                )
+                smooth = savgol_filter(sqrt_resid_sorted, window_length=window, polyorder=3)
                 ax3.plot(mu_sorted, smooth, color="red", linewidth=2, alpha=0.8)
         except (ImportError, ValueError):
             pass
@@ -741,14 +713,10 @@ def _design_with_intercept_numpy(X: Array, *, fit_intercept: bool) -> np.ndarray
     return np.concatenate((ones, matrix), axis=1)
 
 
-def _prediction_standard_errors(
-    design: np.ndarray, covariance: np.ndarray
-) -> np.ndarray:
+def _prediction_standard_errors(design: np.ndarray, covariance: np.ndarray) -> np.ndarray:
     covariance = np.asarray(covariance, dtype=np.float64)
     if covariance.shape[0] != design.shape[1]:
-        raise ValueError(
-            "Covariance matrix and design matrix dimensions are incompatible"
-        )
+        raise ValueError("Covariance matrix and design matrix dimensions are incompatible")
     projection = design @ covariance
     variances = np.einsum("ij,ij->i", projection, design)
     variances = np.clip(variances, 1e-12, None)

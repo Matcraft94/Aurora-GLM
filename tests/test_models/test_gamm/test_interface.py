@@ -1,4 +1,5 @@
 """Integration tests for high-level GAMM interface."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -61,7 +62,11 @@ def test_fit_gamm_with_pandas():
     # Fit model
     re = RandomEffect(grouping="subject")
     result = fit_gamm(
-        y=df["y"], X=df[["x"]], random_effects=[re], groups_data=df[["subject"]], covariance="identity"
+        y=df["y"],
+        X=df[["x"]],
+        random_effects=[re],
+        groups_data=df[["subject"]],
+        covariance="identity",
     )
 
     assert result.converged
@@ -82,7 +87,9 @@ def test_fit_gamm_intercept_only():
 
     # Fit model
     re = RandomEffect(grouping="subject")
-    result = fit_gamm(y=y, X=None, random_effects=[re], groups_data={"subject": groups}, covariance="identity")
+    result = fit_gamm(
+        y=y, X=None, random_effects=[re], groups_data={"subject": groups}, covariance="identity"
+    )
 
     assert result.converged
     assert result.beta_parametric.shape == (1,)  # Intercept only
@@ -146,11 +153,13 @@ def test_fit_gamm_non_gaussian_supported():
     re = RandomEffect(grouping="subject")
 
     # Should now work with non-Gaussian families (Phase 5 implementation)
-    result = fit_gamm(y=y, X=X, random_effects=[re], groups_data={"subject": groups}, family="poisson")
-    
+    result = fit_gamm(
+        y=y, X=X, random_effects=[re], groups_data={"subject": groups}, family="poisson"
+    )
+
     # Verify result structure (uses beta_parametric and random_effects attributes)
-    assert hasattr(result, 'beta_parametric')
-    assert hasattr(result, 'random_effects')
+    assert hasattr(result, "beta_parametric")
+    assert hasattr(result, "random_effects")
 
 
 def test_fit_gamm_missing_groups_raises():

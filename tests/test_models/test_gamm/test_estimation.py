@@ -1,11 +1,11 @@
 """Tests for REML variance component estimation."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from scipy import linalg
 
-from aurora.models.gamm import construct_Z_matrix, RandomEffect
+from aurora.models.gamm import RandomEffect, construct_Z_matrix
 from aurora.models.gamm.estimation import (
     REMLResult,
     compute_P_matrix,
@@ -17,8 +17,8 @@ from aurora.models.gamm.estimation import (
     reml_objective,
 )
 
-
 # Helper functions for generating test data
+
 
 def generate_random_intercept_data(
     n_groups: int = 10,
@@ -45,14 +45,16 @@ def generate_random_intercept_data(
     # Generate response
     y = X @ np.array([beta]) + Z @ b + np.random.randn(n) * np.sqrt(sigma2)
 
-    Z_info = [{
-        'grouping': 'subject',
-        'n_effects': 1,
-        'n_groups': n_groups,
-        'groups': np.arange(n_groups),
-        'start_col': 0,
-        'end_col': n_groups,
-    }]
+    Z_info = [
+        {
+            "grouping": "subject",
+            "n_effects": 1,
+            "n_groups": n_groups,
+            "groups": np.arange(n_groups),
+            "start_col": 0,
+            "end_col": n_groups,
+        }
+    ]
 
     return y, X, Z, Z_info, groups
 
@@ -64,7 +66,7 @@ def generate_random_slope_data(
     psi: np.ndarray = None,
     sigma2: float = 0.5,
     seed: int = 42,
-    covariance: str = 'unstructured',
+    covariance: str = "unstructured",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[dict]]:
     """Generate data from random intercept + slope model."""
     if beta is None:
@@ -84,8 +86,8 @@ def generate_random_slope_data(
     X = np.column_stack([np.ones(n), time])
 
     # Random effects design
-    groups_data = {'subject': groups}
-    re = RandomEffect(grouping='subject', variables=(1,), covariance=covariance)
+    groups_data = {"subject": groups}
+    re = RandomEffect(grouping="subject", variables=(1,), covariance=covariance)
     Z, Z_info = construct_Z_matrix(X, [re], groups_data)
 
     # Generate random effects (intercept + slope per group)
@@ -101,17 +103,21 @@ def generate_random_slope_data(
 
 # Tests for helper functions
 
+
 def test_compute_V_matrix():
     """compute_V_matrix should compute V = ZΨZ' + σ²I."""
-    n, q = 6, 2
-    Z = np.array([
-        [1, 0],
-        [1, 0],
-        [1, 0],
-        [0, 1],
-        [0, 1],
-        [0, 1],
-    ], dtype=float)
+    _n, _q = 6, 2
+    Z = np.array(
+        [
+            [1, 0],
+            [1, 0],
+            [1, 0],
+            [0, 1],
+            [0, 1],
+            [0, 1],
+        ],
+        dtype=float,
+    )
     psi = np.array([[2.0, 0.5], [0.5, 1.0]])
     sigma2 = 0.5
 
@@ -119,14 +125,16 @@ def test_compute_V_matrix():
 
     # Expected: ZΨZ' + σ²I
     # ZΨZ' has blocks with correlations between all obs
-    expected = np.array([
-        [2.5, 2.0, 2.0, 0.5, 0.5, 0.5],
-        [2.0, 2.5, 2.0, 0.5, 0.5, 0.5],
-        [2.0, 2.0, 2.5, 0.5, 0.5, 0.5],
-        [0.5, 0.5, 0.5, 1.5, 1.0, 1.0],
-        [0.5, 0.5, 0.5, 1.0, 1.5, 1.0],
-        [0.5, 0.5, 0.5, 1.0, 1.0, 1.5],
-    ])
+    expected = np.array(
+        [
+            [2.5, 2.0, 2.0, 0.5, 0.5, 0.5],
+            [2.0, 2.5, 2.0, 0.5, 0.5, 0.5],
+            [2.0, 2.0, 2.5, 0.5, 0.5, 0.5],
+            [0.5, 0.5, 0.5, 1.5, 1.0, 1.0],
+            [0.5, 0.5, 0.5, 1.0, 1.5, 1.0],
+            [0.5, 0.5, 0.5, 1.0, 1.0, 1.5],
+        ]
+    )
 
     assert V.shape == (6, 6)
     np.testing.assert_allclose(V, expected, atol=1e-10)
@@ -181,9 +189,7 @@ def test_reml_log_likelihood_known():
 
 def test_reml_objective():
     """reml_objective should return negative log-likelihood."""
-    y, X, Z, Z_info, _ = generate_random_intercept_data(
-        n_groups=5, n_per_group=4, seed=123
-    )
+    y, X, Z, Z_info, _ = generate_random_intercept_data(n_groups=5, n_per_group=4, seed=123)
 
     from aurora.models.gamm.covariance import IdentityCovariance
 
@@ -218,6 +224,7 @@ def test_reml_objective_invalid_params():
 
 # Tests for variance component estimation
 
+
 def test_estimate_variance_components_random_intercept():
     """estimate_variance_components should work for random intercept model."""
     y, X, Z, Z_info, _ = generate_random_intercept_data(
@@ -229,9 +236,7 @@ def test_estimate_variance_components_random_intercept():
         seed=42,
     )
 
-    result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='identity', maxiter=500
-    )
+    result = estimate_variance_components(y, X, Z, Z_info, covariance="identity", maxiter=500)
 
     assert isinstance(result, REMLResult)
     assert result.psi.shape == (1, 1)
@@ -252,12 +257,10 @@ def test_estimate_variance_components_random_slope():
         psi=np.array([[1.0, 0.0], [0.0, 0.5]]),
         sigma2=0.5,
         seed=42,
-        covariance='diagonal',  # Use diagonal covariance in RandomEffect
+        covariance="diagonal",  # Use diagonal covariance in RandomEffect
     )
 
-    result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='diagonal', maxiter=500
-    )
+    result = estimate_variance_components(y, X, Z, Z_info, covariance="diagonal", maxiter=500)
 
     assert result.psi.shape == (2, 2)
     assert result.converged
@@ -281,9 +284,7 @@ def test_estimate_variance_components_unstructured():
         seed=42,
     )
 
-    result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='unstructured', maxiter=500
-    )
+    result = estimate_variance_components(y, X, Z, Z_info, covariance="unstructured", maxiter=500)
 
     assert result.psi.shape == (2, 2)
     assert result.converged
@@ -299,9 +300,7 @@ def test_estimate_variance_components_unstructured():
 
 def test_estimate_variance_components_initial_values():
     """estimate_variance_components should accept initial values."""
-    y, X, Z, Z_info, _ = generate_random_intercept_data(
-        n_groups=5, n_per_group=4, seed=123
-    )
+    y, X, Z, Z_info, _ = generate_random_intercept_data(n_groups=5, n_per_group=4, seed=123)
 
     initial_psi = np.array([[2.0]])
     initial_sigma2 = 1.0
@@ -311,7 +310,7 @@ def test_estimate_variance_components_initial_values():
         X,
         Z,
         Z_info,
-        covariance='identity',
+        covariance="identity",
         initial_psi=initial_psi,
         initial_sigma2=initial_sigma2,
         maxiter=500,
@@ -325,12 +324,10 @@ def test_estimate_variance_components_initial_values():
 
 def test_estimate_variance_components_store_matrices():
     """estimate_variance_components should store V and P if requested."""
-    y, X, Z, Z_info, _ = generate_random_intercept_data(
-        n_groups=5, n_per_group=4, seed=123
-    )
+    y, X, Z, Z_info, _ = generate_random_intercept_data(n_groups=5, n_per_group=4, seed=123)
 
     result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='identity', store_matrices=True, maxiter=500
+        y, X, Z, Z_info, covariance="identity", store_matrices=True, maxiter=500
     )
 
     assert result.V is not None
@@ -349,16 +346,15 @@ def test_estimate_variance_components_multiple_terms_raises():
 
     # Create Z_info with multiple terms
     # Note: Z needs to have enough columns for both terms
-    n_per_term = 5
     Z_combined = np.column_stack([Z, Z])  # Duplicate for two terms
 
     Z_info_multiple = [
-        {'n_effects': 1, 'n_groups': 5, 'grouping': 'term1', 'start_col': 0, 'end_col': 5},
-        {'n_effects': 1, 'n_groups': 5, 'grouping': 'term2', 'start_col': 5, 'end_col': 10},
+        {"n_effects": 1, "n_groups": 5, "grouping": "term1", "start_col": 0, "end_col": 5},
+        {"n_effects": 1, "n_groups": 5, "grouping": "term2", "start_col": 5, "end_col": 10},
     ]
 
     # Should work with multiple terms (no longer raises)
-    result = estimate_variance_components(y, X, Z_combined, Z_info_multiple, covariance='identity')
+    result = estimate_variance_components(y, X, Z_combined, Z_info_multiple, covariance="identity")
 
     # Result should have variance structure for each term
     assert result.converged
@@ -370,9 +366,7 @@ def test_estimate_variance_components_convergence():
     y, X, Z, Z_info, _ = generate_random_intercept_data(n_groups=5, n_per_group=4)
 
     # Use very low maxiter to test non-convergence
-    result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='identity', maxiter=1
-    )
+    result = estimate_variance_components(y, X, Z, Z_info, covariance="identity", maxiter=1)
 
     # Check convergence flag exists (may or may not converge in 1 iter)
     assert isinstance(result.converged, bool)
@@ -380,6 +374,7 @@ def test_estimate_variance_components_convergence():
 
 
 # Tests for fixed and random effects estimation
+
 
 def test_estimate_fixed_effects():
     """estimate_fixed_effects should compute GLS estimates."""
@@ -479,6 +474,7 @@ def test_estimate_random_effects_high_correlation():
 
 # Integration tests
 
+
 def test_full_estimation_pipeline():
     """Full pipeline: estimate variances, then fixed/random effects."""
     y, X, Z, Z_info, groups = generate_random_intercept_data(
@@ -492,7 +488,7 @@ def test_full_estimation_pipeline():
 
     # Step 1: Estimate variance components
     reml_result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='identity', store_matrices=True, maxiter=500
+        y, X, Z, Z_info, covariance="identity", store_matrices=True, maxiter=500
     )
 
     assert reml_result.converged
@@ -505,9 +501,7 @@ def test_full_estimation_pipeline():
     assert 2.0 < beta[0] < 4.0
 
     # Step 3: Estimate random effects
-    b = estimate_random_effects(
-        y, X, Z, beta, reml_result.psi, reml_result.sigma2, Z_info=Z_info
-    )
+    b = estimate_random_effects(y, X, Z, beta, reml_result.psi, reml_result.sigma2, Z_info=Z_info)
 
     assert b.shape == (10,)  # 10 groups
     # Should have some variation
@@ -522,7 +516,7 @@ def test_estimation_balanced_vs_unbalanced():
     )
 
     result_bal = estimate_variance_components(
-        y_bal, X_bal, Z_bal, Z_info_bal, covariance='identity', maxiter=500
+        y_bal, X_bal, Z_bal, Z_info_bal, covariance="identity", maxiter=500
     )
 
     assert result_bal.converged
@@ -542,17 +536,19 @@ def test_estimation_balanced_vs_unbalanced():
     b_true = np.random.randn(n_groups) * np.sqrt(1.0)
     y_unbal = X_unbal @ np.array([2.0]) + Z_unbal @ b_true + np.random.randn(n) * np.sqrt(0.5)
 
-    Z_info_unbal = [{
-        'grouping': 'subject',
-        'n_effects': 1,
-        'n_groups': n_groups,
-        'groups': np.arange(n_groups),
-        'start_col': 0,
-        'end_col': n_groups,
-    }]
+    Z_info_unbal = [
+        {
+            "grouping": "subject",
+            "n_effects": 1,
+            "n_groups": n_groups,
+            "groups": np.arange(n_groups),
+            "start_col": 0,
+            "end_col": n_groups,
+        }
+    ]
 
     result_unbal = estimate_variance_components(
-        y_unbal, X_unbal, Z_unbal, Z_info_unbal, covariance='identity', maxiter=500
+        y_unbal, X_unbal, Z_unbal, Z_info_unbal, covariance="identity", maxiter=500
     )
 
     assert result_unbal.converged
@@ -566,18 +562,18 @@ def test_reml_result_attributes():
     y, X, Z, Z_info, _ = generate_random_intercept_data(n_groups=5, n_per_group=4)
 
     result = estimate_variance_components(
-        y, X, Z, Z_info, covariance='identity', store_matrices=True, maxiter=500
+        y, X, Z, Z_info, covariance="identity", store_matrices=True, maxiter=500
     )
 
     # Check all attributes exist
-    assert hasattr(result, 'psi')
-    assert hasattr(result, 'sigma2')
-    assert hasattr(result, 'log_likelihood')
-    assert hasattr(result, 'theta')
-    assert hasattr(result, 'n_iterations')
-    assert hasattr(result, 'converged')
-    assert hasattr(result, 'V')
-    assert hasattr(result, 'P')
+    assert hasattr(result, "psi")
+    assert hasattr(result, "sigma2")
+    assert hasattr(result, "log_likelihood")
+    assert hasattr(result, "theta")
+    assert hasattr(result, "n_iterations")
+    assert hasattr(result, "converged")
+    assert hasattr(result, "V")
+    assert hasattr(result, "P")
 
     # Check types
     assert isinstance(result.psi, np.ndarray)

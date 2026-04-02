@@ -31,20 +31,20 @@ aurora.models.glm : Standard GLM fitting
 aurora.models.bayes : Bayesian GLM fitting
 """
 
-from .optimizers import (
-    Optimizer,
-    SGDOptimizer,
-    AdamOptimizer,
-    AdaGradOptimizer,
-)
-from .minibatch import fit_glm_sgd, SGDResult
-from .data_parallel import fit_glm_parallel, DataParallelIRLS, ParallelResult
+from .backends import HAS_DASK, HAS_RAY, available_backends
 from .chunked import (
-    ChunkedDataLoader,
     ArrayChunker,
+    ChunkedDataLoader,
     data_iterator_from_arrays,
 )
-from .backends import HAS_DASK, HAS_RAY, available_backends
+from .data_parallel import DataParallelIRLS, ParallelResult, fit_glm_parallel
+from .minibatch import SGDResult, fit_glm_sgd
+from .optimizers import (
+    AdaGradOptimizer,
+    AdamOptimizer,
+    Optimizer,
+    SGDOptimizer,
+)
 
 __all__ = [
     # Main API

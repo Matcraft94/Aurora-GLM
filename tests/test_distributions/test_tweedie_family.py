@@ -49,25 +49,28 @@ References
     "Series evaluation of Tweedie exponential dispersion model densities."
     Statistics and Computing, 15(4), 267-280.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from aurora.distributions.families.tweedie import (
-    TweedieFamily,
     CompoundPoissonGammaFamily,
+    TweedieFamily,
 )
 
 # Multi-backend support
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
     import jax.numpy as jnp
+
     HAS_JAX = True
 except ImportError:
     HAS_JAX = False
@@ -79,10 +82,11 @@ class TestTweedieFamilyBasic:
     def test_instantiation_default(self):
         """Test default instantiation with power=1.5."""
         from aurora.distributions.links import LogLink
+
         family = TweedieFamily()
         assert family.power == 1.5
         assert family.phi == 1.0
-        assert family.name == 'tweedie'
+        assert family.name == "tweedie"
         assert isinstance(family.default_link, LogLink)
 
     def test_instantiation_custom_power(self):
@@ -113,27 +117,29 @@ class TestTweedieFamilyBasic:
     def test_link_identity(self):
         """Test identity link instantiation."""
         from aurora.distributions.links import IdentityLink
-        family = TweedieFamily(link='identity')
+
+        family = TweedieFamily(link="identity")
         assert isinstance(family.default_link, IdentityLink)
 
     def test_link_power(self):
         """Test power link instantiation."""
         from aurora.distributions.links import PowerLink
-        family = TweedieFamily(link='power0.5')
+
+        family = TweedieFamily(link="power0.5")
         assert isinstance(family.default_link, PowerLink)
 
     def test_link_invalid(self):
         """Test invalid link raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported link"):
-            TweedieFamily(link='logit')
+            TweedieFamily(link="logit")
 
     def test_repr(self):
         """Test string representation."""
         family = TweedieFamily(power=1.6, phi=2.0)
         repr_str = repr(family)
-        assert 'TweedieFamily' in repr_str
-        assert '1.6' in repr_str
-        assert '2' in repr_str
+        assert "TweedieFamily" in repr_str
+        assert "1.6" in repr_str
+        assert "2" in repr_str
 
 
 class TestTweedieVariance:
@@ -145,7 +151,7 @@ class TestTweedieVariance:
         mu = np.array([1.0, 2.0, 4.0])
 
         result = family.variance(mu)
-        expected = mu ** 1.5
+        expected = mu**1.5
 
         np.testing.assert_allclose(result, expected)
 
@@ -156,12 +162,12 @@ class TestTweedieVariance:
         # p = 1.2 (more Poisson-like)
         family_12 = TweedieFamily(power=1.2)
         var_12 = family_12.variance(mu)
-        np.testing.assert_allclose(var_12, 2.0 ** 1.2)
+        np.testing.assert_allclose(var_12, 2.0**1.2)
 
         # p = 1.8 (more Gamma-like)
         family_18 = TweedieFamily(power=1.8)
         var_18 = family_18.variance(mu)
-        np.testing.assert_allclose(var_18, 2.0 ** 1.8)
+        np.testing.assert_allclose(var_18, 2.0**1.8)
 
     def test_variance_handles_small_mu(self):
         """Test variance handles small mu values (clipped to avoid issues)."""
@@ -205,12 +211,11 @@ class TestTweedieDeviance:
         family = TweedieFamily(power=1.5)
         y = np.array([0.0])
         mu = np.array([2.0])
-        p = 1.5
 
         result = family.deviance(y, mu)
 
         # d(0, μ) = 2μ^{2-p}/(2-p) = 2×2^{0.5}/0.5 = 4×√2 ≈ 5.657
-        expected = 2 * (2.0 ** 0.5) / 0.5
+        expected = 2 * (2.0**0.5) / 0.5
 
         np.testing.assert_allclose(result, expected, rtol=1e-10)
 
@@ -227,9 +232,9 @@ class TestTweedieDeviance:
         result = family.deviance(y, mu)
 
         # Manual calculation
-        term1 = y**(2-p) / ((1-p) * (2-p))
-        term2 = y * mu**(1-p) / (1-p)
-        term3 = mu**(2-p) / (2-p)
+        term1 = y ** (2 - p) / ((1 - p) * (2 - p))
+        term2 = y * mu ** (1 - p) / (1 - p)
+        term3 = mu ** (2 - p) / (2 - p)
         expected = 2 * np.sum(term1 - term2 + term3)
 
         np.testing.assert_allclose(result, expected, rtol=1e-10)
@@ -325,7 +330,7 @@ class TestTweedieWeights:
 
         weights = family.weights(y, mu)
 
-        expected = 1.0 / (mu ** 1.5)
+        expected = 1.0 / (mu**1.5)
         np.testing.assert_allclose(weights, expected, rtol=1e-10)
 
 
@@ -354,7 +359,7 @@ class TestTweedieGradients:
         mu = np.array([3.0])
 
         result = family.d_log_likelihood(y, mu)
-        expected = (y - mu) / (2.0 * mu ** 1.6)
+        expected = (y - mu) / (2.0 * mu**1.6)
 
         np.testing.assert_allclose(result, expected)
 
@@ -404,14 +409,12 @@ class TestTweedieProbabilityZero:
         """Test P(Y=0) = exp(-λ) where λ = μ^{2-p}/(φ(2-p))."""
         family = TweedieFamily(power=1.5, phi=1.0)
         mu = np.array([2.0])
-        p = 1.5
-        phi = 1.0
 
         result = family.probability_zero(mu)
 
         # λ = 2^{0.5} / (1 × 0.5) = √2 / 0.5 = 2√2
         # P(Y=0) = exp(-2√2) ≈ 0.059
-        lambda_ = 2.0 ** 0.5 / (1.0 * 0.5)
+        lambda_ = 2.0**0.5 / (1.0 * 0.5)
         expected = np.exp(-lambda_)
 
         np.testing.assert_allclose(result, expected, rtol=1e-10)
@@ -451,7 +454,7 @@ class TestCompoundPoissonGammaFamily:
     def test_name(self):
         """Check the name attribute."""
         family = CompoundPoissonGammaFamily()
-        assert family.name == 'compound_poisson_gamma'
+        assert family.name == "compound_poisson_gamma"
 
     def test_poisson_rate(self):
         """Test Poisson rate λ = μ^{2-p}/(φ(2-p))."""
@@ -462,7 +465,7 @@ class TestCompoundPoissonGammaFamily:
 
         result = family.get_poisson_rate(mu)
 
-        expected = 4.0 ** (2-p) / (phi * (2-p))
+        expected = 4.0 ** (2 - p) / (phi * (2 - p))
         np.testing.assert_allclose(result, expected)
 
     def test_gamma_shape(self):
@@ -535,11 +538,16 @@ class TestTweedieEdgeCases:
 class TestTweedieMultiBackend:
     """Test Tweedie family with multiple backends (NumPy, PyTorch, JAX)."""
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_variance_multi_backend(self, backend):
         """Test variance calculation across backends."""
         family = TweedieFamily(power=1.5)
@@ -564,11 +572,16 @@ class TestTweedieMultiBackend:
             expected = jnp.array([1.0**1.5, 2.0**1.5, 5.0**1.5])
             assert jnp.allclose(var, expected, rtol=1e-6)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_deviance_multi_backend(self, backend):
         """Test deviance calculation across backends."""
         family = TweedieFamily(power=1.6)
@@ -597,11 +610,16 @@ class TestTweedieMultiBackend:
             dev_np = family.deviance(y_np, mu_np)
             np.testing.assert_allclose(dev, dev_np, rtol=1e-4)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_initialize_multi_backend(self, backend):
         """Test initialization across backends."""
         family = TweedieFamily(power=1.5)
@@ -626,15 +644,20 @@ class TestTweedieMultiBackend:
             assert mu_init.shape == y.shape
             assert 2.0 < mu_init[0].item() < 3.0
         else:  # jax
-            assert hasattr(mu_init, 'shape')  # JAX array
+            assert hasattr(mu_init, "shape")  # JAX array
             assert mu_init.shape == y.shape
             assert 2.0 < float(mu_init[0]) < 3.0
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_gradients_multi_backend(self, backend):
         """Test gradient calculation across backends."""
         family = TweedieFamily(power=1.5, phi=1.0)
@@ -671,11 +694,16 @@ class TestTweedieMultiBackend:
                 np.testing.assert_allclose(np.array(grad), grad_np, rtol=1e-6)
                 np.testing.assert_allclose(np.array(hess), hess_np, rtol=1e-6)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_probability_zero_multi_backend(self, backend):
         """Test probability of zero calculation across backends."""
         family = TweedieFamily(power=1.5, phi=1.0)
@@ -711,5 +739,5 @@ class TestTweedieMultiBackend:
                 np.testing.assert_allclose(np.array(p_zero), p_zero_np, rtol=1e-6)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

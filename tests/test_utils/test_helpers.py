@@ -2,12 +2,13 @@
 
 Tests the unified helper functions: summary(), plot(), compare().
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from aurora.helpers import summary, plot, compare
+from aurora.helpers import compare, plot, summary
 from aurora.models.base.base_result import LinearModelResult
 
 
@@ -24,7 +25,7 @@ def sample_glm_result():
     residuals = np.random.randn(n) * 0.3
     y = fitted + residuals
     residual_variance = np.var(residuals)
-    
+
     return LinearModelResult(
         coef=coef,
         intercept=intercept,
@@ -43,7 +44,7 @@ def sample_glm_result():
 def another_glm_result():
     """Create another sample GLM result for comparison."""
     np.random.seed(123)
-    n, p = 50, 2
+    n, _p = 50, 2
     X = np.column_stack([np.ones(n), np.random.randn(n)])
     coef = np.array([1.5])  # 1 feature
     intercept = 0.5
@@ -51,7 +52,7 @@ def another_glm_result():
     residuals = np.random.randn(n) * 0.5
     y = fitted + residuals
     residual_variance = np.var(residuals)
-    
+
     return LinearModelResult(
         coef=coef,
         intercept=intercept,
@@ -114,6 +115,7 @@ class TestPlotFunction:
         fig = plot(sample_glm_result, kind="residuals")
         assert fig is not None
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_plot_qq(self, sample_glm_result):
@@ -121,6 +123,7 @@ class TestPlotFunction:
         fig = plot(sample_glm_result, kind="qq")
         assert fig is not None
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_plot_fitted(self, sample_glm_result):
@@ -129,6 +132,7 @@ class TestPlotFunction:
         fig = plot(sample_glm_result, kind="residuals")
         assert fig is not None
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_plot_scale_location(self, sample_glm_result):
@@ -137,6 +141,7 @@ class TestPlotFunction:
         fig = plot(sample_glm_result, kind="qq")
         assert fig is not None
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_plot_leverage(self, sample_glm_result):
@@ -145,6 +150,7 @@ class TestPlotFunction:
         fig = plot(sample_glm_result, kind="residuals")
         assert fig is not None
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_plot_diagnostics_all(self, sample_glm_result):
@@ -153,6 +159,7 @@ class TestPlotFunction:
         fig = plot(sample_glm_result, kind="residuals")
         assert fig is not None
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_plot_invalid_kind(self, sample_glm_result):
@@ -163,6 +170,7 @@ class TestPlotFunction:
     def test_plot_returns_figure(self, sample_glm_result):
         """Test that plot returns a matplotlib figure."""
         import matplotlib.pyplot as plt
+
         fig = plot(sample_glm_result, kind="residuals")
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
@@ -213,11 +221,12 @@ class TestHelperIntegration:
         """Test using summary then plot on same result."""
         s = summary(sample_glm_result)
         assert s is not None
-        
+
         fig = plot(sample_glm_result, kind="residuals")
         assert fig is not None
-        
+
         import matplotlib.pyplot as plt
+
         plt.close(fig)
 
     def test_all_helpers_on_result(self, sample_glm_result, another_glm_result):
@@ -225,13 +234,14 @@ class TestHelperIntegration:
         # Summary
         s = summary(sample_glm_result)
         assert isinstance(s, str)
-        
+
         # Plot
         import matplotlib.pyplot as plt
+
         fig = plot(sample_glm_result, kind="residuals")
         assert fig is not None
         plt.close(fig)
-        
+
         # Compare
         c = compare(sample_glm_result, another_glm_result)
         assert c is not None

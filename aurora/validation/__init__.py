@@ -34,7 +34,7 @@ Examples
 """
 
 from .cross_val import CrossValResult, KFold, StratifiedKFold, cross_val_score
-from .metrics import mean_squared_error, accuracy_score, r_squared
+from .metrics import accuracy_score, mean_squared_error, r_squared
 
 __all__ = [
     "CrossValResult",

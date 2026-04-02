@@ -1,4 +1,5 @@
 """Unit tests for the Gaussian distribution family with multi-backend support."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def _as_array(xp, data):
     """Convert data to array in specified namespace."""
@@ -78,6 +80,7 @@ if _jax_available():
 # Test Functions
 # ============================================================================
 
+
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
 def test_gaussian_variance_is_constant(xp):
     """Test Gaussian variance is constant (does not depend on mu).
@@ -120,7 +123,7 @@ def test_gaussian_log_likelihood_is_normal_pdf(xp):
     # Reference calculation (without constant terms)
     y_np = np.array([0.0, 1.0, 2.0, 3.0])
     mu_np = np.array([0.1, 0.9, 2.1, 2.9])
-    expected = float(np.sum(-0.5 * (y_np - mu_np)**2 / variance))
+    expected = float(np.sum(-0.5 * (y_np - mu_np) ** 2 / variance))
 
     # JAX uses float32 by default, so allow more tolerance
     tol = 1e-5 if (jnp is not None and xp is jnp) else 1e-10
@@ -147,7 +150,7 @@ def test_gaussian_deviance_is_rss(xp):
     # Expected: RSS / variance
     y_np = np.array([1.0, 2.0, 3.0, 4.0])
     mu_np = np.array([1.1, 1.9, 3.2, 3.8])
-    expected = float(np.sum((y_np - mu_np)**2) / variance)
+    expected = float(np.sum((y_np - mu_np) ** 2) / variance)
 
     # JAX uses float32 by default, so allow more tolerance
     tol = 1e-5 if (jnp is not None and xp is jnp) else 1e-10

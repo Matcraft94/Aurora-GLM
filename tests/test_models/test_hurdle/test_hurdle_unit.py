@@ -4,19 +4,17 @@ These tests verify individual components of the Hurdle model implementation
 in isolation.
 """
 
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less
+import pytest
+from numpy.testing import assert_allclose
 
 from aurora.models.hurdle import (
-    fit_hurdle_poisson,
     fit_hurdle_negbin,
-    HurdlePoissonResult,
-    HurdleNegBinResult,
+    fit_hurdle_poisson,
 )
 from aurora.models.hurdle.truncated import (
-    TruncatedPoissonFamily,
     TruncatedNegBinFamily,
+    TruncatedPoissonFamily,
 )
 
 
@@ -71,6 +69,7 @@ class TestTruncatedPoissonFamily:
 
         # P(Y=k|Y>0) = P(Y=k)/P(Y>0) for k>0
         from scipy.stats import poisson
+
         pmf_trunc = poisson.pmf(k_vals, mu) / (1 - poisson.pmf(0, mu))
 
         assert_allclose(np.sum(pmf_trunc), 1.0, atol=1e-10)
@@ -248,9 +247,14 @@ class TestHurdlePoissonResultMethods:
         summary = fitted_result.summary()
 
         required = [
-            "n_obs", "n_zeros", "n_positive",
-            "log_likelihood", "aic", "bic",
-            "coef_binary", "coef_count"
+            "n_obs",
+            "n_zeros",
+            "n_positive",
+            "log_likelihood",
+            "aic",
+            "bic",
+            "coef_binary",
+            "coef_count",
         ]
         for key in required:
             assert key in summary
@@ -275,6 +279,7 @@ class TestHurdleNegBinResultMethods:
 
         # Generate hurdle NegBin data
         from scipy.stats import nbinom
+
         pi = 0.7
         mu = np.exp(X @ [1.5, 0.3])
         theta = 2.0
@@ -343,15 +348,10 @@ class TestHurdleEdgeCases:
         """Test with different X for binary and count."""
         np.random.seed(42)
         n = 200
-        X_binary = np.column_stack([
-            np.ones(n),
-            np.random.normal(0, 1, n)
-        ])
-        X_count = np.column_stack([
-            np.ones(n),
-            np.random.normal(0, 1, n),
-            np.random.normal(0, 1, n)
-        ])
+        X_binary = np.column_stack([np.ones(n), np.random.normal(0, 1, n)])
+        X_count = np.column_stack(
+            [np.ones(n), np.random.normal(0, 1, n), np.random.normal(0, 1, n)]
+        )
 
         # Generate data
         pi = 0.6
@@ -431,6 +431,7 @@ class TestHurdleConvergence:
         X = np.column_stack([np.ones(n), np.random.normal(0, 1, n)])
 
         from scipy.stats import nbinom
+
         pi = 0.7
         mu = np.exp(X @ [1.5, 0.3])
         theta = 2.0

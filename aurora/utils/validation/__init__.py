@@ -23,7 +23,7 @@ Usage
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from ..exceptions import ConfigurationError
 
@@ -31,14 +31,14 @@ from ..exceptions import ConfigurationError
 from .decorators import (
     ValidationError,
     validate_array,
-    validate_positive,
-    validate_non_negative,
-    validate_probability,
-    validate_in_range,
-    validate_type,
     validate_callable,
+    validate_in_range,
+    validate_non_negative,
     validate_not_none,
     validate_one_of,
+    validate_positive,
+    validate_probability,
+    validate_type,
     validated,
 )
 

@@ -27,76 +27,77 @@ from __future__ import annotations
 # Core backend functionality
 from .core.backends import available_backends, get_backend, register_backend
 
-# Model fitting functions
-from .models import fit_glm, fit_gam, fit_gamm, predict_glm
-from .models.gam import fit_additive_gam, fit_gam_formula
-from .models.gamm import fit_gamm_with_smooth, predict_from_gamm
+# Base classes
+from .distributions.base import Family, LinkFunction
 
 # Distribution families
 from .distributions.families import (
-    GaussianFamily,
-    BinomialFamily,
-    PoissonFamily,
-    GammaFamily,
     BetaFamily,
-    InverseGaussianFamily,
-    WaldFamily,
-    StudentTFamily,
+    BinomialFamily,
     CauchyFamily,
+    GammaFamily,
+    GaussianFamily,
+    InverseGaussianFamily,
     NegativeBinomialFamily,
+    PoissonFamily,
+    StudentTFamily,
     TweedieFamily,
+    WaldFamily,
 )
 
 # Link functions
 from .distributions.links import (
-    IdentityLink,
-    LogLink,
-    LogitLink,
-    InverseLink,
     CLogLogLink,
+    IdentityLink,
+    InverseLink,
+    InverseSquareLink,
+    LogitLink,
+    LogLink,
+    PowerLink,
     ProbitLink,
     SqrtLink,
-    PowerLink,
-    InverseSquareLink,
 )
 
-# Base classes
-from .distributions.base import Family, LinkFunction
+# High-level helper functions
+from .helpers import compare, plot, summary
+
+# Inference utilities
+from .inference import (
+    bootstrap_inference,
+    confidence_intervals,
+    glm_diagnostics,
+    robust_covariance,
+    wald_test,
+)
+
+# Model fitting functions
+from .models import fit_gam, fit_gamm, fit_glm, predict_glm
+from .models.gam import fit_additive_gam, fit_gam_formula
 
 # Random effects and covariance structures
 from .models.gamm import (
-    RandomEffect,
     AR1Covariance,
     CompoundSymmetryCovariance,
     ExponentialSpatialCovariance,
     MaternCovariance,
+    RandomEffect,
     ToeplitzCovariance,
+    fit_gamm_with_smooth,
+    predict_from_gamm,
 )
-
-# Inference utilities
-from .inference import (
-    confidence_intervals,
-    glm_diagnostics,
-    wald_test,
-    robust_covariance,
-    bootstrap_inference,
-)
+from .validation.cross_val import KFold, cross_val_score
 
 # Validation and metrics
-from .validation.metrics import mean_squared_error, accuracy_score
-from .validation.cross_val import cross_val_score, KFold
+from .validation.metrics import accuracy_score, mean_squared_error
 
 # Visualization (centralized)
 from .visualization import (
-    plot_smooth,
     plot_all_smooths,
     plot_caterpillar,
     plot_diagnostics,
     plot_diagnostics_panel,
+    plot_smooth,
 )
-
-# High-level helper functions
-from .helpers import summary, plot, compare
 
 # Convenience aliases (short names)
 Gaussian = GaussianFamily
@@ -194,4 +195,4 @@ __all__ = [
     "compare",
 ]
 
-__version__ = "0.7.0"
+__version__ = "1.0.0"

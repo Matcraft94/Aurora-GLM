@@ -109,17 +109,13 @@ def namespace_from_backend(backend: str = "numpy", device: str | None = None):
         return np, None
     elif backend in ("torch", "pytorch"):
         if torch is None:
-            raise ImportError(
-                "PyTorch is not installed. Install with: pip install torch"
-            )
+            raise ImportError("PyTorch is not installed. Install with: pip install torch")
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         return torch, torch.device(device)
     elif backend == "jax":
         if jnp is None:
-            raise ImportError(
-                "JAX is not installed. Install with: pip install jax jaxlib"
-            )
+            raise ImportError("JAX is not installed. Install with: pip install jax jaxlib")
         return jnp, None
     else:
         raise ValueError(f"Unknown backend: {backend}. Choose from: numpy, torch, jax")

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from aurora.models.hurdle import fit_hurdle_poisson, HurdlePoissonResult
+from aurora.models.hurdle import HurdlePoissonResult, fit_hurdle_poisson
 
 
 class TestFitHurdlePoisson:
@@ -109,7 +109,7 @@ class TestFitHurdlePoisson:
         np.testing.assert_allclose(
             result.log_likelihood_,
             result.log_likelihood_binary_ + result.log_likelihood_count_,
-            rtol=1e-10
+            rtol=1e-10,
         )
 
     def test_fit_summary(self, hurdle_data):

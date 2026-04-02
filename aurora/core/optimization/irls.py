@@ -249,7 +249,8 @@ Cramér-Rao lower bound asymptotically).
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -652,9 +653,7 @@ def irls(
     offset_arr = backend.array(offset) if offset is not None else y * 0
 
     converted_args = tuple(_convert_to_backend(backend, value) for value in args)
-    converted_kwargs = {
-        key: _convert_to_backend(backend, value) for key, value in kwargs.items()
-    }
+    converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
 
     nfev = 0
     total_backtrack = 0
@@ -673,11 +672,7 @@ def irls(
         z = eta + (y - mu) * g_prime
 
         sqrt_w = _sqrt(backend, weights)
-        WX = (
-            X * sqrt_w.unsqueeze(-1)
-            if hasattr(sqrt_w, "unsqueeze")
-            else X * sqrt_w[:, None]
-        )
+        WX = X * sqrt_w.unsqueeze(-1) if hasattr(sqrt_w, "unsqueeze") else X * sqrt_w[:, None]
         Wz = z * sqrt_w
 
         beta_new = None
@@ -737,7 +732,9 @@ def irls(
         for backtrack in range(max_backtrack + 1):
             trial_beta = beta + step_size * delta
             nfev += 1
-            trial_loss = float(backend.as_numpy(loss_fn(trial_beta, *converted_args, **converted_kwargs)))
+            trial_loss = float(
+                backend.as_numpy(loss_fn(trial_beta, *converted_args, **converted_kwargs))
+            )
 
             if trial_loss <= current_loss or step_size < min_step_size:
                 beta = trial_beta
@@ -752,9 +749,7 @@ def irls(
             total_backtrack += 1
 
         if callback is not None:
-            callback(
-                iteration, backend.as_numpy(beta), float(backend.as_numpy(loss_value))
-            )
+            callback(iteration, backend.as_numpy(beta), float(backend.as_numpy(loss_value)))
 
         if step_norm < tol:
             return OptimizationResult(

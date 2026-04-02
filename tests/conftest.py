@@ -1,4 +1,5 @@
 """Shared pytest fixtures and utilities for multi-backend testing."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -10,6 +11,7 @@ from aurora.utils import BackendNotAvailableError
 # Optional backend imports
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     torch = None
@@ -18,6 +20,7 @@ except ImportError:
 try:
     import jax
     import jax.numpy as jnp
+
     HAS_JAX = True
 except ImportError:
     jax = None
@@ -28,6 +31,7 @@ except ImportError:
 # ============================================================================
 # Array Conversion Utilities
 # ============================================================================
+
 
 def to_numpy(data):
     """Convert any backend array to NumPy.
@@ -123,6 +127,7 @@ def assert_arrays_close(actual, expected, backend=None, rtol=1e-5, atol=1e-8, er
 # ============================================================================
 # Pytest Fixtures
 # ============================================================================
+
 
 @pytest.fixture(params=["numpy", "torch", "jax"])
 def backend(request):

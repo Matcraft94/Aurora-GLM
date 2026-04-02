@@ -1,4 +1,5 @@
 """Unit tests for the Gamma distribution family with multi-backend support."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def _as_array(xp, data):
     """Convert data to array in specified namespace."""
@@ -77,6 +79,7 @@ if _jax_available():
 # ============================================================================
 # Test Functions
 # ============================================================================
+
 
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
 def test_gamma_variance_equals_mu_squared_over_shape(xp):
@@ -205,5 +208,7 @@ def test_gamma_initialize_returns_positive_values(xp):
     assert np.all(mu_np > 0), f"Initialize returned non-positive values: {mu_np}"
 
     # Should be close to y (Gamma initializes to y itself)
-    y_np = np.array(y) if xp is jnp else (y.cpu().numpy() if torch is not None and xp is torch else y)
+    y_np = (
+        np.array(y) if xp is jnp else (y.cpu().numpy() if torch is not None and xp is torch else y)
+    )
     assert np.allclose(mu_np, y_np, rtol=1e-6)

@@ -2,6 +2,7 @@
 
 Tests the unified result hierarchy: BaseResult, LinearModelResult, MixedModelResultBase.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,7 @@ class TestLinearModelResult:
         X = np.column_stack([np.ones(n), np.random.randn(n, p)])
         beta_true = np.array([1.0, 2.0, -1.0])  # intercept + 2 coefs
         y = X @ beta_true + np.random.randn(n) * 0.5
-        
+
         # Fit simple OLS
         XtX = X.T @ X
         Xty = X.T @ y
@@ -33,7 +34,7 @@ class TestLinearModelResult:
         fitted = X @ coefficients
         residuals = y - fitted
         residual_var = np.sum(residuals**2) / (n - 3)
-        
+
         return LinearModelResult(
             coef=coefficients[1:],  # coefficients without intercept
             intercept=coefficients[0],
@@ -140,30 +141,30 @@ class TestMixedModelResultBase:
         """Create a sample MixedModelResultBase for testing."""
         np.random.seed(42)
         n, p, q = 100, 3, 10
-        
+
         # Fixed effects (including intercept)
         fixed_effects = np.array([1.0, 2.0, -1.0])
-        
+
         # Random effects (10 groups)
         random_effects = np.random.randn(q) * 0.5
-        
+
         # Variance components
         variance_components = {
             "residual": 1.0,
             "group": 0.25,
         }
-        
+
         # Design matrices
         X = np.column_stack([np.ones(n), np.random.randn(n, p - 1)])
         group_idx = np.repeat(np.arange(q), n // q)
         Z = np.zeros((n, q))
         Z[np.arange(n), group_idx] = 1
-        
+
         # Compute fitted and linear predictor
         linear_predictor = X @ fixed_effects + Z @ random_effects
         fitted = linear_predictor  # For Gaussian, identity link
         y = fitted + np.random.randn(n)
-        
+
         return MixedModelResultBase(
             fixed_effects=fixed_effects,
             random_effects=random_effects,
@@ -237,7 +238,7 @@ class TestMixedModelResultBase:
         X_new = np.column_stack([np.ones(5), np.random.randn(5, 2)])
         Z_new = np.zeros((5, 10))
         Z_new[:, 0] = 1  # All new obs in group 0
-        
+
         pred = sample_mixed_result.predict(X_new, Z=Z_new, include_random=True)
         assert pred.shape == (5,)
 

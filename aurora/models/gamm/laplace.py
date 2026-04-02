@@ -193,7 +193,7 @@ def fit_laplace(
     converged = False
 
     # Main optimization loop
-    for iter_num in range(maxiter):
+    for iter_num in range(maxiter):  # noqa: B007
         beta_old = beta.copy()
         b_old = b.copy()
         psi_old = psi.copy()
@@ -581,8 +581,7 @@ def _compute_laplace_log_likelihood(
         psi_inv_b = linalg.solve(psi, b_matrix.T, assume_a="pos").T
 
     log_prior = -0.5 * (
-        n_groups * (n_effects * np.log(2 * np.pi) + log_det_psi)
-        + np.sum(b_matrix * psi_inv_b)
+        n_groups * (n_effects * np.log(2 * np.pi) + log_det_psi) + np.sum(b_matrix * psi_inv_b)
     )
 
     # Laplace correction (log determinant of Hessian)
@@ -621,8 +620,6 @@ def _get_family(family_name: str) -> Family:
     }
 
     if family_name.lower() not in families:
-        raise ValueError(
-            f"Unknown family '{family_name}'. Must be one of {list(families.keys())}"
-        )
+        raise ValueError(f"Unknown family '{family_name}'. Must be one of {list(families.keys())}")
 
     return families[family_name.lower()]()

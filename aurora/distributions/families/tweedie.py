@@ -28,12 +28,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from aurora.distributions.base import Family
-from aurora.distributions.links import LogLink, IdentityLink, PowerLink
 from aurora.distributions._utils import (
-    namespace,
     as_namespace_array,
+    namespace,
 )
+from aurora.distributions.base import Family
+from aurora.distributions.links import IdentityLink, LogLink, PowerLink
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -161,9 +161,7 @@ class TweedieFamily(Family):
                 link_power = 1 - power / 2  # Canonical power
             self._link = PowerLink(link_power)
         else:
-            raise ValueError(
-                f"Unsupported link: {link}. Use 'log', 'identity', or 'power'"
-            )
+            raise ValueError(f"Unsupported link: {link}. Use 'log', 'identity', or 'power'")
 
     @property
     def default_link(self):

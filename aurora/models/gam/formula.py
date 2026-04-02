@@ -139,8 +139,8 @@ def parse_formula(formula: str) -> FormulaSpec:
             inner = term_str[1:-1].strip()
             if not inner:
                 raise ValueError(
-                    f"Empty parentheses '()' found in formula. "
-                    f"Use '(1 | group)' for random effects or remove empty parentheses."
+                    "Empty parentheses '()' found in formula. "
+                    "Use '(1 | group)' for random effects or remove empty parentheses."
                 )
 
             # Check if it's a random effect (must contain |)
@@ -267,9 +267,7 @@ def _parse_random_effect_term(term_str: str):
 
     # Remove outer parentheses
     if not (term_str.startswith("(") and term_str.endswith(")")):
-        raise ValueError(
-            f"Random effect term must be enclosed in parentheses: {term_str}"
-        )
+        raise ValueError(f"Random effect term must be enclosed in parentheses: {term_str}")
 
     content = term_str[1:-1].strip()
 

@@ -1,6 +1,6 @@
 """Tests for Laplace approximation in GLMM (Phase 5.2)."""
+
 import numpy as np
-import pytest
 
 from aurora.models.gamm.laplace import LaplaceResult, fit_laplace
 
@@ -29,7 +29,7 @@ def test_laplace_gaussian_basic():
     y = X @ beta_true + Z @ b_true + np.random.randn(n) * 0.5
 
     # Fit with Laplace
-    result = fit_laplace(X, Z, y, family='gaussian', maxiter=100, tol=1e-6)
+    result = fit_laplace(X, Z, y, family="gaussian", maxiter=100, tol=1e-6)
 
     # Check convergence (may not fully converge, but should make progress)
     assert result.n_iter > 0, "Should complete at least one iteration"
@@ -67,7 +67,7 @@ def test_laplace_poisson_basic():
     y = np.random.poisson(mu)
 
     # Fit with Laplace
-    result = fit_laplace(X, Z, y, family='poisson', maxiter=100)
+    result = fit_laplace(X, Z, y, family="poisson", maxiter=100)
 
     # Check convergence
     assert result.converged, "Should converge for Poisson data"
@@ -111,7 +111,7 @@ def test_laplace_binomial_basic():
     y = np.random.binomial(1, prob)
 
     # Fit with Laplace
-    result = fit_laplace(X, Z, y, family='binomial', maxiter=100)
+    result = fit_laplace(X, Z, y, family="binomial", maxiter=100)
 
     # Check convergence
     assert result.converged, "Should converge for binomial data"
@@ -149,7 +149,7 @@ def test_laplace_small_clusters():
     y = np.random.binomial(1, prob)
 
     # Fit with Laplace
-    result = fit_laplace(X, Z, y, family='binomial', maxiter=150)
+    result = fit_laplace(X, Z, y, family="binomial", maxiter=150)
 
     # Should still make progress despite small clusters
     assert result.n_iter > 0, "Should complete iterations"
@@ -180,7 +180,7 @@ def test_laplace_log_likelihood_increases():
     y = np.random.poisson(np.exp(eta))
 
     # Fit with Laplace
-    result = fit_laplace(X, Z, y, family='poisson', maxiter=50)
+    result = fit_laplace(X, Z, y, family="poisson", maxiter=50)
 
     # Log-likelihood should be finite
     assert np.isfinite(result.log_likelihood)
@@ -205,11 +205,12 @@ def test_laplace_vs_glm_no_random_effects():
 
     # Fit GLM - X already has intercept column, so disable fit_intercept
     from aurora.models.glm import fit_glm
-    glm_result = fit_glm(X, y, family='poisson', fit_intercept=False)
+
+    glm_result = fit_glm(X, y, family="poisson", fit_intercept=False)
 
     # Fit Laplace with tiny Psi
     psi_init = np.array([[1e-6]])
-    result = fit_laplace(X, Z, y, family='poisson', psi_init=psi_init, maxiter=50)
+    result = fit_laplace(X, Z, y, family="poisson", psi_init=psi_init, maxiter=50)
 
     # Coefficients should be close to GLM
     # With fit_intercept=False, coef_ contains all coefficients
@@ -238,12 +239,13 @@ def test_laplace_hessian_positive_definite():
     eta = X @ beta_true + Z @ b_true
     y = np.random.poisson(np.exp(eta))
 
-    result = fit_laplace(X, Z, y, family='poisson')
+    result = fit_laplace(X, Z, y, family="poisson")
 
     # Hessian should be positive definite (all eigenvalues > 0)
     eigvals = np.linalg.eigvalsh(result.hessian)
-    assert np.all(eigvals > 0), \
+    assert np.all(eigvals > 0), (
         f"Hessian should be positive definite, got min eigenvalue: {np.min(eigvals)}"
+    )
 
 
 def test_laplace_result_structure():
@@ -261,7 +263,7 @@ def test_laplace_result_structure():
 
     y = np.random.poisson(2.0, size=n)
 
-    result = fit_laplace(X, Z, y, family='poisson', maxiter=30)
+    result = fit_laplace(X, Z, y, family="poisson", maxiter=30)
 
     # Check all attributes exist and have correct types
     assert isinstance(result, LaplaceResult)
@@ -277,7 +279,7 @@ def test_laplace_result_structure():
     assert isinstance(result.log_likelihood, (float, np.floating))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests
     test_laplace_gaussian_basic()
     print("✓ Gaussian basic test passed")

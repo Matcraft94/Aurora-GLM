@@ -4,14 +4,13 @@ These tests verify individual components of the ZINB implementation
 in isolation.
 """
 
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less
+import pytest
+from numpy.testing import assert_allclose
 
 from aurora.models.zero_inflated import (
-    fit_zinb,
-    ZINBResult,
     ZeroInflatedNegBinFamily,
+    fit_zinb,
 )
 
 
@@ -196,6 +195,7 @@ class TestFitZINBConvergence:
 
         # Generate ZINB counts
         from scipy.stats import nbinom
+
         structural_zero = np.random.binomial(1, pi, n)
         # NB parameterized as (n, p) where mean = n*(1-p)/p
         p_nb = theta_true / (theta_true + mu)
@@ -236,6 +236,7 @@ class TestZINBResultMethods:
 
         # Simple ZINB data
         from scipy.stats import nbinom
+
         mu = np.exp(X @ [1.0, 0.3])
         theta = 2.0
         pi = 0.3
@@ -305,6 +306,7 @@ class TestZINBEdgeCases:
 
         # Generate actual ZINB data with high inflation
         from scipy.stats import nbinom
+
         pi_true = 0.8
         mu_true = np.exp(X @ [1.5, 0.3])
         theta = 2.0
@@ -328,6 +330,7 @@ class TestZINBEdgeCases:
 
         # Highly overdispersed data
         from scipy.stats import nbinom
+
         mu = np.exp(X @ [1.5, 0.3])
         theta_true = 0.5  # Low theta = high overdispersion
         p_nb = theta_true / (theta_true + mu)

@@ -1,4 +1,5 @@
 """Tests for GLMResult.plot_diagnostics() method."""
+
 from __future__ import annotations
 
 import numpy as np

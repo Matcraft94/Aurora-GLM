@@ -49,6 +49,7 @@ References
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -57,6 +58,8 @@ from scipy.special import gammaln
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ZeroInflatedPoissonFamily", "fit_zip", "ZIPResult"]
 
@@ -81,9 +84,7 @@ class ZeroInflatedPoissonFamily:
         self.link_count = link_count
         self.link_inflate = link_inflate
 
-    def log_likelihood(
-        self, y: NDArray, mu: NDArray, pi: NDArray
-    ) -> float:
+    def log_likelihood(self, y: NDArray, mu: NDArray, pi: NDArray) -> float:
         """Compute ZIP log-likelihood.
 
         Parameters
@@ -192,7 +193,7 @@ def fit_zip(
     max_iter: int = 100,
     tol: float = 1e-6,
     verbose: bool = False,
-) -> "ZIPResult":
+) -> ZIPResult:
     """Fit Zero-Inflated Poisson model via EM algorithm.
 
     Parameters
@@ -296,7 +297,7 @@ def fit_zip(
         ll = family.log_likelihood(y, mu, pi)
 
         if verbose and iteration % 10 == 0:
-            print(f"Iteration {iteration}: log-lik = {ll:.4f}")
+            logger.debug("Iteration %d: log-lik = %.4f", iteration, ll)
 
         # Check convergence
         if iteration > 0:
@@ -549,8 +550,7 @@ class ZIPResult:
             return pi
         else:
             raise ValueError(
-                f"Unknown type: {type}. "
-                "Use 'response', 'count', 'prob_zero', or 'prob_inflate'"
+                f"Unknown type: {type}. Use 'response', 'count', 'prob_zero', or 'prob_inflate'"
             )
 
     def summary(self) -> dict:

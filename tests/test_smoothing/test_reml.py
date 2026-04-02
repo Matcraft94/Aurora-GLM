@@ -1,4 +1,5 @@
 """Tests for REML smoothing parameter selection."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -314,9 +315,7 @@ def test_select_multiple_smoothing_parameters_reml_basic():
     S2 = basis2.penalty_matrix(order=2)
 
     # Select multiple lambdas
-    result = select_multiple_smoothing_parameters_reml(
-        y, [X1, X2], [S1, S2], max_iter=10
-    )
+    result = select_multiple_smoothing_parameters_reml(y, [X1, X2], [S1, S2], max_iter=10)
 
     # Check result structure
     assert "lambda_opt" in result
@@ -358,9 +357,7 @@ def test_select_multiple_smoothing_parameters_reml_convergence():
     X2 = basis2.basis_matrix(X[:, 1])
     S2 = basis2.penalty_matrix(order=2)
 
-    result = select_multiple_smoothing_parameters_reml(
-        y, [X1, X2], [S1, S2], max_iter=20, tol=1e-3
-    )
+    result = select_multiple_smoothing_parameters_reml(y, [X1, X2], [S1, S2], max_iter=20, tol=1e-3)
 
     # Should converge within 20 iterations
     assert result["converged"]
@@ -373,9 +370,7 @@ def test_select_multiple_smoothing_parameters_reml_three_terms():
     n = 200
 
     X = rng.normal(size=(n, 3))
-    y = (
-        np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + X[:, 2] ** 2 + 0.1 * rng.normal(size=n)
-    )
+    y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + X[:, 2] ** 2 + 0.1 * rng.normal(size=n)
 
     # Create three bases
     X_list = []
@@ -443,9 +438,7 @@ def test_select_multiple_smoothing_parameters_reml_invalid_inputs():
 
     # Wrong lambda_init length
     with pytest.raises(ValueError, match="lambda_init must have length"):
-        select_multiple_smoothing_parameters_reml(
-            y, [X1, X1], [S1, S1], lambda_init=[0.1]
-        )
+        select_multiple_smoothing_parameters_reml(y, [X1, X1], [S1, S1], lambda_init=[0.1])
 
 
 def test_reml_stability_extreme_lambda():

@@ -35,7 +35,8 @@ Examples
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -120,9 +121,7 @@ def summary(
     elif style == "detailed":
         summary_str = _detailed_summary(result)
     else:
-        raise ValueError(
-            f"Unknown style '{style}'. Use 'default', 'brief', or 'detailed'."
-        )
+        raise ValueError(f"Unknown style '{style}'. Use 'default', 'brief', or 'detailed'.")
 
     if print_output:
         print(summary_str)
@@ -316,8 +315,8 @@ def plot(
     """
     # Import visualization functions lazily
     from .visualization import (
-        plot_diagnostics_panel,
         plot_all_smooths,
+        plot_diagnostics_panel,
     )
 
     if kind == "diagnostics":
@@ -334,9 +333,7 @@ def plot(
         if hasattr(result, "smooth_terms") or hasattr(result, "smooth_info"):
             return plot_all_smooths(result, **kwargs)
         else:
-            raise ValueError(
-                "kind='smooth' requires a GAM or GAMM result with smooth terms."
-            )
+            raise ValueError("kind='smooth' requires a GAM or GAMM result with smooth terms.")
 
     elif kind == "all":
         figs = []
@@ -347,8 +344,7 @@ def plot(
 
     else:
         raise ValueError(
-            f"Unknown plot kind '{kind}'. "
-            "Use 'diagnostics', 'residuals', 'qq', 'smooth', or 'all'."
+            f"Unknown plot kind '{kind}'. Use 'diagnostics', 'residuals', 'qq', 'smooth', or 'all'."
         )
 
 
@@ -508,8 +504,7 @@ def compare(
         names = [f"Model {i + 1}" for i in range(len(results))]
     elif len(names) != len(results):
         raise ValueError(
-            f"Number of names ({len(names)}) must match "
-            f"number of models ({len(results)})."
+            f"Number of names ({len(names)}) must match number of models ({len(results)})."
         )
 
     # Extract criteria values
@@ -545,9 +540,7 @@ def compare(
     }
 
 
-def _extract_comparison_metrics(
-    results: tuple[Any, ...], criterion: str
-) -> dict[str, list[float]]:
+def _extract_comparison_metrics(results: tuple[Any, ...], criterion: str) -> dict[str, list[float]]:
     """Extract comparison metrics from a sequence of model results.
 
     Parameters
@@ -590,9 +583,7 @@ def _extract_comparison_metrics(
     metrics["n_params"] = n_params_list
 
     # Extract requested criteria
-    criteria_to_extract = (
-        ["aic", "bic", "loglik"] if criterion == "all" else [criterion]
-    )
+    criteria_to_extract = ["aic", "bic", "loglik"] if criterion == "all" else [criterion]
 
     for crit in criteria_to_extract:
         values = []

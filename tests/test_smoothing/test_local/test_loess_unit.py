@@ -4,11 +4,11 @@ These tests verify individual components of the LOESS implementation
 in isolation.
 """
 
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less
+import pytest
+from numpy.testing import assert_allclose
 
-from aurora.smoothing.local import LOESSSmoother, loess, LOESSResult
+from aurora.smoothing.local import LOESSSmoother, loess
 
 
 class TestLOESSSmootherConstruction:

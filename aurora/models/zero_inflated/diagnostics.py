@@ -224,7 +224,7 @@ def score_test_zero_inflation(
     """
     y = np.asarray(y, dtype=float)
     mu = np.maximum(np.asarray(mu, dtype=float), 1e-10)
-    n = len(y)
+    len(y)
 
     is_zero = y == 0
 
@@ -251,7 +251,7 @@ def score_test_zero_inflation(
         numerator = np.sum(is_zero) - np.sum(p0)
 
         # Variance under H0 (approximation)
-        dp0_dmu = -theta * p0 / (theta + mu)
+        -theta * p0 / (theta + mu)
         variance = np.sum(p0 * (1 - p0))
 
     else:

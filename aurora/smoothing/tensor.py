@@ -238,7 +238,7 @@ def fit_tensor_product(
     B = tensor_product_basis(X1, X2, basis1, basis2)
 
     # Get dimensions
-    p = B.shape[1]
+    B.shape[1]
     p1 = basis1.basis_matrix(X1[:1]).shape[1]
     p2 = basis2.basis_matrix(X2[:1]).shape[1]
 

@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, is_dataclass, replace
-from typing import Any, Callable, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -165,9 +166,7 @@ def _resolve_splitter(
         if key in {"kfold", "k-fold"}:
             return KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
         if key in {"stratified", "stratifiedkfold", "stratified-kfold"}:
-            return StratifiedKFold(
-                n_splits=n_splits, shuffle=shuffle, random_state=random_state
-            )
+            return StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
         raise ValueError(f"Unknown splitter identifier: {splitter!r}")
 
     if hasattr(splitter, "split") and callable(splitter.split):

@@ -4,11 +4,13 @@ This module tests that GAM fitting with sparse B-spline matrices produces
 identical or nearly identical results to dense matrix fitting, while offering
 performance benefits for large problems.
 """
+
 import numpy as np
 import pytest
 
 try:
-    from scipy.sparse import issparse
+    from scipy.sparse import issparse  # noqa: F401
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -28,27 +30,19 @@ class TestSparseGAMFitting:
         y = y_true + 0.1 * np.random.randn(100)
 
         # Fit with dense matrices
-        result_dense = fit_gam(
-            x, y, n_basis=15, lambda_=0.1, use_sparse=False
-        )
+        result_dense = fit_gam(x, y, n_basis=15, lambda_=0.1, use_sparse=False)
 
         # Fit with sparse matrices
-        result_sparse = fit_gam(
-            x, y, n_basis=15, lambda_=0.1, use_sparse=True
-        )
+        result_sparse = fit_gam(x, y, n_basis=15, lambda_=0.1, use_sparse=True)
 
         # Coefficients should be nearly identical
         np.testing.assert_allclose(
-            result_dense.coefficients,
-            result_sparse.coefficients,
-            rtol=1e-10
+            result_dense.coefficients, result_sparse.coefficients, rtol=1e-10
         )
 
         # Fitted values should be nearly identical
         np.testing.assert_allclose(
-            result_dense.fitted_values,
-            result_sparse.fitted_values,
-            rtol=1e-10
+            result_dense.fitted_values, result_sparse.fitted_values, rtol=1e-10
         )
 
         # Lambda should be the same
@@ -65,20 +59,14 @@ class TestSparseGAMFitting:
         weights = np.exp(-((x - 5) ** 2) / 10)
 
         # Fit with sparse
-        result_sparse = fit_gam(
-            x, y, n_basis=12, lambda_=1.0, weights=weights, use_sparse=True
-        )
+        result_sparse = fit_gam(x, y, n_basis=12, lambda_=1.0, weights=weights, use_sparse=True)
 
         # Fit with dense for comparison
-        result_dense = fit_gam(
-            x, y, n_basis=12, lambda_=1.0, weights=weights, use_sparse=False
-        )
+        result_dense = fit_gam(x, y, n_basis=12, lambda_=1.0, weights=weights, use_sparse=False)
 
         # Should produce same results
         np.testing.assert_allclose(
-            result_sparse.fitted_values,
-            result_dense.fitted_values,
-            rtol=1e-10
+            result_sparse.fitted_values, result_dense.fitted_values, rtol=1e-10
         )
 
     @pytest.mark.skipif(not HAS_SCIPY, reason="scipy not available")
@@ -90,9 +78,7 @@ class TestSparseGAMFitting:
         y = y_true + 0.05 * np.random.randn(500)
 
         # Fit with sparse (should be faster)
-        result = fit_gam(
-            x, y, n_basis=40, lambda_=0.01, use_sparse=True
-        )
+        result = fit_gam(x, y, n_basis=40, lambda_=0.01, use_sparse=True)
 
         # Check basic properties
         assert result.coefficients.shape == (40,)
@@ -100,7 +86,7 @@ class TestSparseGAMFitting:
         assert result.lambda_ == 0.01
 
         # Check fit quality
-        rmse = np.sqrt(np.mean(result.residuals ** 2))
+        rmse = np.sqrt(np.mean(result.residuals**2))
         assert rmse < 0.2  # Should fit reasonably well
 
     @pytest.mark.skipif(not HAS_SCIPY, reason="scipy not available")
@@ -111,9 +97,7 @@ class TestSparseGAMFitting:
         y_train = np.cos(x_train) + 0.1 * np.random.randn(100)
 
         # Fit with sparse
-        result = fit_gam(
-            x_train, y_train, n_basis=15, lambda_=0.5, use_sparse=True
-        )
+        result = fit_gam(x_train, y_train, n_basis=15, lambda_=0.5, use_sparse=True)
 
         # Make predictions on new data
         x_new = np.linspace(0, 10, 200)
@@ -136,15 +120,15 @@ class TestSparseGAMFitting:
 
         # Should work with bspline
         result_bspline = fit_gam(
-            x, y, n_basis=12, basis_type='bspline', lambda_=0.1, use_sparse=True
+            x, y, n_basis=12, basis_type="bspline", lambda_=0.1, use_sparse=True
         )
         assert result_bspline.fitted_values.shape == (80,)
 
         # Should raise error with cubic
-        with pytest.raises(ValueError, match="use_sparse=True only supported for basis_type='bspline'"):
-            fit_gam(
-                x, y, n_basis=12, basis_type='cubic', lambda_=0.1, use_sparse=True
-            )
+        with pytest.raises(
+            ValueError, match="use_sparse=True only supported for basis_type='bspline'"
+        ):
+            fit_gam(x, y, n_basis=12, basis_type="cubic", lambda_=0.1, use_sparse=True)
 
     @pytest.mark.skipif(not HAS_SCIPY, reason="scipy not available")
     def test_sparse_different_lambda(self):
@@ -155,14 +139,10 @@ class TestSparseGAMFitting:
         y = y_true + 0.2 * np.random.randn(100)
 
         # Small lambda (less smoothing)
-        result_small = fit_gam(
-            x, y, n_basis=15, lambda_=0.001, use_sparse=True
-        )
+        result_small = fit_gam(x, y, n_basis=15, lambda_=0.001, use_sparse=True)
 
         # Large lambda (more smoothing)
-        result_large = fit_gam(
-            x, y, n_basis=15, lambda_=10.0, use_sparse=True
-        )
+        result_large = fit_gam(x, y, n_basis=15, lambda_=10.0, use_sparse=True)
 
         # Large lambda should produce smoother fit
         # Measure smoothness via second differences
@@ -180,21 +160,17 @@ class TestSparseGAMFitting:
 
         for degree in [1, 2, 3, 5]:
             # Dense
-            result_dense = fit_gam(
-                x, y, n_basis=12, degree=degree, lambda_=0.1, use_sparse=False
-            )
+            result_dense = fit_gam(x, y, n_basis=12, degree=degree, lambda_=0.1, use_sparse=False)
 
             # Sparse
-            result_sparse = fit_gam(
-                x, y, n_basis=12, degree=degree, lambda_=0.1, use_sparse=True
-            )
+            result_sparse = fit_gam(x, y, n_basis=12, degree=degree, lambda_=0.1, use_sparse=True)
 
             # Should match
             np.testing.assert_allclose(
                 result_dense.fitted_values,
                 result_sparse.fitted_values,
                 rtol=1e-9,
-                err_msg=f"Mismatch at degree={degree}"
+                err_msg=f"Mismatch at degree={degree}",
             )
 
     @pytest.mark.skipif(not HAS_SCIPY, reason="scipy not available")
@@ -206,12 +182,12 @@ class TestSparseGAMFitting:
 
         # Quantile knots (default)
         result_quantile = fit_gam(
-            x, y, n_basis=15, knot_method='quantile', lambda_=0.1, use_sparse=True
+            x, y, n_basis=15, knot_method="quantile", lambda_=0.1, use_sparse=True
         )
 
         # Uniform knots
         result_uniform = fit_gam(
-            x, y, n_basis=15, knot_method='uniform', lambda_=0.1, use_sparse=True
+            x, y, n_basis=15, knot_method="uniform", lambda_=0.1, use_sparse=True
         )
 
         # Both should produce reasonable fits
@@ -219,8 +195,8 @@ class TestSparseGAMFitting:
         assert result_uniform.fitted_values.shape == (100,)
 
         # Results might differ slightly but both should be reasonable
-        rmse_quantile = np.sqrt(np.mean(result_quantile.residuals ** 2))
-        rmse_uniform = np.sqrt(np.mean(result_uniform.residuals ** 2))
+        rmse_quantile = np.sqrt(np.mean(result_quantile.residuals**2))
+        rmse_uniform = np.sqrt(np.mean(result_uniform.residuals**2))
 
         assert rmse_quantile < 0.5
         assert rmse_uniform < 0.5
@@ -232,9 +208,7 @@ class TestSparseGAMFitting:
         x = np.linspace(0, 10, 100)
         y = x + 0.2 * np.random.randn(100)
 
-        result = fit_gam(
-            x, y, n_basis=12, lambda_=1.0, use_sparse=True
-        )
+        result = fit_gam(x, y, n_basis=12, lambda_=1.0, use_sparse=True)
 
         # Residuals should equal y - fitted
         expected_residuals = y - result.fitted_values
@@ -247,9 +221,7 @@ class TestSparseGAMFitting:
         x = np.linspace(0, 10, 100)
         y = np.where(x < 5, x, 10 - x) + 0.1 * np.random.randn(100)
 
-        result = fit_gam(
-            x, y, n_basis=15, lambda_=0.5, use_sparse=True
-        )
+        result = fit_gam(x, y, n_basis=15, lambda_=0.5, use_sparse=True)
 
         # Check boundary predictions are reasonable
         # (B-splines should extrapolate smoothly)

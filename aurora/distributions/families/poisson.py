@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, ensure_positive, namespace
+from ..base import Family, LinkFunction
 from ..links import LogLink
 
 try:  # pragma: no cover - optional dependency

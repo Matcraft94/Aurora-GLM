@@ -43,17 +43,16 @@ aurora.distributions.links.common.ProbitLink : Alternative link function
 
 from __future__ import annotations
 
-
 import numpy as np
 
-from ..base import Family, LinkFunction
 from .._utils import (
     as_namespace_array,
     clip_probability,
     ensure_positive,
-    namespace,
     log_gamma,
+    namespace,
 )
+from ..base import Family, LinkFunction
 from ..links import LogitLink
 
 try:  # pragma: no cover - optional dependency
@@ -129,9 +128,7 @@ class BetaFamily(Family):
     the actual variance also depends on phi: Var(Y) = V(mu)/(phi+1).
     """
 
-    def __init__(
-        self, phi: float | str = 1.0, link: LinkFunction | None = None
-    ) -> None:
+    def __init__(self, phi: float | str = 1.0, link: LinkFunction | None = None) -> None:
         """Initialize Beta family.
 
         Parameters
@@ -406,17 +403,15 @@ class BetaFamily(Family):
 
         if mu is None:
             if xp is torch:  # type: ignore[comparison-overlap]
-                mu_val = torch.mean(y_arr)
+                torch.mean(y_arr)
             else:
-                mu_val = np.mean(y_arr)
+                np.mean(y_arr)
         else:
-            mu_arr = clip_probability(
-                as_namespace_array(mu, xp, like=y_arr), xp, eps=0.01
-            )
+            mu_arr = clip_probability(as_namespace_array(mu, xp, like=y_arr), xp, eps=0.01)
             if xp is torch:  # type: ignore[comparison-overlap]
-                mu_val = torch.mean(mu_arr)
+                torch.mean(mu_arr)
             else:
-                mu_val = np.mean(mu_arr)
+                np.mean(mu_arr)
 
         return self._estimate_phi_mm(y_arr, xp)
 

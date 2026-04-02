@@ -5,9 +5,8 @@
 
 from __future__ import annotations
 
-
-from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, namespace, ones_like
+from ..base import Family, LinkFunction
 from ..links import IdentityLink
 
 try:  # pragma: no cover - optional dependency

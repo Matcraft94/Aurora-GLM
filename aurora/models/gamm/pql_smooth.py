@@ -61,6 +61,7 @@ aurora.models.gam.fitting : GAM fitting for Gaussian responses
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -75,6 +76,8 @@ from aurora.distributions.families import (
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 
 def fit_pql_with_smooth(
@@ -179,9 +182,7 @@ def fit_pql_with_smooth(
 
     for name, X_s in X_smooth_dict.items():
         if X_s.shape[0] != n:
-            raise ValueError(
-                f"X_smooth['{name}'] has {X_s.shape[0]} rows, expected {n}"
-            )
+            raise ValueError(f"X_smooth['{name}'] has {X_s.shape[0]} rows, expected {n}")
         if name not in S_smooth_dict:
             raise ValueError(f"Missing penalty matrix for smooth term '{name}'")
 
@@ -215,10 +216,10 @@ def fit_pql_with_smooth(
     if lambda_smooth is None:
         # Use GCV to select smoothing parameters
         if verbose:
-            print("Selecting smoothing parameters via GCV...")
+            logger.info("Selecting smoothing parameters via GCV...")
 
         # Initial rough fit to get Psi estimate
-        lambda_init = {name: 1.0 for name in smooth_names}
+        lambda_init = dict.fromkeys(smooth_names, 1.0)
         auto_lambda = True
     else:
         lambda_init = lambda_smooth
@@ -257,8 +258,7 @@ def fit_pql_with_smooth(
         Psi_old = Psi.copy()
 
         # Inner loop: Update (beta_para, beta_smooth, b) given Psi and Lambda
-        converged_inner = False
-        for iter_inner in range(maxiter_inner):
+        for _iter_inner in range(maxiter_inner):
             # Clamp eta to prevent overflow in link.inverse (exp)
             eta = np.clip(eta, -700.0, 700.0)
 
@@ -290,7 +290,7 @@ def fit_pql_with_smooth(
                 import warnings
 
                 warnings.warn(
-                    "NaN/Inf detected in PQL smooth iteration, using regularization"
+                    "NaN/Inf detected in PQL smooth iteration, using regularization", stacklevel=2
                 )
                 z = np.where(np.isfinite(z), z, eta)
                 W_diag = np.where(np.isfinite(W_diag), W_diag, 1e-6)
@@ -345,16 +345,11 @@ def fit_pql_with_smooth(
             b_new = coef_new[p_para + p_smooth_total :]
 
             # Update linear predictor
-            eta_new = (
-                X_parametric @ beta_para_new + X_smooth @ beta_smooth_new + Z @ b_new
-            )
+            eta_new = X_parametric @ beta_para_new + X_smooth @ beta_smooth_new + Z @ b_new
 
             # Check convergence
-            coef_change = np.linalg.norm(
-                coef_new - np.concatenate([beta_para, beta_smooth, b])
-            )
+            coef_change = np.linalg.norm(coef_new - np.concatenate([beta_para, beta_smooth, b]))
             if coef_change < tol_inner:
-                converged_inner = True
                 break
 
             # Update coefficients
@@ -393,7 +388,7 @@ def fit_pql_with_smooth(
         # Auto-select λ after a few iterations (when Psi estimate is stable)
         if auto_lambda and iter_outer == 2:
             if verbose:
-                print("\nSelecting smoothing parameters via GCV...")
+                logger.info("Selecting smoothing parameters via GCV...")
 
             from aurora.models.gamm.smoothing_selection import select_smoothing_gcv
 
@@ -413,12 +408,12 @@ def fit_pql_with_smooth(
             Lambda = _build_lambda_matrix(lambda_smooth, smooth_names, p_smooth_list)
 
             if verbose:
-                print(f"Selected λ: {lambda_smooth}")
+                logger.info("Selected λ: %s", lambda_smooth)
 
         # Check outer convergence
         Psi_change = np.linalg.norm(Psi - Psi_old, "fro")
         if verbose:
-            print(f"Outer iter {iter_outer + 1}: Psi change = {Psi_change:.6f}")
+            logger.debug("Outer iter %d: Psi change = %.6f", iter_outer + 1, Psi_change)
 
         if Psi_change < tol_outer:
             converged_outer = True
@@ -492,7 +487,7 @@ def _build_lambda_matrix(
         Block-diagonal matrix with λ_j I_K_j on diagonal.
     """
     blocks = []
-    for name, K_j in zip(smooth_names, p_smooth_list):
+    for name, K_j in zip(smooth_names, p_smooth_list, strict=False):
         lambda_j = lambda_smooth[name]
         blocks.append(lambda_j * np.eye(K_j))
     return linalg.block_diag(*blocks)

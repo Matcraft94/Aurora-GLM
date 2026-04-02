@@ -36,23 +36,23 @@ aurora.models.glm : Frequentist GLM fitting
 aurora.models.gam : Generalized Additive Models
 """
 
+from .backends import HAS_NUMPYRO, HAS_PYMC, available_backends
+from .glm_bayes import fit_glm_bayes
 from .priors import (
-    Prior,
-    Normal,
     Cauchy,
-    HalfNormal,
-    HalfCauchy,
     Exponential,
     Gamma,
+    HalfCauchy,
+    HalfNormal,
     InverseGamma,
-    Uniform,
-    StudentT,
     Laplace,
+    Normal,
+    Prior,
     PriorSpec,
+    StudentT,
+    Uniform,
 )
-from .result import BayesianGLMResult, BayesianGAMResult
-from .glm_bayes import fit_glm_bayes
-from .backends import available_backends, HAS_NUMPYRO, HAS_PYMC
+from .result import BayesianGAMResult, BayesianGLMResult
 
 __all__ = [
     # Main API

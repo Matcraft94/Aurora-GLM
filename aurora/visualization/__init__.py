@@ -34,23 +34,25 @@ from aurora.models.gam.plotting import (
     plot_smooth,
 )
 
-# GAMM random effects visualization
-from aurora.models.gamm.plotting import (
-    plot_caterpillar,
-    plot_diagnostics,
-    plot_random_effects_density,
-    plot_random_effects_qq,
-    plot_random_effects_summary,
-    # Phase 5.4 additions
-    plot_diagnostics_panel,
-    plot_smooth_effect,
-    plot_all_smooth_effects,
-)
-
 # GAMM diagnostics (additional)
 from aurora.models.gamm.diagnostics import (
     plot_diagnostics as plot_gamm_diagnostics,
+)
+from aurora.models.gamm.diagnostics import (
     plot_random_effects as plot_gamm_random_effects,
+)
+
+# GAMM random effects visualization
+from aurora.models.gamm.plotting import (
+    plot_all_smooth_effects,
+    plot_caterpillar,
+    plot_diagnostics,
+    # Phase 5.4 additions
+    plot_diagnostics_panel,
+    plot_random_effects_density,
+    plot_random_effects_qq,
+    plot_random_effects_summary,
+    plot_smooth_effect,
 )
 
 __all__ = [

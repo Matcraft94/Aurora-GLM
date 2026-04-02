@@ -1,9 +1,9 @@
 """Tests for mini-batch SGD GLM fitting."""
 
-import pytest
 import numpy as np
+import pytest
 
-from aurora.models.distributed import fit_glm_sgd, SGDResult
+from aurora.models.distributed import SGDResult, fit_glm_sgd
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ class TestFitGLMSGDGaussian:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=3)
 
-        result = fit_glm_sgd(iterator, family='gaussian', max_epochs=3)
+        result = fit_glm_sgd(iterator, family="gaussian", max_epochs=3)
 
         assert isinstance(result, SGDResult)
 
@@ -80,7 +80,7 @@ class TestFitGLMSGDGaussian:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=5)
 
-        result = fit_glm_sgd(iterator, family='gaussian', max_epochs=5)
+        result = fit_glm_sgd(iterator, family="gaussian", max_epochs=5)
 
         assert result.coef_.shape == (X.shape[1],)
 
@@ -89,10 +89,7 @@ class TestFitGLMSGDGaussian:
         X, y, beta_true = gaussian_data
         iterator = make_iterator(X, y, n_epochs=20)
 
-        result = fit_glm_sgd(
-            iterator, family='gaussian',
-            learning_rate=0.01, max_epochs=20
-        )
+        result = fit_glm_sgd(iterator, family="gaussian", learning_rate=0.01, max_epochs=20)
 
         # Should be reasonably close to true parameters
         np.testing.assert_allclose(result.coef_, beta_true, atol=0.3)
@@ -102,9 +99,7 @@ class TestFitGLMSGDGaussian:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=10)
 
-        result = fit_glm_sgd(
-            iterator, family='gaussian', max_epochs=10
-        )
+        result = fit_glm_sgd(iterator, family="gaussian", max_epochs=10)
 
         # Loss should generally decrease
         assert result.loss_history_[-1] < result.loss_history_[0]
@@ -118,17 +113,17 @@ class TestFitGLMSGDPoisson:
         X, y, _ = poisson_data
         iterator = make_iterator(X, y, n_epochs=10)
 
-        result = fit_glm_sgd(iterator, family='poisson', max_epochs=10)
+        result = fit_glm_sgd(iterator, family="poisson", max_epochs=10)
 
-        assert result.family == 'poisson'
-        assert result.link == 'log'
+        assert result.family == "poisson"
+        assert result.link == "log"
 
     def test_poisson_predictions(self, poisson_data):
         """Test Poisson predictions are positive."""
         X, y, _ = poisson_data
         iterator = make_iterator(X, y, n_epochs=10)
 
-        result = fit_glm_sgd(iterator, family='poisson', max_epochs=10)
+        result = fit_glm_sgd(iterator, family="poisson", max_epochs=10)
 
         y_pred = result.predict(X)
         assert np.all(y_pred > 0)
@@ -142,17 +137,17 @@ class TestFitGLMSGDBinomial:
         X, y, _ = binomial_data
         iterator = make_iterator(X, y, n_epochs=10)
 
-        result = fit_glm_sgd(iterator, family='binomial', max_epochs=10)
+        result = fit_glm_sgd(iterator, family="binomial", max_epochs=10)
 
-        assert result.family == 'binomial'
-        assert result.link == 'logit'
+        assert result.family == "binomial"
+        assert result.link == "logit"
 
     def test_binomial_predictions_bounded(self, binomial_data):
         """Test binomial predictions are in [0, 1]."""
         X, y, _ = binomial_data
         iterator = make_iterator(X, y, n_epochs=10)
 
-        result = fit_glm_sgd(iterator, family='binomial', max_epochs=10)
+        result = fit_glm_sgd(iterator, family="binomial", max_epochs=10)
 
         y_pred = result.predict(X)
         assert np.all((y_pred >= 0) & (y_pred <= 1))
@@ -166,10 +161,7 @@ class TestSGDOptimizers:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=5)
 
-        result = fit_glm_sgd(
-            iterator, family='gaussian',
-            optimizer='adam', max_epochs=5
-        )
+        result = fit_glm_sgd(iterator, family="gaussian", optimizer="adam", max_epochs=5)
 
         assert result.coef_ is not None
 
@@ -179,8 +171,7 @@ class TestSGDOptimizers:
         iterator = make_iterator(X, y, n_epochs=5)
 
         result = fit_glm_sgd(
-            iterator, family='gaussian',
-            optimizer='sgd', learning_rate=0.01, max_epochs=5
+            iterator, family="gaussian", optimizer="sgd", learning_rate=0.01, max_epochs=5
         )
 
         assert result.coef_ is not None
@@ -190,10 +181,7 @@ class TestSGDOptimizers:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=5)
 
-        result = fit_glm_sgd(
-            iterator, family='gaussian',
-            optimizer='adagrad', max_epochs=5
-        )
+        result = fit_glm_sgd(iterator, family="gaussian", optimizer="adagrad", max_epochs=5)
 
         assert result.coef_ is not None
 
@@ -206,7 +194,7 @@ class TestSGDResult:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=5)
 
-        result = fit_glm_sgd(iterator, family='gaussian', max_epochs=5)
+        result = fit_glm_sgd(iterator, family="gaussian", max_epochs=5)
 
         y_pred = result.predict(X)
         assert y_pred.shape == y.shape
@@ -216,10 +204,10 @@ class TestSGDResult:
         X, y, _ = poisson_data
         iterator = make_iterator(X, y, n_epochs=5)
 
-        result = fit_glm_sgd(iterator, family='poisson', max_epochs=5)
+        result = fit_glm_sgd(iterator, family="poisson", max_epochs=5)
 
-        eta = result.predict(X, type='link')
-        mu = result.predict(X, type='response')
+        eta = result.predict(X, type="link")
+        mu = result.predict(X, type="response")
 
         # For log link: mu = exp(eta)
         np.testing.assert_allclose(mu, np.exp(eta), rtol=1e-10)
@@ -229,15 +217,15 @@ class TestSGDResult:
         X, y, _ = gaussian_data
         iterator = make_iterator(X, y, n_epochs=5)
 
-        result = fit_glm_sgd(iterator, family='gaussian', max_epochs=5)
+        result = fit_glm_sgd(iterator, family="gaussian", max_epochs=5)
 
         summary = result.summary()
 
-        assert 'n_obs' in summary
-        assert 'n_features' in summary
-        assert 'n_epochs' in summary
-        assert 'final_loss' in summary
-        assert 'coef' in summary
+        assert "n_obs" in summary
+        assert "n_features" in summary
+        assert "n_epochs" in summary
+        assert "final_loss" in summary
+        assert "coef" in summary
 
 
 class TestL2Regularization:
@@ -249,11 +237,11 @@ class TestL2Regularization:
 
         # Fit without regularization
         iterator1 = make_iterator(X, y, n_epochs=10)
-        result1 = fit_glm_sgd(iterator1, family='gaussian', l2_penalty=0.0, max_epochs=10)
+        result1 = fit_glm_sgd(iterator1, family="gaussian", l2_penalty=0.0, max_epochs=10)
 
         # Fit with regularization
         iterator2 = make_iterator(X, y, n_epochs=10)
-        result2 = fit_glm_sgd(iterator2, family='gaussian', l2_penalty=0.1, max_epochs=10)
+        result2 = fit_glm_sgd(iterator2, family="gaussian", l2_penalty=0.1, max_epochs=10)
 
         # Regularized coefficients should be smaller in magnitude
         assert np.linalg.norm(result2.coef_) < np.linalg.norm(result1.coef_)

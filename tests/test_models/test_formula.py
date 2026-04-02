@@ -1,9 +1,10 @@
 """Tests for R-style formula parsing."""
+
 from __future__ import annotations
 
 import pytest
 
-from aurora.models.gam import ParametricTerm, SmoothTerm, parse_formula
+from aurora.models.gam import parse_formula
 
 
 def test_parse_formula_simple():
@@ -142,8 +143,7 @@ def test_parse_formula_unknown_parameter():
 def test_parse_formula_complex():
     """parse_formula should handle complex real-world formula."""
     spec = parse_formula(
-        "response ~ s(temp, n_basis=15) + s(pressure, basis='cubic') + "
-        "humidity + elevation"
+        "response ~ s(temp, n_basis=15) + s(pressure, basis='cubic') + humidity + elevation"
     )
 
     assert spec.response == "response"

@@ -43,13 +43,12 @@ from __future__ import annotations
 
 import functools
 import inspect
+from collections.abc import Callable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Literal,
     ParamSpec,
-    Sequence,
     TypeVar,
 )
 
@@ -160,15 +159,13 @@ def validate_array(
             try:
                 arr = np.asarray(value)
             except Exception as e:
-                raise ValidationError(param, f"Cannot convert to array: {e}")
+                raise ValidationError(param, f"Cannot convert to array: {e}") from None
 
             # Check ndim
             if ndim is not None:
                 valid_ndims = (ndim,) if isinstance(ndim, int) else ndim
                 if arr.ndim not in valid_ndims:
-                    raise ValidationError(
-                        param, f"{display_name} must be {ndim}D, got {arr.ndim}D"
-                    )
+                    raise ValidationError(param, f"{display_name} must be {ndim}D, got {arr.ndim}D")
 
             # Check 1D allowed
             if not allow_1d and arr.ndim == 1:
@@ -282,9 +279,7 @@ def validate_positive(
 
             if strict:
                 if value <= 0:
-                    raise ValidationError(
-                        param, f"{display_name} must be positive, got {value}"
-                    )
+                    raise ValidationError(param, f"{display_name} must be positive, got {value}")
             else:
                 if value < 0:
                     raise ValidationError(
@@ -353,9 +348,7 @@ def validate_probability(
 
             if not (lower <= value <= upper):
                 bounds_str = f"[{0 if allow_zero else '(0'}, {1 if allow_one else '1)'}"
-                raise ValidationError(
-                    param, f"{display_name} must be in {bounds_str}, got {value}"
-                )
+                raise ValidationError(param, f"{display_name} must be in {bounds_str}, got {value}")
 
             return func(*args, **kwargs)
 
@@ -565,9 +558,7 @@ def validate_not_none(
 
             for param in params:
                 if bound.arguments.get(param) is None:
-                    raise ValidationError(
-                        param, f"'{param}' is required and cannot be None"
-                    )
+                    raise ValidationError(param, f"'{param}' is required and cannot be None")
 
             return func(*args, **kwargs)
 

@@ -15,14 +15,14 @@ This module provides the unified result hierarchy for all model types:
 
 from __future__ import annotations
 
-from .result import GLMResult, ModelResult
 from .base_result import (
     BaseResult,
     LinearModelResult,
+    MixedModelProtocol,
     MixedModelResultBase,
     ResultProtocol,
-    MixedModelProtocol,
 )
+from .result import GLMResult, ModelResult
 
 __all__ = [
     # Legacy (for backward compatibility)

@@ -41,6 +41,7 @@ References
 [3] Lawless, J. F. (1987). Negative binomial and mixed Poisson regression.
     Canadian Journal of Statistics, 15(3), 209-225.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -55,12 +56,14 @@ from aurora.distributions.families.negative_binomial import (
 # Multi-backend support
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
     import jax.numpy as jnp
+
     HAS_JAX = True
 except ImportError:
     HAS_JAX = False
@@ -72,9 +75,10 @@ class TestNegativeBinomialFamilyBasic:
     def test_instantiation_default(self):
         """Test default instantiation with theta=1.0, link='log'."""
         from aurora.distributions.links import LogLink
+
         family = NegativeBinomialFamily()
         assert family.theta == 1.0
-        assert family.name == 'negative_binomial'
+        assert family.name == "negative_binomial"
         assert isinstance(family.default_link, LogLink)
 
     def test_instantiation_custom_theta(self):
@@ -84,7 +88,7 @@ class TestNegativeBinomialFamilyBasic:
 
     def test_instantiation_estimate_theta(self):
         """Test instantiation with theta='estimate'."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
         with pytest.raises(ValueError, match="has not been estimated"):
             _ = family.theta
 
@@ -101,24 +105,26 @@ class TestNegativeBinomialFamilyBasic:
     def test_instantiation_invalid_theta_string(self):
         """Test that invalid string theta raises ValueError."""
         with pytest.raises(ValueError, match="must be a number or 'estimate'"):
-            NegativeBinomialFamily(theta='invalid')
+            NegativeBinomialFamily(theta="invalid")
 
     def test_link_identity(self):
         """Test identity link instantiation."""
         from aurora.distributions.links import IdentityLink
-        family = NegativeBinomialFamily(link='identity')
+
+        family = NegativeBinomialFamily(link="identity")
         assert isinstance(family.default_link, IdentityLink)
 
     def test_link_sqrt(self):
         """Test sqrt link instantiation."""
         from aurora.distributions.links import SqrtLink
-        family = NegativeBinomialFamily(link='sqrt')
+
+        family = NegativeBinomialFamily(link="sqrt")
         assert isinstance(family.default_link, SqrtLink)
 
     def test_link_invalid(self):
         """Test invalid link raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported link"):
-            NegativeBinomialFamily(link='probit')
+            NegativeBinomialFamily(link="probit")
 
     def test_alias_negbin(self):
         """Test NegBinFamily alias works."""
@@ -130,15 +136,15 @@ class TestNegativeBinomialFamilyBasic:
         """Test string representation with fixed theta."""
         family = NegativeBinomialFamily(theta=2.5)
         repr_str = repr(family)
-        assert 'NegativeBinomialFamily' in repr_str
-        assert '2.5' in repr_str
-        assert 'log' in repr_str.lower()  # Check link type mentioned
+        assert "NegativeBinomialFamily" in repr_str
+        assert "2.5" in repr_str
+        assert "log" in repr_str.lower()  # Check link type mentioned
 
     def test_repr_estimate_theta(self):
         """Test string representation with estimate theta."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
         repr_str = repr(family)
-        assert 'estimate' in repr_str.lower()
+        assert "estimate" in repr_str.lower()
 
 
 class TestNegativeBinomialVariance:
@@ -219,7 +225,7 @@ class TestNegativeBinomialLogLikelihood:
 
     def test_log_likelihood_requires_theta(self):
         """Test log-likelihood raises when theta not specified."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
         y = np.array([1, 2])
         mu = np.array([1.5, 2.5])
 
@@ -231,14 +237,16 @@ class TestNegativeBinomialLogLikelihood:
         family = NegativeBinomialFamily(theta=5.0)
         y = np.array([3.0])
         mu = np.array([2.0])
-        theta = 5.0
 
         result = family.log_likelihood(y, mu)
 
         # Manual: log Γ(8) - log Γ(5) - log(3!) + 5 log(5/7) + 3 log(2/7)
         expected = (
-            special.gammaln(8) - special.gammaln(5) - special.gammaln(4) +
-            5 * np.log(5/7) + 3 * np.log(2/7)
+            special.gammaln(8)
+            - special.gammaln(5)
+            - special.gammaln(4)
+            + 5 * np.log(5 / 7)
+            + 3 * np.log(2 / 7)
         )
 
         np.testing.assert_allclose(result, expected, rtol=1e-10)
@@ -336,14 +344,14 @@ class TestNegativeBinomialThetaEstimation:
 
     def test_estimate_theta_moments_overdispersed(self):
         """Test moments estimator detects overdispersion."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
 
         # Generate overdispersed data (manually constructed)
         np.random.seed(42)
         y = np.array([0, 0, 1, 1, 2, 3, 5, 8, 12, 20])
         mu = np.full_like(y, np.mean(y), dtype=float)
 
-        theta_est = family.estimate_theta(y, mu, method='moments')
+        theta_est = family.estimate_theta(y, mu, method="moments")
 
         # Should be a reasonable positive value
         assert theta_est > 0
@@ -351,38 +359,38 @@ class TestNegativeBinomialThetaEstimation:
 
     def test_estimate_theta_moments_poisson_like(self):
         """Test moments estimator for Poisson-like data."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
 
         # Data with Var ≈ mean (Poisson-like)
         y = np.array([3, 4, 5, 4, 3, 5, 4, 3, 5, 4])
         mu = np.full_like(y, np.mean(y), dtype=float)
 
-        theta_est = family.estimate_theta(y, mu, method='moments')
+        theta_est = family.estimate_theta(y, mu, method="moments")
 
         # Should return large theta (near Poisson)
         assert theta_est > 100
 
     def test_estimate_theta_ml_basic(self):
         """Test ML estimator runs without error."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
 
         y = np.array([0, 1, 1, 2, 3, 5, 7, 10])
         mu = np.array([1.0, 1.5, 2.0, 2.5, 3.5, 5.0, 6.0, 9.0])
 
-        theta_ml = family.estimate_theta(y, mu, method='ml')
+        theta_ml = family.estimate_theta(y, mu, method="ml")
 
         assert theta_ml > 0
 
     def test_estimate_theta_invalid_method(self):
         """Test invalid method raises ValueError."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
 
         with pytest.raises(ValueError, match="Unknown method"):
-            family.estimate_theta(np.array([1, 2]), np.array([1.5, 2.5]), method='unknown')
+            family.estimate_theta(np.array([1, 2]), np.array([1.5, 2.5]), method="unknown")
 
     def test_theta_setter(self):
         """Test theta can be set after instantiation."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
         family.theta = 2.5
 
         assert family.theta == 2.5
@@ -532,11 +540,16 @@ class TestNegativeBinomialVsPoisson:
 class TestNegativeBinomialMultiBackend:
     """Test Negative Binomial family with multiple backends (NumPy, PyTorch, JAX)."""
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_variance_multi_backend(self, backend):
         """Test variance calculation across backends."""
         family = NegativeBinomialFamily(theta=2.0)
@@ -552,20 +565,25 @@ class TestNegativeBinomialMultiBackend:
 
         # Expected: V(μ) = μ + μ²/θ
         if backend == "numpy":
-            expected = np.array([1.0 + 1.0**2/2.0, 2.0 + 2.0**2/2.0, 5.0 + 5.0**2/2.0])
+            expected = np.array([1.0 + 1.0**2 / 2.0, 2.0 + 2.0**2 / 2.0, 5.0 + 5.0**2 / 2.0])
             np.testing.assert_allclose(var, expected, rtol=1e-8)
         elif backend == "torch":
-            expected = torch.tensor([1.0 + 1.0**2/2.0, 2.0 + 2.0**2/2.0, 5.0 + 5.0**2/2.0])
+            expected = torch.tensor([1.0 + 1.0**2 / 2.0, 2.0 + 2.0**2 / 2.0, 5.0 + 5.0**2 / 2.0])
             assert torch.allclose(var, expected, rtol=1e-6)
         else:  # jax
-            expected = jnp.array([1.0 + 1.0**2/2.0, 2.0 + 2.0**2/2.0, 5.0 + 5.0**2/2.0])
+            expected = jnp.array([1.0 + 1.0**2 / 2.0, 2.0 + 2.0**2 / 2.0, 5.0 + 5.0**2 / 2.0])
             assert jnp.allclose(var, expected, rtol=1e-6)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_log_likelihood_multi_backend(self, backend):
         """Test log-likelihood calculation across backends."""
         family = NegativeBinomialFamily(theta=3.0)
@@ -594,11 +612,16 @@ class TestNegativeBinomialMultiBackend:
             log_lik_np = family.log_likelihood(y_np, mu_np)
             np.testing.assert_allclose(log_lik, log_lik_np, rtol=1e-5)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_deviance_multi_backend(self, backend):
         """Test deviance calculation across backends."""
         family = NegativeBinomialFamily(theta=2.5)
@@ -628,11 +651,16 @@ class TestNegativeBinomialMultiBackend:
             # Use relaxed tolerance for PyTorch/JAX numerical differences
             np.testing.assert_allclose(dev, dev_np, rtol=1e-4)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_initialize_multi_backend(self, backend):
         """Test initialization across backends."""
         family = NegativeBinomialFamily(theta=2.0)
@@ -657,15 +685,20 @@ class TestNegativeBinomialMultiBackend:
             assert mu_init.shape == y.shape
             assert 2.5 < mu_init[0].item() < 3.5
         else:  # jax
-            assert hasattr(mu_init, 'shape')  # JAX array
+            assert hasattr(mu_init, "shape")  # JAX array
             assert mu_init.shape == y.shape
             assert 2.5 < float(mu_init[0]) < 3.5
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_gradients_multi_backend(self, backend):
         """Test gradient calculation across backends."""
         family = NegativeBinomialFamily(theta=3.0)
@@ -702,14 +735,19 @@ class TestNegativeBinomialMultiBackend:
                 np.testing.assert_allclose(np.array(grad), grad_np, rtol=1e-6)
                 np.testing.assert_allclose(np.array(hess), hess_np, rtol=1e-6)
 
-    @pytest.mark.parametrize("backend", [
-        "numpy",
-        pytest.param("torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")),
-        pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available"))
-    ])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "numpy",
+            pytest.param(
+                "torch", marks=pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
+            ),
+            pytest.param("jax", marks=pytest.mark.skipif(not HAS_JAX, reason="JAX not available")),
+        ],
+    )
     def test_theta_estimation_multi_backend(self, backend):
         """Test theta estimation works with different backends."""
-        family = NegativeBinomialFamily(theta='estimate')
+        family = NegativeBinomialFamily(theta="estimate")
 
         # Generate overdispersed count data
         np.random.seed(42)
@@ -727,7 +765,7 @@ class TestNegativeBinomialMultiBackend:
             mu = jnp.array(mu_np)
 
         # Estimate theta using moments method
-        theta_est = family.estimate_theta(y, mu, method='moments')
+        theta_est = family.estimate_theta(y, mu, method="moments")
 
         assert isinstance(theta_est, float)
         assert theta_est > 0
@@ -735,5 +773,5 @@ class TestNegativeBinomialMultiBackend:
         assert 0.01 <= theta_est <= 1e6
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

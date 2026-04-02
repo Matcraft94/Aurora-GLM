@@ -20,19 +20,18 @@ Heavy-tailed and robust distributions (Phase 5.5):
 - TweedieFamily: Tweedie for zero-inflated continuous data
 """
 
+# New distributions (Phase 5 Milestone 1)
+from .beta import BetaFamily
 from .binomial import BinomialFamily
 from .gamma import GammaFamily
 from .gaussian import GaussianFamily
+from .inverse_gaussian import InverseGaussianFamily, WaldFamily
+from .negative_binomial import NegativeBinomialFamily, NegBinFamily
 from .poisson import PoissonFamily
 
-# New distributions (Phase 5 Milestone 1)
-from .beta import BetaFamily
-from .inverse_gaussian import InverseGaussianFamily, WaldFamily
-
 # Heavy-tailed distributions (Phase 5.5)
-from .student_t import StudentTFamily, CauchyFamily
-from .negative_binomial import NegativeBinomialFamily, NegBinFamily
-from .tweedie import TweedieFamily, CompoundPoissonGammaFamily
+from .student_t import CauchyFamily, StudentTFamily
+from .tweedie import CompoundPoissonGammaFamily, TweedieFamily
 
 __all__ = [
     # Standard exponential family

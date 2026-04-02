@@ -18,12 +18,12 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from aurora.core.optimization.irls import irls, _is_sparse, _sparse_weighted_lstsq
-
+from aurora.core.optimization.irls import _is_sparse, _sparse_weighted_lstsq, irls
 
 # Check for scipy sparse
 try:
     from scipy import sparse
+
     HAS_SCIPY_SPARSE = True
 except ImportError:
     HAS_SCIPY_SPARSE = False
@@ -32,6 +32,7 @@ except ImportError:
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def simple_gaussian_data():
@@ -72,6 +73,7 @@ def sparse_categorical_data():
 
 class MockIdentityLink:
     """Mock identity link function for Gaussian."""
+
     def inverse(self, eta):
         return eta
 
@@ -81,6 +83,7 @@ class MockIdentityLink:
 
 class MockLogLink:
     """Mock log link function for Poisson."""
+
     def inverse(self, eta):
         return np.exp(np.clip(eta, -20, 20))
 
@@ -90,6 +93,7 @@ class MockLogLink:
 
 class MockLogitLink:
     """Mock logit link function for Binomial."""
+
     def inverse(self, eta):
         eta = np.clip(eta, -20, 20)
         return 1.0 / (1.0 + np.exp(-eta))
@@ -102,6 +106,7 @@ class MockLogitLink:
 # =============================================================================
 # Test sparse detection
 # =============================================================================
+
 
 @pytest.mark.skipif(not HAS_SCIPY_SPARSE, reason="scipy.sparse not available")
 class TestSparseDetection:
@@ -136,6 +141,7 @@ class TestSparseDetection:
 # =============================================================================
 # Test sparse weighted least squares
 # =============================================================================
+
 
 @pytest.mark.skipif(not HAS_SCIPY_SPARSE, reason="scipy.sparse not available")
 class TestSparseWeightedLstSq:
@@ -193,7 +199,7 @@ class TestSparseWeightedLstSq:
 
         # Create sparse matrix with ~10% non-zeros
         density = 0.1
-        X_sparse = sparse.random(n, p, density=density, format='csr')
+        X_sparse = sparse.random(n, p, density=density, format="csr")
         X_dense = X_sparse.toarray()
 
         # Ensure non-singular
@@ -219,6 +225,7 @@ class TestSparseWeightedLstSq:
 # Test IRLS with sparse matrices
 # =============================================================================
 
+
 @pytest.mark.skipif(not HAS_SCIPY_SPARSE, reason="scipy.sparse not available")
 class TestIRLSSparse:
     """Test IRLS algorithm with sparse design matrices."""
@@ -229,8 +236,12 @@ class TestIRLSSparse:
         X_sparse = sparse.csr_matrix(X_dense)
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(X_dense.shape[1])
 
@@ -266,7 +277,9 @@ class TestIRLSSparse:
         y = np.random.poisson(mu_true).astype(float)
 
         link = MockLogLink()
-        variance_fn = lambda mu: np.clip(mu, 1e-10, None)
+
+        def variance_fn(mu):
+            return np.clip(mu, 1e-10, None)
 
         def loss_fn(beta):
             mu = np.exp(np.clip(X_dense @ beta, -20, 20))
@@ -301,11 +314,15 @@ class TestIRLSSparse:
 
         # Verify sparsity
         sparsity = 1.0 - (X_sparse.nnz / (X_sparse.shape[0] * X_sparse.shape[1]))
-        assert sparsity > 0.9, f"Expected >90% sparsity, got {sparsity*100:.1f}%"
+        assert sparsity > 0.9, f"Expected >90% sparsity, got {sparsity * 100:.1f}%"
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(X_dense.shape[1])
 
@@ -332,18 +349,22 @@ class TestIRLSSparse:
         X_dense, y, beta_true = simple_gaussian_data
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(X_dense.shape[1])
 
-        formats = ['csr', 'csc', 'coo']
+        formats = ["csr", "csc", "coo"]
         results = {}
 
         for fmt in formats:
-            if fmt == 'csr':
+            if fmt == "csr":
                 X_sparse = sparse.csr_matrix(X_dense)
-            elif fmt == 'csc':
+            elif fmt == "csc":
                 X_sparse = sparse.csc_matrix(X_dense)
             else:
                 X_sparse = sparse.coo_matrix(X_dense)
@@ -361,8 +382,8 @@ class TestIRLSSparse:
             results[fmt] = result.x
 
         # All formats should give same result
-        assert_allclose(results['csr'], results['csc'], rtol=1e-10)
-        assert_allclose(results['csr'], results['coo'], rtol=1e-10)
+        assert_allclose(results["csr"], results["csc"], rtol=1e-10)
+        assert_allclose(results["csr"], results["coo"], rtol=1e-10)
 
     def test_sparse_with_offset(self, simple_gaussian_data):
         """Test sparse IRLS with offset term."""
@@ -374,7 +395,9 @@ class TestIRLSSparse:
         offset = np.random.randn(len(y)) * 0.5
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
 
         # Loss function that accounts for offset
         def loss_fn_with_offset(beta):
@@ -410,8 +433,12 @@ class TestIRLSSparse:
         X_sparse = sparse.csr_matrix(X_dense)
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(X_dense.shape[1])
 
@@ -445,6 +472,7 @@ class TestIRLSSparse:
 # Test edge cases
 # =============================================================================
 
+
 @pytest.mark.skipif(not HAS_SCIPY_SPARSE, reason="scipy.sparse not available")
 class TestSparseEdgeCases:
     """Test edge cases for sparse IRLS."""
@@ -456,7 +484,7 @@ class TestSparseEdgeCases:
 
         # Very sparse matrix (~1% non-zeros)
         density = 0.01
-        X_sparse = sparse.random(n, p, density=density, format='csr')
+        X_sparse = sparse.random(n, p, density=density, format="csr")
 
         # Ensure some structure
         X_sparse = X_sparse + sparse.eye(n, p) * 0.01
@@ -467,8 +495,12 @@ class TestSparseEdgeCases:
         y = X_dense @ beta_true + np.random.randn(n) * 0.5
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(p)
 
@@ -495,8 +527,12 @@ class TestSparseEdgeCases:
         y = np.random.randn(n)
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(p)
 
@@ -523,8 +559,12 @@ class TestSparseEdgeCases:
         y = np.random.randn(n)
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(p)
 
@@ -549,9 +589,13 @@ class TestSparseEdgeCases:
         X_sparse = sparse.csr_matrix(np.eye(10))
         y = np.random.randn(10)
 
-        link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.0
+        MockIdentityLink()
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.0
 
         # Missing required arguments
         with pytest.raises(ValueError, match="IRLS requires"):
@@ -583,6 +627,7 @@ class TestSparseEdgeCases:
 # Test numerical stability
 # =============================================================================
 
+
 @pytest.mark.skipif(not HAS_SCIPY_SPARSE, reason="scipy.sparse not available")
 class TestSparseNumericalStability:
     """Test numerical stability of sparse IRLS."""
@@ -600,8 +645,12 @@ class TestSparseNumericalStability:
         y = np.random.poisson(mu_true)
 
         link = MockLogLink()
-        variance_fn = lambda mu: np.clip(mu, 1e-10, None)
-        loss_fn = lambda beta: np.sum((y - np.exp(X_dense @ beta)) ** 2)
+
+        def variance_fn(mu):
+            return np.clip(mu, 1e-10, None)
+
+        def loss_fn(beta):
+            return np.sum((y - np.exp(X_dense @ beta)) ** 2)
 
         init_params = np.zeros(p)
 
@@ -633,8 +682,12 @@ class TestSparseNumericalStability:
         y = np.random.randn(n)
 
         link = MockIdentityLink()
-        variance_fn = lambda mu: np.ones_like(mu)
-        loss_fn = lambda beta: 0.5 * np.sum((y - X_dense @ beta) ** 2)
+
+        def variance_fn(mu):
+            return np.ones_like(mu)
+
+        def loss_fn(beta):
+            return 0.5 * np.sum((y - X_dense @ beta) ** 2)
 
         init_params = np.zeros(p)
 

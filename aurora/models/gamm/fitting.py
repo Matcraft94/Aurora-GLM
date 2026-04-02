@@ -516,8 +516,7 @@ class GAMMResult:
                 return self._X_parametric @ self.beta_parametric
             else:
                 raise ValueError(
-                    "Cannot compute fixed-only predictions: "
-                    "_X_parametric not stored in result"
+                    "Cannot compute fixed-only predictions: _X_parametric not stored in result"
                 )
 
     def summary(self) -> str:
@@ -549,15 +548,15 @@ class GAMMResult:
         lines.append(f"{'Parameter':<25} {'Estimate':>12}")
         lines.append("-" * 75)
         param_names = [f"β{i}" for i in range(len(self.beta_parametric))]
-        for name, coef in zip(param_names, self.beta_parametric):
+        for name, coef in zip(param_names, self.beta_parametric, strict=False):
             lines.append(f"{name:<25} {coef:>12.4f}")
         lines.append("")
 
         # Random Effects
         lines.append("Random Effects:")
         lines.append("-" * 75)
-        for i, (group_name, vc) in enumerate(
-            zip(self.random_effects.keys(), self.variance_components)
+        for _i, (group_name, vc) in enumerate(
+            zip(self.random_effects.keys(), self.variance_components, strict=False)
         ):
             lines.append(f"Group: {group_name}")
             if vc.shape[0] == 1:
@@ -578,18 +577,14 @@ class GAMMResult:
                     corr = np.zeros_like(vc)
                     for ii in range(vc.shape[0]):
                         for jj in range(vc.shape[1]):
-                            corr[ii, jj] = vc[ii, jj] / (
-                                np.sqrt(vc[ii, ii]) * np.sqrt(vc[jj, jj])
-                            )
+                            corr[ii, jj] = vc[ii, jj] / (np.sqrt(vc[ii, ii]) * np.sqrt(vc[jj, jj]))
                     lines.append("  Correlation Matrix:")
                     for row in corr:
                         row_str = "    " + "  ".join([f"{val:>10.4f}" for val in row])
                         lines.append(row_str)
             lines.append("")
 
-        lines.append(
-            f"Residual Standard Deviation: {np.sqrt(self.residual_variance):.4f}"
-        )
+        lines.append(f"Residual Standard Deviation: {np.sqrt(self.residual_variance):.4f}")
         lines.append("")
 
         # Model Fit
@@ -648,7 +643,7 @@ def solve_mixed_model_equations(
     For large systems, could exploit block structure or sparsity.
     """
     n, p = X.shape
-    q = Z.shape[1]
+    Z.shape[1]
 
     # Build fixed effects equations
     XtX = X.T @ X
@@ -844,9 +839,7 @@ def fit_gamm_gaussian(
             from scipy.sparse import issparse
 
             # Convert to torch tensors
-            X_parametric_t = torch.tensor(
-                X_parametric, dtype=torch.float64, device=torch_device
-            )
+            X_parametric_t = torch.tensor(X_parametric, dtype=torch.float64, device=torch_device)
             Z_t = torch.tensor(Z, dtype=torch.float64, device=torch_device)
             y_t = torch.tensor(y, dtype=torch.float64, device=torch_device)
 
@@ -859,23 +852,17 @@ def fit_gamm_gaussian(
                 # Handle sparse matrices
                 X_smooth = {
                     k: (
-                        torch.tensor(
-                            v.toarray(), dtype=torch.float64, device=torch_device
-                        )
+                        torch.tensor(v.toarray(), dtype=torch.float64, device=torch_device)
                         .cpu()
                         .numpy()
                         if issparse(v)
-                        else torch.tensor(v, dtype=torch.float64, device=torch_device)
-                        .cpu()
-                        .numpy()
+                        else torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
                     )
                     for k, v in X_smooth.items()
                 }
             if S_smooth is not None:
                 S_smooth = {
-                    k: torch.tensor(v, dtype=torch.float64, device=torch_device)
-                    .cpu()
-                    .numpy()
+                    k: torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
                     for k, v in S_smooth.items()
                 }
         except ImportError:
@@ -1085,11 +1072,7 @@ def fit_gamm_gaussian(
             start = smooth_start_cols[term_name]
             end = smooth_end_cols[term_name]
             p_term = end - start
-            if (
-                term_name in S_smooth
-                and lambda_smooth is not None
-                and term_name in lambda_smooth
-            ):
+            if term_name in S_smooth and lambda_smooth is not None and term_name in lambda_smooth:
                 # EDF ≈ tr[(X_k'X_k + λS)⁻¹ X_k'X_k]
                 X_term = X_smooth[term_name]
                 S_term = S_smooth[term_name]

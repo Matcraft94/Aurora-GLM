@@ -187,9 +187,7 @@ def fit_glm_bayes(
 
     elif backend == "pymc":
         if not HAS_PYMC:
-            raise ImportError(
-                "PyMC is not installed. Install with: pip install pymc arviz"
-            )
+            raise ImportError("PyMC is not installed. Install with: pip install pymc arviz")
         return _fit_pymc(
             X, y, family, link, priors, draws, tune, chains, seed, progress_bar, **kwargs
         )

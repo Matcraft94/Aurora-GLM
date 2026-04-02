@@ -125,9 +125,7 @@ class TruncatedNegBinFamily:
         self.theta = theta
         self.link = link
 
-    def log_likelihood(
-        self, y: NDArray, mu: NDArray, theta: float | None = None
-    ) -> float:
+    def log_likelihood(self, y: NDArray, mu: NDArray, theta: float | None = None) -> float:
         """Log-likelihood for truncated Negative Binomial.
 
         Parameters

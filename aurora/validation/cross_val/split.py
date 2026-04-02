@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -92,7 +93,7 @@ class KFold:
 
 
 def _num_samples(data: Sequence[Any]) -> int:
-    if hasattr(data, "shape") and len(getattr(data, "shape")) > 0:
+    if hasattr(data, "shape") and len(data.shape) > 0:
         return int(data.shape[0])
     if isinstance(data, Sequence):
         return len(data)

@@ -1,7 +1,8 @@
 """Edge case tests for GAMM module."""
+
 import numpy as np
-import pytest
-from aurora.models.gamm import fit_gamm, RandomEffect
+
+from aurora.models.gamm import RandomEffect, fit_gamm
 
 
 def test_gamm_single_group():
@@ -14,10 +15,11 @@ def test_gamm_single_group():
     # Should handle gracefully (variance may be singular)
     try:
         result = fit_gamm(
-            y=y, X=X,
-            random_effects=[RandomEffect(grouping='group')],
-            groups_data={'group': groups},
-            family='gaussian'
+            y=y,
+            X=X,
+            random_effects=[RandomEffect(grouping="group")],
+            groups_data={"group": groups},
+            family="gaussian",
         )
         assert result is not None
     except (np.linalg.LinAlgError, ValueError):
@@ -34,10 +36,11 @@ def test_gamm_unbalanced_groups():
     y = 1 + 0.5 * X[:, 0] + np.random.randn(100) * 0.2
 
     result = fit_gamm(
-        y=y, X=X,
-        random_effects=[RandomEffect(grouping='group')],
-        groups_data={'group': groups},
-        family='gaussian'
+        y=y,
+        X=X,
+        random_effects=[RandomEffect(grouping="group")],
+        groups_data={"group": groups},
+        family="gaussian",
     )
     assert result.converged
 
@@ -54,13 +57,14 @@ def test_gamm_random_intercept_only():
     y = 1 + 0.5 * X[:, 0] + random_intercepts[groups] + np.random.randn(len(groups)) * 0.1
 
     result = fit_gamm(
-        y=y, X=X,
-        random_effects=[RandomEffect(variables=(), grouping='group', include_intercept=True)],
-        groups_data={'group': groups},
-        family='gaussian'
+        y=y,
+        X=X,
+        random_effects=[RandomEffect(variables=(), grouping="group", include_intercept=True)],
+        groups_data={"group": groups},
+        family="gaussian",
     )
     assert result.converged
-    assert 'group' in result.random_effects
+    assert "group" in result.random_effects
 
 
 def test_gamm_random_slope():
@@ -74,15 +78,19 @@ def test_gamm_random_slope():
     random_intercepts = np.random.randn(n_groups) * 0.5
     random_slopes = np.random.randn(n_groups) * 0.2
 
-    y = (1 + random_intercepts[groups] +
-         (0.5 + random_slopes[groups]) * X[:, 0] +
-         np.random.randn(len(groups)) * 0.1)
+    y = (
+        1
+        + random_intercepts[groups]
+        + (0.5 + random_slopes[groups]) * X[:, 0]
+        + np.random.randn(len(groups)) * 0.1
+    )
 
     result = fit_gamm(
-        y=y, X=X,
-        random_effects=[RandomEffect(variables=(0,), grouping='group', include_intercept=True)],
-        groups_data={'group': groups},
-        family='gaussian'
+        y=y,
+        X=X,
+        random_effects=[RandomEffect(variables=(0,), grouping="group", include_intercept=True)],
+        groups_data={"group": groups},
+        family="gaussian",
     )
     assert result.converged
 
@@ -98,18 +106,22 @@ def test_gamm_predict_new_group():
     y_train = 1 + 0.5 * X_train[:, 0] + np.random.randn(len(groups_train)) * 0.2
 
     result = fit_gamm(
-        y=y_train, X=X_train,
-        random_effects=[RandomEffect(grouping='group', include_intercept=True)],
-        groups_data={'group': groups_train},
-        family='gaussian'
+        y=y_train,
+        X=X_train,
+        random_effects=[RandomEffect(grouping="group", include_intercept=True)],
+        groups_data={"group": groups_train},
+        family="gaussian",
     )
 
     # Predict for new group (not in training)
     from aurora.models import predict_from_gamm
+
     X_new = np.random.randn(10, 2)
     groups_new = np.full(10, 999)  # New group ID
 
-    y_pred = predict_from_gamm(result, X_new, groups_new={'group': groups_new}, include_random=False)
+    y_pred = predict_from_gamm(
+        result, X_new, groups_new={"group": groups_new}, include_random=False
+    )
     assert y_pred.shape[0] == 10
 
 
@@ -124,13 +136,15 @@ def test_gamm_predict_without_random_effects():
     y = 1 + 0.5 * X[:, 0] + np.random.randn(len(groups)) * 0.2
 
     result = fit_gamm(
-        y=y, X=X,
-        random_effects=[RandomEffect(grouping='group', include_intercept=True)],
-        groups_data={'group': groups},
-        family='gaussian'
+        y=y,
+        X=X,
+        random_effects=[RandomEffect(grouping="group", include_intercept=True)],
+        groups_data={"group": groups},
+        family="gaussian",
     )
 
     from aurora.models import predict_from_gamm
+
     X_new = np.random.randn(10, 2)
 
     y_pred = predict_from_gamm(result, X_new, include_random=False)
@@ -149,14 +163,16 @@ def test_gamm_covariance_diagonal():
     y = 1 + 0.5 * X[:, 0] + np.random.randn(len(groups)) * 0.2
 
     result = fit_gamm(
-        y=y, X=X,
+        y=y,
+        X=X,
         random_effects=[
-            RandomEffect(variables=(0,), grouping='group',
-                        include_intercept=True, covariance='diagonal')
+            RandomEffect(
+                variables=(0,), grouping="group", include_intercept=True, covariance="diagonal"
+            )
         ],
-        groups_data={'group': groups},
-        family='gaussian',
-        covariance='diagonal'
+        groups_data={"group": groups},
+        family="gaussian",
+        covariance="diagonal",
     )
     assert result.converged
 
@@ -172,10 +188,11 @@ def test_gamm_variance_components_positive():
     y = 1 + 0.5 * X[:, 0] + np.random.randn(len(groups)) * 0.2
 
     result = fit_gamm(
-        y=y, X=X,
-        random_effects=[RandomEffect(grouping='group', include_intercept=True)],
-        groups_data={'group': groups},
-        family='gaussian'
+        y=y,
+        X=X,
+        random_effects=[RandomEffect(grouping="group", include_intercept=True)],
+        groups_data={"group": groups},
+        family="gaussian",
     )
 
     # Check residual variance is positive
@@ -202,23 +219,21 @@ def test_gamm_nested_structure():
     n_obs_per_subject = 10
 
     clinics = np.repeat(np.arange(n_clinics), n_subjects_per_clinic * n_obs_per_subject)
-    subjects = np.repeat(
-        np.arange(n_clinics * n_subjects_per_clinic),
-        n_obs_per_subject
-    )
+    subjects = np.repeat(np.arange(n_clinics * n_subjects_per_clinic), n_obs_per_subject)
 
     X = np.random.randn(len(subjects), 2)
     y = 1 + 0.5 * X[:, 0] + np.random.randn(len(subjects)) * 0.2
 
     # Nested: subject within clinic
     result = fit_gamm(
-        y=y, X=X,
+        y=y,
+        X=X,
         random_effects=[
-            RandomEffect(grouping='clinic', include_intercept=True),
-            RandomEffect(grouping='subject', include_intercept=True)
+            RandomEffect(grouping="clinic", include_intercept=True),
+            RandomEffect(grouping="subject", include_intercept=True),
         ],
-        groups_data={'clinic': clinics, 'subject': subjects},
-        family='gaussian'
+        groups_data={"clinic": clinics, "subject": subjects},
+        family="gaussian",
     )
     assert result.converged
 
@@ -241,13 +256,14 @@ def test_gamm_multiple_variance_components():
     y = 1 + 0.5 * X[:, 0] + np.random.randn(n) * 0.2
 
     result = fit_gamm(
-        y=y, X=X,
+        y=y,
+        X=X,
         random_effects=[
-            RandomEffect(grouping='group_a', include_intercept=True),
-            RandomEffect(grouping='group_b', include_intercept=True)
+            RandomEffect(grouping="group_a", include_intercept=True),
+            RandomEffect(grouping="group_b", include_intercept=True),
         ],
-        groups_data={'group_a': group_a, 'group_b': group_b},
-        family='gaussian'
+        groups_data={"group_a": group_a, "group_b": group_b},
+        family="gaussian",
     )
 
     # variance_components is a list of covariance matrices (one per random effect term)

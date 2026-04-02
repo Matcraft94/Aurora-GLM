@@ -11,27 +11,38 @@ import pytest
 # Optional imports
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
-    import jax
+    import jax  # noqa: F401
     import jax.numpy as jnp
+
     HAS_JAX = True
 except ImportError:
     HAS_JAX = False
 
-from aurora.models.glm import fit_glm
-from aurora.models.gam import fit_gam
+from aurora.distributions._utils import as_namespace_array, namespace
 from aurora.models import fit_gamm
+from aurora.models.gam import fit_gam
 from aurora.models.gamm import RandomEffect
-from aurora.distributions._utils import namespace, as_namespace_array
+from aurora.models.glm import fit_glm
+
+
+def _torch_cuda_available():
+    """Check if PyTorch CUDA is available (safe when torch is not installed)."""
+    try:
+        return torch.cuda.is_available()
+    except (NameError, AttributeError):
+        return False
 
 
 # ============================================================================
 # Fixtures and Utilities
 # ============================================================================
+
 
 @pytest.fixture
 def sample_glm_data():
@@ -127,6 +138,7 @@ def check_device(data, expected_device):
 # GLM Multi-Backend Tests
 # ============================================================================
 
+
 class TestGLMMultiBackend:
     """Test GLM fitting across different backends."""
 
@@ -177,8 +189,10 @@ class TestGLMMultiBackend:
         elif backend == "jax":
             assert xp is jnp
 
-    @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    @pytest.mark.skipif(
+        not HAS_TORCH or not _torch_cuda_available(),
+        reason="CUDA not available",
+    )
     def test_glm_torch_gpu(self, sample_glm_data):
         """Test GLM with PyTorch on GPU."""
         X, y = sample_glm_data
@@ -243,9 +257,10 @@ class TestGLMMultiBackend:
 # GAM Multi-Backend Tests
 # ============================================================================
 
+
 class TestGAMMultiBackend:
     """Test GAM fitting across different backends.
-    
+
     Note: GAM fitting internally uses NumPy, so results are always NumPy arrays
     regardless of input backend. The tests verify that inputs from different
     backends are correctly handled and converted.
@@ -275,7 +290,7 @@ class TestGAMMultiBackend:
     @pytest.mark.skip(reason="GAM fitting does not support GPU tensors - uses numpy internally")
     def test_gam_torch_gpu(self, sample_gam_data):
         """Test GAM with PyTorch on GPU.
-        
+
         Note: GAM fitting internally uses numpy which requires CPU arrays.
         GPU tensor support would require converting to CPU first.
         """
@@ -283,7 +298,7 @@ class TestGAMMultiBackend:
 
     def test_gam_numerical_consistency_across_backends(self, sample_gam_data):
         """Verify GAM produces consistent results across backends.
-        
+
         Since GAM internally uses numpy, all backends should produce
         identical results (not just approximately equal).
         """
@@ -316,9 +331,10 @@ class TestGAMMultiBackend:
 # GAMM Multi-Backend Tests
 # ============================================================================
 
+
 class TestGAMMMultiBackend:
     """Test GAMM fitting across different backends.
-    
+
     Note: GAMM fitting internally uses NumPy, so results are always NumPy arrays
     regardless of input backend.
     """
@@ -334,11 +350,7 @@ class TestGAMMMultiBackend:
 
         # Fit GAMM - should work with any backend input
         result = fit_gamm(
-            y=y_b,
-            X=X_b,
-            random_effects=[re],
-            groups_data={"group": group_b},
-            covariance="identity"
+            y=y_b, X=X_b, random_effects=[re], groups_data={"group": group_b}, covariance="identity"
         )
 
         # GAMM always returns numpy arrays internally
@@ -353,7 +365,7 @@ class TestGAMMMultiBackend:
     @pytest.mark.skip(reason="GAMM fitting does not support GPU tensors - uses numpy internally")
     def test_gamm_torch_gpu(self, sample_gamm_data):
         """Test GAMM with PyTorch on GPU.
-        
+
         Note: GAMM fitting internally uses numpy which requires CPU arrays.
         GPU tensor support would require converting to CPU first.
         """
@@ -367,11 +379,7 @@ class TestGAMMMultiBackend:
 
         # Fit with NumPy
         result_np = fit_gamm(
-            y=y,
-            X=X,
-            random_effects=[re],
-            groups_data={"group": group_id},
-            covariance="identity"
+            y=y, X=X, random_effects=[re], groups_data={"group": group_id}, covariance="identity"
         )
         beta_np = to_numpy(result_np.beta_parametric)
 
@@ -383,7 +391,7 @@ class TestGAMMMultiBackend:
                 X=X_torch,
                 random_effects=[re],
                 groups_data={"group": group_torch},
-                covariance="identity"
+                covariance="identity",
             )
             beta_torch = to_numpy(result_torch.beta_parametric)
 
@@ -397,7 +405,7 @@ class TestGAMMMultiBackend:
                 X=X_jax,
                 random_effects=[re],
                 groups_data={"group": group_jax},
-                covariance="identity"
+                covariance="identity",
             )
             beta_jax = to_numpy(result_jax.beta_parametric)
 
@@ -407,6 +415,7 @@ class TestGAMMMultiBackend:
 # ============================================================================
 # Backend Switching and Conversion Tests
 # ============================================================================
+
 
 class TestBackendSwitching:
     """Test switching between backends and data conversion."""
@@ -446,7 +455,7 @@ class TestBackendSwitching:
         if HAS_JAX:
             x_jax = as_namespace_array(data, jnp)
             # JAX arrays may be truncated to float32 without x64 enabled
-            assert hasattr(x_jax, 'shape')
+            assert hasattr(x_jax, "shape")
 
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
@@ -465,7 +474,7 @@ class TestBackendSwitching:
 
     def test_fit_on_one_backend_predict_on_another(self, sample_glm_data):
         """Test fitting on one backend and predicting on another.
-        
+
         Note: Cross-backend prediction requires converting between array types.
         GLM.predict always returns the same backend as the stored internal arrays.
         """
@@ -486,6 +495,7 @@ class TestBackendSwitching:
 # Performance and Stress Tests
 # ============================================================================
 
+
 class TestBackendPerformance:
     """Performance tests for different backends."""
 
@@ -504,8 +514,7 @@ class TestBackendPerformance:
         result = fit_glm(X_b, y_b, family="binomial", link="logit", max_iter=100)
         assert result.converged_ or result.n_iter_ == 100
 
-    @pytest.mark.skipif(not HAS_TORCH or not torch.cuda.is_available(),
-                        reason="CUDA not available")
+    @pytest.mark.skipif(not HAS_TORCH or not torch.cuda.is_available(), reason="CUDA not available")
     def test_gpu_memory_management_torch(self):
         """Test GPU memory is properly managed in PyTorch."""
         torch.cuda.empty_cache()

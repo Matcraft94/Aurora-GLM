@@ -9,6 +9,7 @@ Tests four enhancements:
 3. GAMM bias correction (Breslow & Lin 1995)
 4. Condition number monitoring
 """
+
 from __future__ import annotations
 
 import warnings
@@ -38,7 +39,6 @@ from aurora.models.gamm.pql import (
     _compute_group_sizes,
     fit_pql,
 )
-
 
 # =============================================================================
 # Mock helpers
@@ -135,7 +135,7 @@ class TestIRLSStepHalving:
         from aurora.core.optimization.irls import irls
 
         np.random.seed(42)
-        n, p = 100, 3
+        n, _p = 100, 3
         X_dense = np.column_stack([np.ones(n), np.random.randn(n), np.random.randn(n)])
         X_sparse = sparse.csr_matrix(X_dense)
         beta_true = np.array([1.0, 2.0, -1.0])
@@ -332,7 +332,7 @@ class TestGAMMBiasCorrection:
     def test_compute_group_sizes(self):
         """Test group size computation from Z matrix."""
         n_groups, n_per_group = 4, 5
-        n = n_groups * n_per_group
+        n_groups * n_per_group
         groups = np.repeat(np.arange(n_groups), n_per_group)
         Z = np.eye(n_groups)[groups]
         n_effects = 1
@@ -382,7 +382,7 @@ class TestGAMMBiasCorrection:
 
     def test_random_effect_correction(self):
         """Test random effect bias correction."""
-        n_groups, n_effects = 3, 2
+        _n_groups, _n_effects = 3, 2
         b_matrix = np.array([[0.5, -0.3], [0.2, 0.1], [-0.4, 0.6]])
         group_sizes = np.array([2, 5, 10])
 
@@ -423,9 +423,7 @@ class TestGAMMBiasCorrection:
         assert len(result.beta) == 2
         assert np.all(np.isfinite(result.beta))
 
-
         assert result.converged is True
-
 
         assert result.n_iter_outer > 0
 
@@ -526,13 +524,12 @@ class TestConditionNumberMonitoring:
                 tol=1e-6,
             )
             # Check if a RuntimeWarning about ill-conditioning was issued
-            runtime_warnings = [
-                x for x in w if issubclass(x.category, RuntimeWarning)
-            ]
+            runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
             # If condition number is high enough, we should get a warning
             if result.condition_number is not None and result.condition_number > 1e8:
                 assert len(runtime_warnings) > 0
                 assert "Ill-conditioned" in str(runtime_warnings[0].message)
+
     @pytest.mark.skipif(not HAS_SCIPY_SPARSE, reason="scipy.sparse not available")
     def test_well_conditioned_no_warning(self):
         """Test no warning for well-conditioned systems."""
@@ -545,7 +542,7 @@ class TestConditionNumberMonitoring:
         y = X_dense @ np.array([1.0, 2.0]) + np.random.randn(n) * 0.5
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            result = irls(
+            irls(
                 loss_fn=lambda beta, X, y: 0.5 * np.sum((y - X @ beta) ** 2),
                 init_params=np.zeros(p),
                 design_matrix=X_sparse,
@@ -557,11 +554,7 @@ class TestConditionNumberMonitoring:
                 tol=1e-8,
             )
 
-            runtime_warnings = [
-                x for x in w if issubclass(x.category, RuntimeWarning)
-            ]
+            runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
             # Should not have ill-conditioning warning for random data
-            ill_cond_warnings = [
-                x for x in runtime_warnings if "Ill-conditioned" in str(x.message)
-            ]
+            ill_cond_warnings = [x for x in runtime_warnings if "Ill-conditioned" in str(x.message)]
             assert len(ill_cond_warnings) == 0

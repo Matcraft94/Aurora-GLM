@@ -10,13 +10,13 @@ from typing import Any
 
 import numpy as np
 
-from ...models.base import GLMResult
 from ...distributions.families import (
     BinomialFamily,
     GammaFamily,
     GaussianFamily,
     PoissonFamily,
 )
+from ...models.base import GLMResult
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ def glm_diagnostics(result: GLMResult) -> GLMDiagnosticResult:
 
     y = _to_numpy(result._y)
     mu = _to_numpy(result.mu_)
-    eta = _to_numpy(result.eta_)
+    _to_numpy(result.eta_)
     X = _ensure_2d(_to_numpy(result._X))
 
     if y.shape[0] != X.shape[0]:
@@ -85,9 +85,7 @@ def glm_diagnostics(result: GLMResult) -> GLMDiagnosticResult:
         "leverage",
         "cooks_distance",
     )
-    summary = np.column_stack(
-        (response, pearson, deviance, studentized, leverage, cooks)
-    )
+    summary = np.column_stack((response, pearson, deviance, studentized, leverage, cooks))
 
     return GLMDiagnosticResult(
         response_residuals=response,
@@ -121,9 +119,7 @@ def _ensure_2d(matrix: np.ndarray) -> np.ndarray:
     return matrix
 
 
-def _prepare_weights(
-    result: GLMResult, deriv: np.ndarray, variance: np.ndarray
-) -> np.ndarray:
+def _prepare_weights(result: GLMResult, deriv: np.ndarray, variance: np.ndarray) -> np.ndarray:
     denom = np.clip(deriv * deriv * variance, 1e-12, None)
     base_weights = 1.0 / denom
     if result._weights is not None:
@@ -160,9 +156,7 @@ def _deviance_residuals(family: Any, y: np.ndarray, mu: np.ndarray) -> np.ndarra
         ratio = np.clip(y / mu_safe, 1e-12, None)
         contrib = 2.0 * ((y - mu_safe) / mu_safe - np.log(ratio))
         return np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None))
-    raise NotImplementedError(
-        f"Unsupported family for diagnostics: {type(family).__name__}"
-    )
+    raise NotImplementedError(f"Unsupported family for diagnostics: {type(family).__name__}")
 
 
 def _hat_diagonal(X: np.ndarray, weights: np.ndarray, cov: np.ndarray) -> np.ndarray:

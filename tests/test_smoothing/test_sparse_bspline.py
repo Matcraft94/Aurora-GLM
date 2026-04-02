@@ -4,13 +4,15 @@ This module tests the sparse CSR matrix implementation of B-spline basis
 evaluation, comparing it against the dense implementation for correctness
 and verifying performance improvements.
 """
+
 import numpy as np
 import pytest
 
 from aurora.smoothing.splines import BSplineBasis
 
 try:
-    from scipy.sparse import csr_matrix, issparse
+    from scipy.sparse import csr_matrix, issparse  # noqa: F401
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -33,7 +35,7 @@ class TestSparseBSplineBasis:
 
         # Check sparse format
         assert issparse(B_sparse)
-        assert B_sparse.format == 'csr'
+        assert B_sparse.format == "csr"
 
         # Convert sparse to dense for comparison
         B_sparse_dense = B_sparse.toarray()
@@ -168,12 +170,13 @@ class TestSparseBSplineBasis:
 
         # Mock scipy import failure
         import sys
+
         original_modules = sys.modules.copy()
 
         try:
             # Remove scipy from sys.modules if present
-            sys.modules.pop('scipy', None)
-            sys.modules.pop('scipy.sparse', None)
+            sys.modules.pop("scipy", None)
+            sys.modules.pop("scipy.sparse", None)
 
             # This should work (dense)
             B_dense = basis.basis_matrix(x, sparse=False)
@@ -182,7 +185,7 @@ class TestSparseBSplineBasis:
             # This should fail with informative message (sparse)
             # Note: We can't fully test this without actually removing scipy
             # Just verify sparse parameter exists
-            assert 'sparse' in basis.basis_matrix.__code__.co_varnames
+            assert "sparse" in basis.basis_matrix.__code__.co_varnames
 
         finally:
             # Restore original modules

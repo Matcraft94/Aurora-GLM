@@ -288,8 +288,7 @@ def solve_sparse_penalized_ls(
     """
     if not HAS_SCIPY:
         raise ImportError(
-            "scipy is required for sparse penalized least squares. "
-            "Install with: pip install scipy"
+            "scipy is required for sparse penalized least squares. Install with: pip install scipy"
         )
 
     # Validate inputs
@@ -369,9 +368,7 @@ def solve_sparse_penalized_ls(
         }
 
     else:
-        raise ValueError(
-            f"Invalid method: {method}. Must be 'auto', 'direct', 'cg', or 'minres'"
-        )
+        raise ValueError(f"Invalid method: {method}. Must be 'auto', 'direct', 'cg', or 'minres'")
 
     return beta, info
 

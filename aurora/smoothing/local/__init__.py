@@ -9,7 +9,7 @@ Scatterplot Smoothing) and kernel regression.
 
 from __future__ import annotations
 
-from .loess import LOESSSmoother, LOESSResult, loess
+from .loess import LOESSResult, LOESSSmoother, loess
 
 __all__ = [
     "LOESSSmoother",

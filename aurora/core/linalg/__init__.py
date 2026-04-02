@@ -46,7 +46,6 @@ from typing import Literal
 
 import numpy as np
 
-
 # =============================================================================
 # Decompositions
 # =============================================================================
@@ -165,7 +164,7 @@ def safe_cholesky(
                 raise np.linalg.LinAlgError(
                     f"Cholesky decomposition failed after {max_tries} attempts "
                     f"with jitter up to {jitter * (10 ** (i - 1)):.2e}"
-                )
+                ) from None
 
     # Should not reach here
     raise np.linalg.LinAlgError("Cholesky decomposition failed")

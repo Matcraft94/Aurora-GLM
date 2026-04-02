@@ -138,8 +138,7 @@ class UnstructuredCovariance(CovarianceStructure):
         expected_n = self.n_parameters(n_effects)
         if len(params) != expected_n:
             raise ValueError(
-                f"Expected {expected_n} parameters for {n_effects} effects, "
-                f"got {len(params)}"
+                f"Expected {expected_n} parameters for {n_effects} effects, got {len(params)}"
             )
 
         # Build lower triangular matrix L
@@ -166,7 +165,7 @@ class UnstructuredCovariance(CovarianceStructure):
         try:
             L = np.linalg.cholesky(psi)
         except np.linalg.LinAlgError:
-            raise ValueError("psi must be positive definite")
+            raise ValueError("psi must be positive definite") from None
 
         # Extract lower triangle
         n = psi.shape[0]
@@ -304,9 +303,7 @@ class IdentityCovariance(CovarianceStructure):
         n = psi.shape[0]
         expected = psi[0, 0] * np.eye(n)
         if not np.allclose(psi, expected):
-            raise ValueError(
-                "psi must be proportional to identity for IdentityCovariance"
-            )
+            raise ValueError("psi must be proportional to identity for IdentityCovariance")
 
         # Extract variance and log-transform
         variance = psi[0, 0]
@@ -521,9 +518,7 @@ class CompoundSymmetryCovariance(CovarianceStructure):
         rho = rho_min + rho_range * rho_scaled
 
         # Build compound symmetry structure
-        psi = sigma2 * (
-            rho * np.ones((n_effects, n_effects)) + (1 - rho) * np.eye(n_effects)
-        )
+        psi = sigma2 * (rho * np.ones((n_effects, n_effects)) + (1 - rho) * np.eye(n_effects))
 
         return psi
 
@@ -1066,9 +1061,7 @@ def get_covariance_structure(structure: str, **kwargs) -> CovarianceStructure:
         return ExponentialSpatialCovariance(coordinates=kwargs.get("coordinates"))
 
     if structure == "matern":
-        return MaternCovariance(
-            coordinates=kwargs.get("coordinates"), nu=kwargs.get("nu", 1.5)
-        )
+        return MaternCovariance(coordinates=kwargs.get("coordinates"), nu=kwargs.get("nu", 1.5))
 
     # Unknown structure
     all_structures = list(simple_structures.keys()) + [

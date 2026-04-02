@@ -1,4 +1,5 @@
 """Tests for formula-based GAM fitting."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,7 +17,7 @@ def test_fit_gam_formula_dict_basic():
     x2 = np.random.randn(n)
     y = np.sin(2 * x1) + np.cos(x2) + 0.1 * rng.normal(size=n)
 
-    data = {'y': y, 'x1': x1, 'x2': x2}
+    data = {"y": y, "x1": x1, "x2": x2}
 
     result = fit_gam_formula("y ~ s(x1) + s(x2)", data)
 
@@ -35,7 +36,7 @@ def test_fit_gam_formula_dict_mixed():
     x3 = np.random.randn(n)
     y = np.sin(2 * x1) + 2 * x2 + 0.5 * x3 + 0.1 * rng.normal(size=n)
 
-    data = {'response': y, 'temp': x1, 'pressure': x2, 'humidity': x3}
+    data = {"response": y, "temp": x1, "pressure": x2, "humidity": x3}
 
     result = fit_gam_formula("response ~ s(temp) + pressure + humidity", data)
 
@@ -86,7 +87,7 @@ def test_fit_gam_formula_with_options():
     x2 = np.random.randn(n)
     y = np.sin(2 * x1) + np.cos(x2) + 0.1 * rng.normal(size=n)
 
-    data = {'y': y, 'x1': x1, 'x2': x2}
+    data = {"y": y, "x1": x1, "x2": x2}
 
     result = fit_gam_formula("y ~ s(x1, n_basis=15) + s(x2, basis='cubic')", data)
 
@@ -103,7 +104,7 @@ def test_fit_gam_formula_with_weights():
     y = np.sin(2 * x1) + 0.1 * rng.normal(size=n)
     weights = rng.uniform(0.5, 1.5, size=n)
 
-    data = {'y': y, 'x': x1}
+    data = {"y": y, "x": x1}
 
     result = fit_gam_formula("y ~ s(x)", data, weights=weights)
 
@@ -119,7 +120,7 @@ def test_fit_gam_formula_with_method():
     x1 = np.random.randn(n)
     y = np.sin(2 * x1) + 0.1 * rng.normal(size=n)
 
-    data = {'y': y, 'x': x1}
+    data = {"y": y, "x": x1}
 
     result = fit_gam_formula("y ~ s(x)", data, method="REML")
 
@@ -135,7 +136,7 @@ def test_fit_gam_formula_predictions():
     x2 = np.random.randn(n)
     y = np.sin(x1) + np.cos(x2) + 0.1 * rng.normal(size=n)
 
-    data = {'y': y, 'x1': x1, 'x2': x2}
+    data = {"y": y, "x1": x1, "x2": x2}
 
     result = fit_gam_formula("y ~ s(x1) + s(x2)", data)
 
@@ -152,7 +153,7 @@ def test_fit_gam_formula_predictions():
 
 def test_fit_gam_formula_dict_invalid_var():
     """fit_gam_formula should raise error for missing variable in dict."""
-    data = {'y': np.random.randn(100), 'x1': np.random.randn(100)}
+    data = {"y": np.random.randn(100), "x1": np.random.randn(100)}
 
     with pytest.raises(KeyError):
         fit_gam_formula("y ~ s(x1) + s(x2)", data)  # x2 not in data
@@ -192,10 +193,10 @@ def test_fit_gam_formula_fit_quality():
     y_true = 2 * np.sin(np.pi * x1) + 3 * np.cos(2 * x2)
     y = y_true + 0.2 * rng.normal(size=n)
 
-    data = {'y': y, 'x1': x1, 'x2': x2}
+    data = {"y": y, "x1": x1, "x2": x2}
 
     result = fit_gam_formula("y ~ s(x1, n_basis=15) + s(x2, n_basis=15)", data)
 
     # Should provide good fit
-    r_squared = 1 - np.sum(result.residuals**2) / np.sum((y - np.mean(y))**2)
+    r_squared = 1 - np.sum(result.residuals**2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.6

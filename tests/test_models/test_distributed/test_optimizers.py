@@ -1,12 +1,11 @@
 """Tests for SGD optimizers."""
 
-import pytest
 import numpy as np
 
 from aurora.models.distributed import (
-    SGDOptimizer,
-    AdamOptimizer,
     AdaGradOptimizer,
+    AdamOptimizer,
+    SGDOptimizer,
 )
 
 
@@ -101,7 +100,7 @@ class TestAdamOptimizer:
         grad = np.array([1.0])
 
         # First few steps should have bias correction
-        for i in range(10):
+        for _i in range(10):
             params = opt.step(params, grad)
 
         # Steps should be reasonable size

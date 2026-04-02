@@ -27,8 +27,9 @@ Examples
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Literal
 
 import numpy as np
 
@@ -119,7 +120,7 @@ def read_csv(
         # Fallback to csv module
         import csv
 
-        with open(filepath, "r", newline="", encoding="utf-8") as f:
+        with open(filepath, newline="", encoding="utf-8") as f:
             reader = csv.reader(f, delimiter=delimiter)
 
             # Skip rows
@@ -271,7 +272,7 @@ def read_json(
 
     filepath = Path(filepath)
 
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         raw = json.load(f)
 
     if orient == "columns":
@@ -291,9 +292,7 @@ def read_json(
         return {f"col_{i}": arr[:, i] for i in range(arr.shape[1])}
 
     else:
-        raise ValueError(
-            f"Unknown orient '{orient}'. Use 'records', 'columns', or 'values'."
-        )
+        raise ValueError(f"Unknown orient '{orient}'. Use 'records', 'columns', or 'values'.")
 
 
 def read_excel(
@@ -330,9 +329,8 @@ def read_excel(
         import pandas as pd
     except ImportError:
         raise ImportError(
-            "pandas is required to read Excel files. "
-            "Install with: pip install pandas openpyxl"
-        )
+            "pandas is required to read Excel files. Install with: pip install pandas openpyxl"
+        ) from None
 
     filepath = Path(filepath)
     header_arg = 0 if header is True else (None if header is False else header)
@@ -379,7 +377,7 @@ def read_stata(
     except ImportError:
         raise ImportError(
             "pandas is required to read Stata files. Install with: pip install pandas"
-        )
+        ) from None
 
     df = pd.read_stata(
         filepath, columns=columns, convert_categoricals=convert_categoricals, **kwargs

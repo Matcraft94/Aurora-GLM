@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 
 from ...utils import BackendNotAvailableError
 
@@ -61,9 +62,7 @@ class PyTorchBackend:
             if not isinstance(result, torch.Tensor):
                 result = torch.as_tensor(result, device=self._device, dtype=self._dtype)
             if result.ndim != 0:
-                raise ValueError(
-                    "Gradient can only be computed for scalar-valued functions."
-                )
+                raise ValueError("Gradient can only be computed for scalar-valued functions.")
 
             grad_tensor = torch.autograd.grad(
                 result, params, create_graph=False, retain_graph=False

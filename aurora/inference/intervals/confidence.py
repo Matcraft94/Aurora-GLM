@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from statistics import NormalDist
-from typing import Tuple
 
 import numpy as np
 
@@ -20,7 +19,7 @@ class ConfidenceIntervalResult:
 
     lower: np.ndarray
     upper: np.ndarray
-    intercept: Tuple[float, float] | None = None
+    intercept: tuple[float, float] | None = None
 
 
 def confidence_intervals(
@@ -44,7 +43,7 @@ def confidence_intervals(
     lower = coef - quantile * std_errors
     upper = coef + quantile * std_errors
 
-    intercept_interval: Tuple[float, float] | None = None
+    intercept_interval: tuple[float, float] | None = None
     if include_intercept and result.intercept_ is not None:
         intercept_std = result.intercept_std_error_
         if intercept_std is None:
@@ -53,6 +52,4 @@ def confidence_intervals(
         intercept_upper = float(result.intercept_ + quantile * intercept_std)
         intercept_interval = (intercept_lower, intercept_upper)
 
-    return ConfidenceIntervalResult(
-        lower=lower, upper=upper, intercept=intercept_interval
-    )
+    return ConfidenceIntervalResult(lower=lower, upper=upper, intercept=intercept_interval)

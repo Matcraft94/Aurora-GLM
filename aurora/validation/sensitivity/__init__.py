@@ -131,12 +131,8 @@ class InfluenceResult:
 
         lines.append("")
         lines.append("Influential Observations:")
-        lines.append(
-            f"  By Cook's D (> {cooks_thresh:.4f}):  {len(self.influential_cooks):>5} obs"
-        )
-        lines.append(
-            f"  By Leverage (> {lev_thresh:.4f}):   {len(self.high_leverage):>5} obs"
-        )
+        lines.append(f"  By Cook's D (> {cooks_thresh:.4f}):  {len(self.influential_cooks):>5} obs")
+        lines.append(f"  By Leverage (> {lev_thresh:.4f}):   {len(self.high_leverage):>5} obs")
         lines.append(f"  By Stud. Resid (|t| > 2):   {len(self.outliers):>5} obs")
         lines.append(sep)
 
@@ -204,9 +200,9 @@ def influence_measures(
 
     # Residual variance
     if hasattr(result, "residual_variance_"):
-        mse = result.residual_variance_
+        pass
     else:
-        mse = np.sum(residuals**2) / (n - p)
+        np.sum(residuals**2) / (n - p)
 
     # Studentized residuals (externally studentized)
     stud_resid = studentized_residuals(result, X=X)
@@ -475,7 +471,6 @@ def dfbetas(
         else:
             raise ValueError("Design matrix X must be provided.")
 
-    residuals = result.residuals
     n, p = X.shape
 
     h = leverage(result, X=X)

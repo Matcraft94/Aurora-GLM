@@ -399,9 +399,7 @@ def fit_gam(
 
     # Create basis
     if basis_type == "bspline":
-        knots = BSplineBasis.create_knots(
-            x_arr, n_basis=n_basis, degree=degree, method=knot_method
-        )
+        knots = BSplineBasis.create_knots(x_arr, n_basis=n_basis, degree=degree, method=knot_method)
         basis = BSplineBasis(knots, degree=degree)
     elif basis_type == "cubic":
         knots_interior = CubicSplineBasis.create_knots(
@@ -467,8 +465,8 @@ def fit_gam(
             # For large n_basis, use diagonal approximation
             if n_basis <= 100:
                 # Small enough for exact dense computation
-                X_dense = X.toarray() if hasattr(X, 'toarray') else X
-                S_dense = S.toarray() if hasattr(S, 'toarray') else S
+                X_dense = X.toarray() if hasattr(X, "toarray") else X
+                S_dense = S.toarray() if hasattr(S, "toarray") else S
 
                 if weights_arr is None:
                     W = np.eye(n)

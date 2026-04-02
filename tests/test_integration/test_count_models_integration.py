@@ -4,8 +4,8 @@ These tests verify that Zero-Inflated and Hurdle models work correctly
 in realistic scenarios and can be compared against each other.
 """
 
-import pytest
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 
 
@@ -56,7 +56,7 @@ class TestZIPVsZINBComparison:
 
     def test_zip_vs_zinb_similar_predictions(self, zero_inflated_data):
         """Test ZIP and ZINB give similar predictions for Poisson data."""
-        from aurora.models.zero_inflated import fit_zip, fit_zinb
+        from aurora.models.zero_inflated import fit_zinb, fit_zip
 
         X, y, _, _ = zero_inflated_data
 
@@ -167,7 +167,7 @@ class TestModelSelectionWorkflow:
 
     def test_compare_models_by_aic(self, overdispersed_data):
         """Test comparing models using AIC."""
-        from aurora.models.zero_inflated import fit_zip, fit_zinb
+        from aurora.models.zero_inflated import fit_zinb, fit_zip
 
         X, y = overdispersed_data
 
@@ -179,7 +179,7 @@ class TestModelSelectionWorkflow:
 
     def test_compare_models_by_bic(self, overdispersed_data):
         """Test comparing models using BIC."""
-        from aurora.models.zero_inflated import fit_zip, fit_zinb
+        from aurora.models.zero_inflated import fit_zinb, fit_zip
 
         X, y = overdispersed_data
 
@@ -269,7 +269,7 @@ class TestEndToEndCountWorkflow:
         assert_allclose(
             summary["log_likelihood"],
             summary["log_likelihood_binary"] + summary["log_likelihood_count"],
-            rtol=1e-10
+            rtol=1e-10,
         )
 
 
@@ -357,17 +357,15 @@ class TestDistributedIntegration:
         y = X @ beta_true + np.random.normal(0, 0.5, n)
 
         # Single chunk (sequential)
-        result_seq = fit_glm_parallel([X], [y], family='gaussian')
+        result_seq = fit_glm_parallel([X], [y], family="gaussian")
 
         # Multiple chunks (parallel)
         X_chunks = np.array_split(X, 10)
         y_chunks = np.array_split(y, 10)
-        result_par = fit_glm_parallel(X_chunks, y_chunks, family='gaussian')
+        result_par = fit_glm_parallel(X_chunks, y_chunks, family="gaussian")
 
         # Should give identical results
-        np.testing.assert_allclose(
-            result_par.coef_, result_seq.coef_, rtol=1e-6
-        )
+        np.testing.assert_allclose(result_par.coef_, result_seq.coef_, rtol=1e-6)
 
     def test_sgd_convergence(self):
         """Test SGD converges on simple problem."""
@@ -390,8 +388,8 @@ class TestDistributedIntegration:
 
         result = fit_glm_sgd(
             data_iterator(),
-            family='gaussian',
-            optimizer='adam',
+            family="gaussian",
+            optimizer="adam",
             learning_rate=0.01,
             max_epochs=50,
             n_features=p,

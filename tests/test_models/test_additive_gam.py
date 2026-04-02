@@ -1,4 +1,5 @@
 """Tests for additive GAM with multiple smooth terms."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -53,11 +54,7 @@ def test_fit_additive_gam_two_smooths():
 
     # Fit additive GAM
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=12),
-            SmoothTerm(variable=1, n_basis=12)
-        ]
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=12), SmoothTerm(variable=1, n_basis=12)]
     )
 
     # Check result attributes
@@ -73,7 +70,7 @@ def test_fit_additive_gam_two_smooths():
     assert "s(1)" in result.smooth_bases
 
     # Check fit quality (should capture nonlinear relationships)
-    r_squared = 1 - np.sum(result.residuals**2) / np.sum((y - np.mean(y))**2)
+    r_squared = 1 - np.sum(result.residuals**2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.6  # Should explain reasonable variance
 
 
@@ -88,9 +85,10 @@ def test_fit_additive_gam_with_parametric():
 
     # Fit with one smooth and one parametric
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[SmoothTerm(variable=0, n_basis=10)],
-        parametric_terms=[ParametricTerm(variable=1)]
+        parametric_terms=[ParametricTerm(variable=1)],
     )
 
     assert result.n_smooth_terms_ == 1
@@ -110,11 +108,7 @@ def test_fit_additive_gam_predictions():
     y = np.sin(X[:, 0]) + np.cos(X[:, 1]) + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=10),
-            SmoothTerm(variable=1, n_basis=10)
-        ]
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=10), SmoothTerm(variable=1, n_basis=10)]
     )
 
     # Predict on new data
@@ -133,10 +127,7 @@ def test_fit_additive_gam_single_smooth():
     X = np.random.randn(n, 1)
     y = np.sin(2 * np.pi * X[:, 0]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0, n_basis=12)]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=12)])
 
     assert result.n_smooth_terms_ == 1
     assert result.fitted_values.shape == (n,)
@@ -152,9 +143,7 @@ def test_fit_additive_gam_with_weights():
     weights = rng.uniform(0.5, 1.5, size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0, n_basis=10)],
-        weights=weights
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=10)], weights=weights
     )
 
     assert result.weights is not None
@@ -167,14 +156,15 @@ def test_fit_additive_gam_different_bases():
     n = 150
 
     X = np.random.randn(n, 2)
-    y = np.sin(X[:, 0]) + X[:, 1]**2 + 0.1 * rng.normal(size=n)
+    y = np.sin(X[:, 0]) + X[:, 1] ** 2 + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[
             SmoothTerm(variable=0, basis_type="bspline", n_basis=10),
-            SmoothTerm(variable=1, basis_type="cubic", n_basis=10)
-        ]
+            SmoothTerm(variable=1, basis_type="cubic", n_basis=10),
+        ],
     )
 
     assert result.n_smooth_terms_ == 2
@@ -192,9 +182,10 @@ def test_additive_gam_summary():
     y = np.sin(X[:, 0]) + 0.5 * X[:, 1] + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[SmoothTerm(variable=0, n_basis=10)],
-        parametric_terms=[ParametricTerm(variable=1)]
+        parametric_terms=[ParametricTerm(variable=1)],
     )
 
     summary = result.summary()
@@ -215,10 +206,7 @@ def test_additive_gam_repr():
     X = np.random.randn(n, 2)
     y = np.sin(X[:, 0]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0, n_basis=10)]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=10)])
 
     repr_str = repr(result)
 
@@ -229,7 +217,7 @@ def test_additive_gam_repr():
 
 def test_fit_additive_gam_invalid_inputs():
     """fit_additive_gam should validate inputs."""
-    rng = np.random.default_rng(42)
+    np.random.default_rng(42)
     n = 100
 
     X = np.random.randn(n, 2)
@@ -237,27 +225,15 @@ def test_fit_additive_gam_invalid_inputs():
 
     # 1D X
     with pytest.raises(ValueError, match="X must be 2-dimensional"):
-        fit_additive_gam(
-            np.random.randn(n),
-            y,
-            smooth_terms=[SmoothTerm(variable=0)]
-        )
+        fit_additive_gam(np.random.randn(n), y, smooth_terms=[SmoothTerm(variable=0)])
 
     # 2D y
     with pytest.raises(ValueError, match="y must be 1-dimensional"):
-        fit_additive_gam(
-            X,
-            np.random.randn(n, 2),
-            smooth_terms=[SmoothTerm(variable=0)]
-        )
+        fit_additive_gam(X, np.random.randn(n, 2), smooth_terms=[SmoothTerm(variable=0)])
 
     # Mismatched lengths
     with pytest.raises(ValueError, match="same number of rows"):
-        fit_additive_gam(
-            X,
-            np.random.randn(n + 10),
-            smooth_terms=[SmoothTerm(variable=0)]
-        )
+        fit_additive_gam(X, np.random.randn(n + 10), smooth_terms=[SmoothTerm(variable=0)])
 
     # No smooth terms
     with pytest.raises(ValueError, match="at least one smooth term"):
@@ -265,20 +241,11 @@ def test_fit_additive_gam_invalid_inputs():
 
     # Variable index out of range
     with pytest.raises(ValueError, match="out of range"):
-        fit_additive_gam(
-            X,
-            y,
-            smooth_terms=[SmoothTerm(variable=5)]
-        )
+        fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=5)])
 
     # Invalid weights shape
     with pytest.raises(ValueError, match="weights must have shape"):
-        fit_additive_gam(
-            X,
-            y,
-            smooth_terms=[SmoothTerm(variable=0)],
-            weights=np.ones(n + 1)
-        )
+        fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0)], weights=np.ones(n + 1))
 
 
 def test_fit_additive_gam_three_smooths():
@@ -287,18 +254,16 @@ def test_fit_additive_gam_three_smooths():
     n = 200
 
     X = np.random.randn(n, 3)
-    y = (np.sin(2 * X[:, 0]) +
-         np.cos(X[:, 1]) +
-         X[:, 2]**2 +
-         0.1 * rng.normal(size=n))
+    y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + X[:, 2] ** 2 + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[
             SmoothTerm(variable=0, n_basis=10),
             SmoothTerm(variable=1, n_basis=10),
-            SmoothTerm(variable=2, n_basis=10)
-        ]
+            SmoothTerm(variable=2, n_basis=10),
+        ],
     )
 
     assert result.n_smooth_terms_ == 3
@@ -317,11 +282,7 @@ def test_fit_additive_gam_edf_tracking():
     y = np.sin(X[:, 0]) + np.cos(X[:, 1]) + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=12),
-            SmoothTerm(variable=1, n_basis=12)
-        ]
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=12), SmoothTerm(variable=1, n_basis=12)]
     )
 
     # Each smooth should have EDF tracked
@@ -346,10 +307,7 @@ def test_fit_additive_gam_residuals():
     X = np.random.randn(n, 2)
     y = np.sin(X[:, 0]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0, n_basis=10)]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=10)])
 
     # Residuals = y - fitted_values
     expected_residuals = y - result.fitted_values
@@ -367,11 +325,7 @@ def test_fit_additive_gam_fit_quality():
     y = y_true + 0.2 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=15),
-            SmoothTerm(variable=1, n_basis=15)
-        ]
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=15), SmoothTerm(variable=1, n_basis=15)]
     )
 
     # Should capture the nonlinear patterns well
@@ -394,12 +348,10 @@ def test_fit_additive_gam_reml_method():
     y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=10),
-            SmoothTerm(variable=1, n_basis=10)
-        ],
-        method="REML"
+        X,
+        y,
+        smooth_terms=[SmoothTerm(variable=0, n_basis=10), SmoothTerm(variable=1, n_basis=10)],
+        method="REML",
     )
 
     # Check that result is valid
@@ -432,22 +384,18 @@ def test_fit_additive_gam_gcv_vs_reml():
 
     # Fit with GCV
     result_gcv = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=10),
-            SmoothTerm(variable=1, n_basis=10)
-        ],
-        method="GCV"
+        X,
+        y,
+        smooth_terms=[SmoothTerm(variable=0, n_basis=10), SmoothTerm(variable=1, n_basis=10)],
+        method="GCV",
     )
 
     # Fit with REML
     result_reml = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=10),
-            SmoothTerm(variable=1, n_basis=10)
-        ],
-        method="REML"
+        X,
+        y,
+        smooth_terms=[SmoothTerm(variable=0, n_basis=10), SmoothTerm(variable=1, n_basis=10)],
+        method="REML",
     )
 
     # Both should produce valid results
@@ -464,8 +412,8 @@ def test_fit_additive_gam_gcv_vs_reml():
     assert lambda_reml_0 == lambda_reml_1  # Same lambda for all terms
 
     # Both methods should provide reasonable fits
-    r2_gcv = 1 - np.sum(result_gcv.residuals**2) / np.sum((y - np.mean(y))**2)
-    r2_reml = 1 - np.sum(result_reml.residuals**2) / np.sum((y - np.mean(y))**2)
+    r2_gcv = 1 - np.sum(result_gcv.residuals**2) / np.sum((y - np.mean(y)) ** 2)
+    r2_reml = 1 - np.sum(result_reml.residuals**2) / np.sum((y - np.mean(y)) ** 2)
     assert r2_gcv > 0.3  # Should explain at least some variance
     assert r2_reml > 0.3  # REML can be conservative
 
@@ -479,9 +427,7 @@ def test_fit_additive_gam_reml_single_smooth():
     y = np.sin(2 * np.pi * X[:, 0]) + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0, n_basis=12)],
-        method="REML"
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=12)], method="REML"
     )
 
     # Should work correctly
@@ -500,13 +446,11 @@ def test_fit_additive_gam_reml_with_weights():
     weights = rng.uniform(0.5, 1.5, size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=10),
-            SmoothTerm(variable=1, n_basis=10)
-        ],
+        X,
+        y,
+        smooth_terms=[SmoothTerm(variable=0, n_basis=10), SmoothTerm(variable=1, n_basis=10)],
         weights=weights,
-        method="REML"
+        method="REML",
     )
 
     assert result.weights is not None
@@ -524,12 +468,10 @@ def test_fit_additive_gam_reml_edf_values():
     y = np.sin(X[:, 0]) + np.cos(X[:, 1]) + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=12),
-            SmoothTerm(variable=1, n_basis=12)
-        ],
-        method="REML"
+        X,
+        y,
+        smooth_terms=[SmoothTerm(variable=0, n_basis=12), SmoothTerm(variable=1, n_basis=12)],
+        method="REML",
     )
 
     # Each smooth should have EDF
@@ -554,19 +496,17 @@ def test_fit_additive_gam_reml_three_terms():
     n = 200
 
     X = np.random.randn(n, 3)
-    y = (np.sin(2 * X[:, 0]) +
-         np.cos(X[:, 1]) +
-         X[:, 2]**2 +
-         0.1 * rng.normal(size=n))
+    y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + X[:, 2] ** 2 + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[
             SmoothTerm(variable=0, n_basis=10),
             SmoothTerm(variable=1, n_basis=10),
-            SmoothTerm(variable=2, n_basis=10)
+            SmoothTerm(variable=2, n_basis=10),
         ],
-        method="REML"
+        method="REML",
     )
 
     # Should have three lambda values
@@ -591,16 +531,14 @@ def test_fit_additive_gam_reml_fit_quality():
     y = y_true + 0.2 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=15),
-            SmoothTerm(variable=1, n_basis=15)
-        ],
-        method="REML"
+        X,
+        y,
+        smooth_terms=[SmoothTerm(variable=0, n_basis=15), SmoothTerm(variable=1, n_basis=15)],
+        method="REML",
     )
 
     # REML can be conservative, so just check it provides some fit
-    r_squared = 1 - np.sum(result.residuals**2) / np.sum((y - np.mean(y))**2)
+    r_squared = 1 - np.sum(result.residuals**2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > -0.1  # At least not worse than mean model
 
     # Check that lambdas are reasonable
@@ -612,7 +550,7 @@ def test_fit_additive_gam_reml_fit_quality():
 
 def test_fit_additive_gam_invalid_method():
     """fit_additive_gam should validate method parameter."""
-    rng = np.random.default_rng(42)
+    np.random.default_rng(42)
     n = 100
 
     X = np.random.randn(n, 2)
@@ -620,8 +558,4 @@ def test_fit_additive_gam_invalid_method():
 
     # Invalid method should raise error
     with pytest.raises(ValueError, match="method must be"):
-        fit_additive_gam(
-            X, y,
-            smooth_terms=[SmoothTerm(variable=0)],
-            method="invalid"
-        )
+        fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0)], method="invalid")

@@ -1,4 +1,5 @@
 """Tests for confidence interval computation utilities."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,7 +29,7 @@ def test_confidence_intervals_contains_true_parameters():
     assert ci.upper.shape == coef.shape
     assert ci.intercept is not None
 
-    for lower, upper, true_value in zip(ci.lower, ci.upper, coef):
+    for lower, upper, true_value in zip(ci.lower, ci.upper, coef, strict=False):
         assert lower < true_value < upper
 
     intercept_lower, intercept_upper = ci.intercept

@@ -155,7 +155,8 @@ For non-canonical links, IRLS approximates the Hessian with the expected informa
 from __future__ import annotations
 
 import math
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -167,26 +168,43 @@ from ...distributions._utils import (
 )
 from ...distributions.base import Family, LinkFunction
 from ...distributions.families import (
+    BetaFamily,
     BinomialFamily,
+    CauchyFamily,
+    CompoundPoissonGammaFamily,
     GammaFamily,
     GaussianFamily,
+    InverseGaussianFamily,
+    NegativeBinomialFamily,
     PoissonFamily,
+    StudentTFamily,
+    TweedieFamily,
 )
 from ...distributions.links import (
     CLogLogLink,
     IdentityLink,
     InverseLink,
-    LogLink,
+    InverseSquareLink,
     LogitLink,
+    LogLink,
+    PowerLink,
+    ProbitLink,
+    SqrtLink,
 )
 from ..base.result import GLMResult
-
 
 _FAMILY_REGISTRY: dict[str, Callable[[], Family]] = {
     "gaussian": GaussianFamily,
     "poisson": PoissonFamily,
     "binomial": BinomialFamily,
     "gamma": GammaFamily,
+    "beta": BetaFamily,
+    "inverse_gaussian": InverseGaussianFamily,
+    "negative_binomial": NegativeBinomialFamily,
+    "student_t": StudentTFamily,
+    "cauchy": CauchyFamily,
+    "tweedie": TweedieFamily,
+    "compound_poisson_gamma": CompoundPoissonGammaFamily,
 }
 
 _LINK_REGISTRY: dict[str, Callable[[], LinkFunction]] = {
@@ -195,6 +213,10 @@ _LINK_REGISTRY: dict[str, Callable[[], LinkFunction]] = {
     "logit": LogitLink,
     "inverse": InverseLink,
     "cloglog": CLogLogLink,
+    "probit": ProbitLink,
+    "sqrt": SqrtLink,
+    "inverse_square": InverseSquareLink,
+    "power": PowerLink,
 }
 
 
@@ -281,9 +303,7 @@ def fit_glm(
         y_arr = y_arr.reshape(-1)
 
     if X_arr.shape[0] != y_arr.shape[0]:
-        raise ValueError(
-            "Design matrix and response must share the same number of samples."
-        )
+        raise ValueError("Design matrix and response must share the same number of samples.")
 
     # Process weights and offset when backend was specified
     if backend is not None:
@@ -423,7 +443,7 @@ def _irls(
     beta = _zeros_vector(xp, X.shape[1], like=X)
     iteration = 0
 
-    for iteration in range(1, max_iter + 1):
+    for iteration in range(1, max_iter + 1):  # noqa: B007
         deriv = link.derivative(mu)
         variance = family.variance(mu)
         denom = _clamp_positive(deriv * deriv * variance, xp)
@@ -492,7 +512,7 @@ def _weighted_least_squares(xp, X_weighted: Array, z_weighted: Array) -> Array:
         X_weighted = X_weighted.contiguous()
 
     # Transpose - different APIs for PyTorch vs JAX
-    if hasattr(X_weighted, "transpose") and callable(getattr(X_weighted, "transpose")):
+    if hasattr(X_weighted, "transpose") and callable(X_weighted.transpose):
         # Check if it's PyTorch (transpose takes args) or JAX (.T property)
         try:
             X_t = X_weighted.transpose(-1, -2)
@@ -557,9 +577,7 @@ def _solve_normal_equation_numpy(gram: np.ndarray, rhs: np.ndarray) -> np.ndarra
             return _gaussian_elimination_solve_numpy(gram + jitter * eye, rhs)
         except np.linalg.LinAlgError:
             jitter *= 10.0
-    return _gaussian_elimination_solve_numpy(
-        gram + jitter * eye, rhs, allow_singular=True
-    )
+    return _gaussian_elimination_solve_numpy(gram + jitter * eye, rhs, allow_singular=True)
 
 
 def _gaussian_elimination_solve_numpy(
@@ -658,7 +676,7 @@ def _clamp_positive(value: Array, xp, eps: float = 1e-12) -> Array:
     # Check if it's PyTorch (has clamp) or JAX (uses clip)
     if hasattr(xp, "clamp"):
         # PyTorch
-        tensor = getattr(xp, "tensor")
+        tensor = xp.tensor
         tensor_kwargs: dict[str, Any] = {}
         dtype = getattr(value, "dtype", None)
         device = getattr(value, "device", None)
@@ -680,7 +698,7 @@ def _reciprocal(value: Array, xp) -> Array:
 def _sqrt(value: Array, xp) -> Array:
     if xp is np:
         return np.sqrt(value)
-    sqrt = getattr(xp, "sqrt")
+    sqrt = xp.sqrt
     return sqrt(value)
 
 

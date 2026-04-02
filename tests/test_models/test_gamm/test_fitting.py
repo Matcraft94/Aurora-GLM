@@ -1,8 +1,8 @@
 """Tests for GAMM fitting (Gaussian family)."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from aurora.models.gamm import RandomEffect, construct_Z_matrix
 from aurora.models.gamm.fitting import (
@@ -13,8 +13,8 @@ from aurora.models.gamm.fitting import (
     solve_mixed_model_equations,
 )
 
-
 # Helper functions for test data generation
+
 
 def generate_lmm_data(
     n_groups: int = 10,
@@ -46,14 +46,16 @@ def generate_lmm_data(
     # Generate response
     y = X @ beta_true + Z @ b + np.random.randn(n) * np.sqrt(sigma2_true)
 
-    Z_info = [{
-        'grouping': 'subject',
-        'n_effects': 1,
-        'n_groups': n_groups,
-        'groups': np.arange(n_groups),
-        'start_col': 0,
-        'end_col': n_groups,
-    }]
+    Z_info = [
+        {
+            "grouping": "subject",
+            "n_effects": 1,
+            "n_groups": n_groups,
+            "groups": np.arange(n_groups),
+            "start_col": 0,
+            "end_col": n_groups,
+        }
+    ]
 
     return y, X, Z, Z_info, groups
 
@@ -69,7 +71,7 @@ def generate_gamm_data_with_smooth(
 
     # Smooth covariate
     x = np.linspace(0, 2 * np.pi, n)
-    f_true = np.sin(x)  # True smooth function
+    np.sin(x)  # True smooth function
 
     # Parametric covariate
     z = np.random.randn(n)
@@ -90,31 +92,38 @@ def generate_gamm_data_with_smooth(
     b_true = np.random.randn(n_groups) * 0.5
 
     # Generate response
-    y = (X_para @ beta_para_true +
-         X_smooth @ beta_smooth_true +
-         Z @ b_true +
-         np.random.randn(n) * 0.3)
+    y = (
+        X_para @ beta_para_true
+        + X_smooth @ beta_smooth_true
+        + Z @ b_true
+        + np.random.randn(n) * 0.3
+    )
 
-    Z_info = [{
-        'grouping': 'subject',
-        'n_effects': 1,
-        'n_groups': n_groups,
-        'groups': np.arange(n_groups),
-        'start_col': 0,
-        'end_col': n_groups,
-    }]
+    Z_info = [
+        {
+            "grouping": "subject",
+            "n_effects": 1,
+            "n_groups": n_groups,
+            "groups": np.arange(n_groups),
+            "start_col": 0,
+            "end_col": n_groups,
+        }
+    ]
 
     # Penalty matrix for smooth (second derivative)
-    S_smooth = np.array([
-        [0, 0, 0],
-        [0, 2, 0],
-        [0, 0, 6],
-    ])
+    S_smooth = np.array(
+        [
+            [0, 0, 0],
+            [0, 2, 0],
+            [0, 0, 6],
+        ]
+    )
 
-    return y, X_para, {'s1': X_smooth}, Z, Z_info, {'s1': S_smooth}
+    return y, X_para, {"s1": X_smooth}, Z, Z_info, {"s1": S_smooth}
 
 
 # Tests for solve_mixed_model_equations
+
 
 def test_solve_mixed_model_equations_basic():
     """solve_mixed_model_equations should solve simple system."""
@@ -152,10 +161,7 @@ def test_solve_mixed_model_equations_with_penalty():
     psi_inv = np.eye(2)
 
     beta, b = solve_mixed_model_equations(
-        X, Z, y,
-        S_smooth=S_smooth,
-        psi_inv=psi_inv,
-        lambda_smooth=lambda_smooth
+        X, Z, y, S_smooth=S_smooth, psi_inv=psi_inv, lambda_smooth=lambda_smooth
     )
 
     assert beta.shape == (p,)
@@ -179,6 +185,7 @@ def test_solve_mixed_model_equations_no_random():
 
 
 # Tests for compute_edf
+
 
 def test_compute_edf_no_penalty():
     """compute_edf should return nominal DF with no penalty."""
@@ -217,11 +224,10 @@ def test_compute_edf_with_penalty():
 
 # Tests for fit_gamm_gaussian
 
+
 def test_fit_gamm_gaussian_random_intercept():
     """fit_gamm_gaussian should fit random intercept model."""
-    y, X, Z, Z_info, groups = generate_lmm_data(
-        n_groups=5, n_per_group=10, seed=42
-    )
+    y, X, Z, Z_info, groups = generate_lmm_data(n_groups=5, n_per_group=10, seed=42)
 
     result = fit_gamm_gaussian(
         X_parametric=X,
@@ -229,7 +235,7 @@ def test_fit_gamm_gaussian_random_intercept():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert isinstance(result, GAMMResult)
@@ -257,7 +263,7 @@ def test_fit_gamm_gaussian_with_smooth_term():
         n_groups=8, n_per_group=10, seed=42
     )
 
-    lambda_smooth = {'s1': 0.1}
+    lambda_smooth = {"s1": 0.1}
 
     result = fit_gamm_gaussian(
         X_parametric=X_para,
@@ -267,18 +273,18 @@ def test_fit_gamm_gaussian_with_smooth_term():
         y=y,
         S_smooth=S_smooth,
         lambda_smooth=lambda_smooth,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert result.converged
     assert result.beta_parametric.shape == (2,)
-    assert 's1' in result.beta_smooth
-    assert result.beta_smooth['s1'].shape == (3,)
+    assert "s1" in result.beta_smooth
+    assert result.beta_smooth["s1"].shape == (3,)
 
     # Check EDF
     assert result.edf_parametric == 2.0
-    assert 's1' in result.edf_smooth
-    assert result.edf_smooth['s1'] > 0
+    assert "s1" in result.edf_smooth
+    assert result.edf_smooth["s1"] > 0
 
     # Check AIC/BIC
     assert result.aic > 0
@@ -288,9 +294,7 @@ def test_fit_gamm_gaussian_with_smooth_term():
 
 def test_fit_gamm_gaussian_random_effects_extracted():
     """fit_gamm_gaussian should extract random effects by group."""
-    y, X, Z, Z_info, groups = generate_lmm_data(
-        n_groups=5, n_per_group=8, seed=123
-    )
+    y, X, Z, Z_info, groups = generate_lmm_data(n_groups=5, n_per_group=8, seed=123)
 
     result = fit_gamm_gaussian(
         X_parametric=X,
@@ -298,19 +302,19 @@ def test_fit_gamm_gaussian_random_effects_extracted():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='identity',
+        covariance="identity",
     )
 
     # Check random effects structure
     # extract_random_effects returns: {'grouping_var': {group_id: array, ...}}
     assert isinstance(result.random_effects, dict)
-    assert 'subject' in result.random_effects
-    assert len(result.random_effects['subject']) == 5  # 5 groups
+    assert "subject" in result.random_effects
+    assert len(result.random_effects["subject"]) == 5  # 5 groups
 
     # Each group should have 1 random effect (intercept)
     for group_id in range(5):
-        assert group_id in result.random_effects['subject']
-        assert result.random_effects['subject'][group_id].shape == (1,)
+        assert group_id in result.random_effects["subject"]
+        assert result.random_effects["subject"][group_id].shape == (1,)
 
 
 def test_fit_gamm_gaussian_multiple_smooth_terms():
@@ -323,8 +327,8 @@ def test_fit_gamm_gaussian_multiple_smooth_terms():
 
     X_para = np.ones((n, 1))
     X_smooth = {
-        's1': np.column_stack([x1, x1**2]),
-        's2': np.column_stack([x2, x2**2]),
+        "s1": np.column_stack([x1, x1**2]),
+        "s2": np.column_stack([x2, x2**2]),
     }
 
     # Random effects
@@ -333,27 +337,31 @@ def test_fit_gamm_gaussian_multiple_smooth_terms():
     Z[np.arange(n), groups] = 1
 
     # Generate response
-    y = (2.0 +
-         (X_smooth['s1'] @ [1.0, -0.5]) +
-         (X_smooth['s2'] @ [0.5, 0.3]) +
-         Z @ np.random.randn(5) * 0.3 +
-         np.random.randn(n) * 0.2)
+    y = (
+        2.0
+        + (X_smooth["s1"] @ [1.0, -0.5])
+        + (X_smooth["s2"] @ [0.5, 0.3])
+        + Z @ np.random.randn(5) * 0.3
+        + np.random.randn(n) * 0.2
+    )
 
-    Z_info = [{
-        'grouping': 'subject',
-        'n_effects': 1,
-        'n_groups': 5,
-        'groups': np.arange(5),
-        'start_col': 0,
-        'end_col': 5,
-    }]
+    Z_info = [
+        {
+            "grouping": "subject",
+            "n_effects": 1,
+            "n_groups": 5,
+            "groups": np.arange(5),
+            "start_col": 0,
+            "end_col": 5,
+        }
+    ]
 
     S_smooth = {
-        's1': np.eye(2),
-        's2': np.eye(2),
+        "s1": np.eye(2),
+        "s2": np.eye(2),
     }
 
-    lambda_smooth = {'s1': 0.1, 's2': 0.1}
+    lambda_smooth = {"s1": 0.1, "s2": 0.1}
 
     result = fit_gamm_gaussian(
         X_parametric=X_para,
@@ -366,17 +374,15 @@ def test_fit_gamm_gaussian_multiple_smooth_terms():
     )
 
     assert result.converged
-    assert 's1' in result.beta_smooth
-    assert 's2' in result.beta_smooth
-    assert 's1' in result.edf_smooth
-    assert 's2' in result.edf_smooth
+    assert "s1" in result.beta_smooth
+    assert "s2" in result.beta_smooth
+    assert "s1" in result.edf_smooth
+    assert "s2" in result.edf_smooth
 
 
 def test_fit_gamm_gaussian_edf_calculation():
     """fit_gamm_gaussian should compute reasonable EDF."""
-    y, X, Z, Z_info, _ = generate_lmm_data(
-        n_groups=10, n_per_group=10, seed=42
-    )
+    y, X, Z, Z_info, _ = generate_lmm_data(n_groups=10, n_per_group=10, seed=42)
 
     result = fit_gamm_gaussian(
         X_parametric=X,
@@ -384,7 +390,7 @@ def test_fit_gamm_gaussian_edf_calculation():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='identity',
+        covariance="identity",
     )
 
     # EDF should be positive and reasonable
@@ -409,8 +415,8 @@ def test_fit_gamm_gaussian_unstructured_covariance():
     X = np.column_stack([np.ones(n), time])
 
     # Random effects: intercept + slope
-    groups_data = {'subject': groups}
-    re = RandomEffect(grouping='subject', variables=(1,))
+    groups_data = {"subject": groups}
+    re = RandomEffect(grouping="subject", variables=(1,))
     Z, Z_info = construct_Z_matrix(X, [re], groups_data)
 
     # Generate response
@@ -427,7 +433,7 @@ def test_fit_gamm_gaussian_unstructured_covariance():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='unstructured',
+        covariance="unstructured",
     )
 
     assert result.converged
@@ -440,11 +446,10 @@ def test_fit_gamm_gaussian_unstructured_covariance():
 
 # Tests for predict_gamm
 
+
 def test_predict_gamm_without_random():
     """predict_gamm should make population-level predictions."""
-    y, X, Z, Z_info, _ = generate_lmm_data(
-        n_groups=5, n_per_group=10, seed=42
-    )
+    y, X, Z, Z_info, _ = generate_lmm_data(n_groups=5, n_per_group=10, seed=42)
 
     result = fit_gamm_gaussian(
         X_parametric=X,
@@ -452,7 +457,7 @@ def test_predict_gamm_without_random():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='identity',
+        covariance="identity",
     )
 
     # New data (same structure)
@@ -467,9 +472,7 @@ def test_predict_gamm_without_random():
 
 def test_predict_gamm_with_random():
     """predict_gamm should include random effects when requested."""
-    y, X, Z, Z_info, _ = generate_lmm_data(
-        n_groups=5, n_per_group=10, seed=42
-    )
+    y, X, Z, Z_info, _ = generate_lmm_data(n_groups=5, n_per_group=10, seed=42)
 
     result = fit_gamm_gaussian(
         X_parametric=X,
@@ -477,7 +480,7 @@ def test_predict_gamm_with_random():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='identity',
+        covariance="identity",
     )
 
     # New data with random effects
@@ -487,12 +490,8 @@ def test_predict_gamm_with_random():
     Z_new = np.zeros((n_new, 5))
     Z_new[np.arange(n_new), groups_new] = 1
 
-    pred_with_random = predict_gamm(
-        result, X_new, Z_new=Z_new, include_random=True
-    )
-    pred_without_random = predict_gamm(
-        result, X_new, include_random=False
-    )
+    pred_with_random = predict_gamm(result, X_new, Z_new=Z_new, include_random=True)
+    pred_without_random = predict_gamm(result, X_new, include_random=False)
 
     assert pred_with_random.shape == (n_new,)
     assert pred_without_random.shape == (n_new,)
@@ -514,21 +513,16 @@ def test_predict_gamm_with_smooth():
         Z_info=Z_info,
         y=y,
         S_smooth=S_smooth,
-        lambda_smooth={'s1': 0.1},
+        lambda_smooth={"s1": 0.1},
     )
 
     # New data
     n_new = 15
     x_new = np.linspace(0, 2 * np.pi, n_new)
     X_para_new = np.column_stack([np.ones(n_new), np.random.randn(n_new)])
-    X_smooth_new = {'s1': np.column_stack([x_new, x_new**2, x_new**3])}
+    X_smooth_new = {"s1": np.column_stack([x_new, x_new**2, x_new**3])}
 
-    pred = predict_gamm(
-        result,
-        X_para_new,
-        X_smooth_new=X_smooth_new,
-        include_random=False
-    )
+    pred = predict_gamm(result, X_para_new, X_smooth_new=X_smooth_new, include_random=False)
 
     assert pred.shape == (n_new,)
     assert not np.any(np.isnan(pred))
@@ -536,11 +530,10 @@ def test_predict_gamm_with_smooth():
 
 # Integration tests
 
+
 def test_gamm_result_attributes():
     """GAMMResult should have all expected attributes."""
-    y, X, Z, Z_info, _ = generate_lmm_data(
-        n_groups=5, n_per_group=10, seed=42
-    )
+    y, X, Z, Z_info, _ = generate_lmm_data(n_groups=5, n_per_group=10, seed=42)
 
     result = fit_gamm_gaussian(
         X_parametric=X,
@@ -551,26 +544,26 @@ def test_gamm_result_attributes():
     )
 
     # Check all attributes exist
-    assert hasattr(result, 'coefficients')
-    assert hasattr(result, 'beta_parametric')
-    assert hasattr(result, 'beta_smooth')
-    assert hasattr(result, 'random_effects')
-    assert hasattr(result, 'variance_components')
-    assert hasattr(result, 'residual_variance')
-    assert hasattr(result, 'smoothing_parameters')
-    assert hasattr(result, 'edf_total')
-    assert hasattr(result, 'edf_parametric')
-    assert hasattr(result, 'edf_smooth')
-    assert hasattr(result, 'fitted_values')
-    assert hasattr(result, 'residuals')
-    assert hasattr(result, 'log_likelihood')
-    assert hasattr(result, 'aic')
-    assert hasattr(result, 'bic')
-    assert hasattr(result, 'converged')
-    assert hasattr(result, 'n_iterations')
-    assert hasattr(result, 'n_obs')
-    assert hasattr(result, 'n_groups')
-    assert hasattr(result, 'family')
+    assert hasattr(result, "coefficients")
+    assert hasattr(result, "beta_parametric")
+    assert hasattr(result, "beta_smooth")
+    assert hasattr(result, "random_effects")
+    assert hasattr(result, "variance_components")
+    assert hasattr(result, "residual_variance")
+    assert hasattr(result, "smoothing_parameters")
+    assert hasattr(result, "edf_total")
+    assert hasattr(result, "edf_parametric")
+    assert hasattr(result, "edf_smooth")
+    assert hasattr(result, "fitted_values")
+    assert hasattr(result, "residuals")
+    assert hasattr(result, "log_likelihood")
+    assert hasattr(result, "aic")
+    assert hasattr(result, "bic")
+    assert hasattr(result, "converged")
+    assert hasattr(result, "n_iterations")
+    assert hasattr(result, "n_obs")
+    assert hasattr(result, "n_groups")
+    assert hasattr(result, "family")
 
     # Check types
     assert isinstance(result.beta_parametric, np.ndarray)
@@ -583,17 +576,18 @@ def test_gamm_result_attributes():
     assert isinstance(result.fitted_values, np.ndarray)
     assert isinstance(result.residuals, np.ndarray)
     assert isinstance(result.converged, bool)
-    assert result.family == 'gaussian'
+    assert result.family == "gaussian"
 
 
 def test_gamm_fit_quality():
     """GAMM fit should have reasonable quality metrics."""
     y, X, Z, Z_info, _ = generate_lmm_data(
-        n_groups=10, n_per_group=15,
+        n_groups=10,
+        n_per_group=15,
         beta_true=np.array([3.0, 0.8]),
         psi_true=1.2,
         sigma2_true=0.6,
-        seed=42
+        seed=42,
     )
 
     result = fit_gamm_gaussian(
@@ -602,7 +596,7 @@ def test_gamm_fit_quality():
         Z=Z,
         Z_info=Z_info,
         y=y,
-        covariance='identity',
+        covariance="identity",
     )
 
     # Fixed effects should be close to true values
