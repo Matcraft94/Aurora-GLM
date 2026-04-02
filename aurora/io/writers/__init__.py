@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import warnings
 from pathlib import Path
 from typing import Any, Literal
 
@@ -109,7 +110,11 @@ def _save_json(result: Any, filepath: Path, include_data: bool) -> None:
 
 
 def _save_pickle(result: Any, filepath: Path) -> None:
-    """Save result as pickle."""
+    """Save result as pickle.
+
+    Note: Pickle files can execute arbitrary code when loaded.
+    Only share .pkl files with trusted parties.
+    """
     with open(filepath, "wb") as f:
         pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -198,6 +203,11 @@ def load_result(
         The loaded result. JSON files return dicts, pickle files return
         the original object.
 
+    Warnings
+    --------
+    Pickle files can execute arbitrary code. Only load .pkl files from
+    trusted sources. Prefer JSON format for untrusted input.
+
     Examples
     --------
     >>> result = load_result("model.json")
@@ -222,7 +232,7 @@ def load_result(
             format = "pickle" if header[0] > 127 else "json"
 
     if format == "json":
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
 
         # Convert lists back to arrays
@@ -240,6 +250,10 @@ def load_result(
         return data
 
     elif format == "pickle":
+        warnings.warn(
+            "Loading pickle file — only use files from trusted sources",
+            stacklevel=2,
+        )
         with open(filepath, "rb") as f:
             return pickle.load(f)
 
