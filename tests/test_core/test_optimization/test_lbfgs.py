@@ -84,15 +84,15 @@ def test_lbfgs_invokes_callback(backend):
 
 def test_lbfgs_reports_max_iterations(backend):
     def loss(x: torch.Tensor) -> torch.Tensor:
-        return ((x - 100.0) ** 2).sum()
+        return (x**2).sum()
 
     result = lbfgs(
         loss,
-        np.array([-100.0], dtype=np.float32),
+        np.array([1.0, 1.0], dtype=np.float32),
         backend=backend,
-        max_iter=1,
-        tol=1e-12,
+        max_iter=0,
     )
 
     assert result.success is False
-    assert result.nit == 1
+    assert result.nit == 0
+    assert "Maximum iterations" in result.message

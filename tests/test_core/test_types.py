@@ -26,7 +26,7 @@ def test_shape_alias_is_tuple_of_ints():
 
 def test_optimization_callback_signature():
     arg_types, return_type = get_args(types.OptimizationCallback)
-    assert return_type is type(None)
+    assert return_type is None
     assert tuple(arg_types) == (int, types.Array, float)
 
 

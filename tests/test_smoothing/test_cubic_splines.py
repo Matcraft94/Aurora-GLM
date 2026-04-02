@@ -190,7 +190,6 @@ def test_create_knots_invalid_method():
 
 def test_cubic_basis_with_pytorch_backend():
     """CubicSplineBasis should work with PyTorch tensors."""
-    pytest.skip("PyTorch backend support deferred to later iteration")
     pytest.importorskip("torch")
     import torch
 
