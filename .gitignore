@@ -93,7 +93,11 @@ review/
 
 # Benchmark results
 benchmarks/results/
-*.json
+benchmarks/results/*.json
+.pytest_cache/*.json
+
+# Production audit report (local only)
+docs/PRODUCTION-AUDIT.md
 
 # Data files
 *.csv
