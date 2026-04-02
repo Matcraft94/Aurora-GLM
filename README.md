@@ -9,17 +9,19 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.7.0-brightgreen.svg)](https://github.com/Matcraft94/Aurora-GLM)
-[![Status](https://img.shields.io/badge/status-beta-yellow.svg)](https://github.com/Matcraft94/Aurora-GLM)
+[![PyPI](https://img.shields.io/pypi/v/aurora-glm.svg)](https://pypi.org/project/aurora-glm/)
+[![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)](https://github.com/Matcraft94/Aurora-GLM)
+[![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)](https://github.com/Matcraft94/Aurora-GLM)
 
 ## Project Identity
 
 - **Package name**: `aurora-glm`
 - **Python import**: `import aurora`
 - **Repository**: [github.com/Matcraft94/Aurora-GLM](https://github.com/Matcraft94/Aurora-GLM)
+- **Documentation**: [matcraft94.github.io/Aurora-GLM](https://matcraft94.github.io/Aurora-GLM)
 - **Author**: Lucy E. Arias ([@Matcraft94](https://github.com/Matcraft94))
-- **Version**: 0.7.0
-- **Status**: Phase 5 (85% complete) - Extended distributions, temporal covariance, GPU acceleration
+- **Version**: 1.0.0
+- **Status**: Stable release — GLM, GAM, GAMM with multi-backend support
 - **Python**: 3.10+
 - **Tagline**: *Illuminating complex data with modern generalized linear modeling tools*
 
@@ -86,7 +88,7 @@ For large GAM/GAMM problems, sparse matrices provide significant benefits:
 
 - **GLM**: 10 distribution families (Gaussian, Poisson, Binomial, Gamma, Beta, Inverse Gaussian, Negative Binomial, Student-t, Tweedie, Quasi-families)
 - **GAM**: B-splines, natural cubic splines, thin plate splines with GCV/REML smoothing
-- **GAMM**: Random effects, temporal covariance (AR1, compound symmetry, Toeplitz), PQL for non-Gaussian
+- **GAMM**: Random effects, temporal covariance (AR1, compound symmetry, Toeplitz), spatial covariance (exponential, Matérn), PQL for non-Gaussian
 
 ### Performance Features
 
@@ -98,7 +100,7 @@ For large GAM/GAMM problems, sparse matrices provide significant benefits:
 ### Scientific Rigor
 
 - **Validated**: Against R (glm, mgcv, lme4) and statsmodels
-- **Comprehensive tests**: 494 tests with extensive coverage across all model families
+- **Comprehensive tests**: 520 tests with extensive coverage across all model families
 - **R-style output**: Summary tables, diagnostic plots, confidence intervals
 - **Formula syntax**: R/mgcv-compatible formulas like `y ~ s(x1, k=10) + s(x2) + (1|group)`
 
@@ -110,6 +112,22 @@ For large GAM/GAMM problems, sparse matrices provide significant benefits:
 - **Multi-backend pattern**: Transparent support for NumPy/PyTorch/JAX
 
 ## Installation
+
+### From PyPI (Recommended)
+
+```bash
+# Core package (NumPy only)
+pip install aurora-glm
+
+# With PyTorch GPU acceleration
+pip install aurora-glm[torch]
+
+# With JAX backend
+pip install aurora-glm[jax]
+
+# With all optional dependencies
+pip install aurora-glm[all]
+```
 
 ### From Source (Development)
 
@@ -310,7 +328,7 @@ jupyter notebook
 
 See [examples/README.md](examples/README.md) for complete case study guide.
 
-## Recent Improvements (v0.7.0)
+## Recent Improvements (v1.0.0)
 
 ### Code Quality Enhancements
 
@@ -342,6 +360,15 @@ All 5 TODO items completed and fully tested:
    - Fallback support for other formats (.npz, .csv)
 
 All implementations manually tested and verified for correctness.
+
+### Numerical Stability & Inference Enhancements
+
+Four additional improvements to numerical robustness and statistical correctness:
+
+1. **Step-Halving Line Search in IRLS** - Backtracking line search prevents divergence in difficult GLM fitting problems by halving the step size when deviance increases
+2. **Condition Number (κ) Monitoring** - Tracks the condition number of the weighted design matrix during IRLS iteration, warning when κ > 10^10 indicates near-singularity
+3. **Self & Liang (1987) Boundary-Corrected LRT** - Adjusts likelihood ratio test p-values when testing parameters on the boundary of parameter space (e.g., variance components = 0), using a 50:50 mixture of χ²₀ and χ²₁
+4. **Breslow & Lin (1995) Bias Correction in PQL** - Corrects the well-known downward bias of PQL variance component estimates in generalized linear mixed models, improving accuracy for non-Gaussian families
 
 ## GAM API (Phase 3 - AVAILABLE NOW!)
 
@@ -709,20 +736,24 @@ print(f"Random effects variance: {result.variance_components}")
 - ✅ Laplace approximation
 - ✅ Sparse matrix optimization
 
-### Phase 5: Extended Features - IN PROGRESS 🚧 (85%)
+### Phase 5: Extended Features - IN PROGRESS 🚧 (92%)
 
 **Implemented**:
 - ✅ Extended distributions (Beta, Inverse Gaussian, Negative Binomial, Student-t, Tweedie)
 - ✅ Temporal covariance structures (AR1, compound symmetry, Toeplitz)
+- ✅ Spatial covariance structures (Exponential, Matérn with configurable smoothness ν)
 - ✅ Sparse matrix support (6-8× memory reduction, 10-100× speedup)
 - ✅ GPU acceleration benchmarks (up to 141× speedup)
 - ✅ Multi-backend accuracy validation
 - ✅ Comprehensive benchmark suite
+- ✅ PyPI package publication (`pip install aurora-glm`)
+- ✅ Step-halving line search in IRLS for numerical stability
+- ✅ Condition number (κ) monitoring during IRLS iteration
+- ✅ Self & Liang (1987) boundary-corrected LRT p-values
+- ✅ Breslow & Lin (1995) bias correction in PQL estimation
 
 **Remaining**:
-- 📋 PyPI package publication
-- 📋 Documentation website
-- 📋 Additional spatial covariance structures
+- 📋 Documentation website (Sphinx/MkDocs)
 - 📋 Performance optimizations for massive datasets
 
 ## Complete Feature Set
@@ -771,6 +802,8 @@ print(f"Random effects variance: {result.variance_components}")
   - **AR1** (temporal autocorrelation with exponential decay)
   - **Compound symmetry** (exchangeable correlation)
   - **Toeplitz** (banded temporal correlations)
+  - **Exponential spatial** (distance-based decay)
+  - **Matérn** (configurable smoothness ν for spatial data)
 - ✅ **PQL estimation**: Penalized Quasi-Likelihood for non-Gaussian families
 - ✅ **Laplace approximation**: Alternative estimation method
 - ✅ **Sparse matrices**: Memory-efficient for large-scale models
@@ -847,7 +880,7 @@ pytest tests/test_distributions/test_links.py::test_identity_link_roundtrip
 pytest -v
 ```
 
-**Test Status**: 494 tests collected (comprehensive coverage across GLM, GAM, GAMM, Bayesian inference, count models, and smoothing methods)
+**Test Status**: 520 tests collected (comprehensive coverage across GLM, GAM, GAMM, Bayesian inference, count models, and smoothing methods)
 
 ### Code Quality
 
@@ -1018,20 +1051,24 @@ aurora/
 - [x] **Phase 3**: GAM with B-splines, natural cubic, thin plate, GCV/REML
 - [x] **Phase 4**: GAMM with random effects, PQL for non-Gaussian families
 - [x] **Phase 5 (current)**: Extended distributions, temporal covariance, sparse matrices
-- [x] 494 tests with comprehensive coverage (5,731 new lines of test code)
+- [x] 520 tests with comprehensive coverage (5,731 new lines of test code)
 - [x] Validation against statsmodels and R
 - [x] GPU acceleration benchmarks (up to 141× speedup)
 - [x] Multi-backend accuracy validation
 
-### In Progress 🚧 (Phase 5 - 85% complete)
+### In Progress 🚧 (Phase 5 - 92% complete)
 
-- [ ] PyPI package publication
-- [ ] Documentation with interactive examples
-- [ ] Research paper publication
-- [ ] Additional spatial covariance structures (exponential, Matérn)
+- [ ] Documentation website (Sphinx/MkDocs)
+- [ ] Performance optimizations for massive datasets
 
 ### Recently Completed 🎉
 
+- [x] PyPI package publication (`pip install aurora-glm`)
+- [x] Spatial covariance structures (exponential, Matérn with configurable ν)
+- [x] Step-halving line search in IRLS
+- [x] Condition number (κ) monitoring during IRLS iteration
+- [x] Self & Liang (1987) boundary-corrected LRT p-values
+- [x] Breslow & Lin (1995) bias correction in PQL estimation
 - [x] Comprehensive benchmark suite (1,591 lines): Multi-backend accuracy validation and GPU performance measurement
 - [x] Bayesian GLM inference tests (1,060 lines): Prior specification, posterior sampling, convergence diagnostics
 - [x] Zero-inflated count model tests (956 lines): ZIP and ZINB with excess zero validation
@@ -1122,7 +1159,7 @@ If you use Aurora-GLM in your research, please cite it using the information in 
   title = {Aurora-GLM: Generalized Linear and Additive Models},
   author = {Arias, Lucy Eduardo},
   year = {2025},
-  version = {0.7.0},
+  version = {1.0.0},
   url = {https://github.com/Matcraft94/Aurora-GLM},
   license = {MIT}
 }
@@ -1146,9 +1183,9 @@ Special thanks to the open-source community for providing excellent tools and li
 
 ---
 
-**Status**: Phase 5 (85% complete) - Extended features, temporal covariance, GPU acceleration
-**Version**: 0.7.0
-**Tests**: 494 tests collected (5,731 new lines added: benchmarks, Bayesian, count models, smoothing)
+**Status**: Stable release — GLM, GAM, GAMM with multi-backend support
+**Version**: 1.0.0
+**Tests**: 520 tests collected (5,731+ new lines added: benchmarks, Bayesian, count models, smoothing)
 **Python**: 3.10+
 **GPU**: Up to 141× speedup with PyTorch CUDA
 **Accuracy**: Validated against R and statsmodels (< 1e-11)

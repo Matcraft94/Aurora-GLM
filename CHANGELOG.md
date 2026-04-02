@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-01
+
+### Added
+
+#### Numerical Stability & Inference Enhancements
+- **Step-halving line search in IRLS** (`aurora/core/optimization/irls.py`):
+  - Backtracking line search prevents divergence when deviance increases
+  - Halves step size until improvement is found
+  - Dramatically improves convergence for difficult GLM fitting problems
+
+- **Condition number (κ) monitoring** (`aurora/core/linalg/`, `aurora/core/optimization/irls.py`):
+  - Tracks weighted condition number of the design matrix during IRLS iteration
+  - Warns when κ > 10^10 indicates near-singularity
+  - Helps diagnose numerical instability before it causes silent errors
+
+- **Self & Liang (1987) boundary-corrected LRT** (`aurora/inference/anova/`):
+  - Adjusts likelihood ratio test p-values for boundary parameters
+  - Uses 50:50 mixture of χ²₀ and χ²₁ distribution
+  - Critical for testing variance components (H₀: σ² = 0) in mixed models
+
+- **Breslow & Lin (1995) bias correction in PQL** (`aurora/models/gamm/pql.py`):
+  - Corrects downward bias of PQL variance component estimates
+  - Particularly important for binomial and Poisson GLMMs
+  - Improves accuracy of random effects inference
+
+#### Spatial Covariance Structures
+- **Exponential spatial covariance** (`aurora/models/gamm/covariance.py`):
+  - Distance-based exponential decay correlation
+  - Suitable for geostatistical data
+
+- **Matérn covariance** (`aurora/models/gamm/covariance.py`):
+  - Configurable smoothness parameter ν
+  - Generalizes exponential (ν = 0.5) and Gaussian (ν → ∞)
+  - Gold standard for spatial statistics
+
+### Changed
+- **Version bump to 1.0.0** — first stable major release
+- **Complete Family/Link registries** in `fit_glm()` — all 11 families and 9 links now accessible via string
+- **Replaced `print()` with `logging`** across all model modules for proper log level control
+- **Loosened dependency pins** in `pyproject.toml` — changed from exact (`==`) to minimum version (`>=`) constraints
+- **Fixed `NDArray` import** in `aurora/models/gamm/interface.py` — type annotation now resolves correctly
+- Added Sphinx documentation site with Furo theme
+- Updated README.md to reflect Phase 5 at 92% complete
+- Added PyPI badge and installation instructions (`pip install aurora-glm`)
+- Updated test count from 494 to 520
+
 ## [0.7.0] - 2025-12-06
 
 ### Changed - Stable Release
