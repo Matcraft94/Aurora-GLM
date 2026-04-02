@@ -70,6 +70,8 @@ class GLMResult:
         Model deviance.
     null_deviance_ : float
         Null model deviance (intercept-only model).
+    log_likelihood_ : float
+        Log-likelihood of the fitted model.
     aic_ : float
         Akaike Information Criterion.
     bic_ : float
@@ -105,6 +107,7 @@ class GLMResult:
     bic_: float
     n_iter_: int
     converged_: bool
+    log_likelihood_: float = 0.0
     _coef_cov: Array | None = None
     _std_errors: Array | None = None
     _p_values: Array | None = None

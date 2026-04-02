@@ -432,8 +432,20 @@ def likelihood_ratio_test(
     df_full = _get_n_params(model_full)
 
     df = df_full - df_reduced
-    if df <= 0:
-        raise ValueError("Full model must have more parameters than reduced model.")
+    if df < 0:
+        raise ValueError("Full model must have at least as many parameters as reduced model.")
+    if df == 0:
+        # Same model — null result
+        model_names = names or ("Reduced", "Full")
+        return LRTResult(
+            statistic=0.0,
+            df=0,
+            p_value=1.0,
+            model_names=model_names,
+            ll_reduced=ll_reduced,
+            ll_full=ll_full,
+            boundary_correction_applied=False,
+        )
 
     # Compute test statistic
     statistic = 2 * (ll_full - ll_reduced)
