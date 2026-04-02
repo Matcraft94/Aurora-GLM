@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 
 # Module-level registry for backend factories
-_BACKENDS: dict[str, "BackendFactory"] = {}
+_BACKENDS: dict[str, BackendFactory] = {}
 
 # Built-in backends that can be loaded on demand
 _BUILTIN_BACKENDS: frozenset[str] = frozenset(("jax", "pytorch"))
@@ -39,7 +39,7 @@ _BUILTIN_BACKENDS: frozenset[str] = frozenset(("jax", "pytorch"))
 
 def register_backend(
     name: str,
-    factory: "BackendFactory",
+    factory: BackendFactory,
     *,
     overwrite: bool = False,
 ) -> None:
@@ -73,13 +73,12 @@ def register_backend(
     normalized = name.lower()
     if not overwrite and normalized in _BACKENDS:
         raise ValueError(
-            f"Backend '{name}' is already registered. "
-            f"Pass overwrite=True to replace it."
+            f"Backend '{name}' is already registered. Pass overwrite=True to replace it."
         )
     _BACKENDS[normalized] = factory
 
 
-def _load_builtin_backend(name: str) -> "Backend":
+def _load_builtin_backend(name: str) -> Backend:
     """Load a built-in backend module by name.
 
     Parameters
@@ -101,8 +100,7 @@ def _load_builtin_backend(name: str) -> "Backend":
         module: ModuleType = import_module(f"aurora.core.backends.{name}_backend")
     except ModuleNotFoundError as exc:
         raise BackendNotAvailableError(
-            f"Backend '{name}' is not available. "
-            f"Install optional dependencies and try again."
+            f"Backend '{name}' is not available. Install optional dependencies and try again."
         ) from exc
 
     if not hasattr(module, "create_backend"):
@@ -114,14 +112,18 @@ def _load_builtin_backend(name: str) -> "Backend":
     return module.create_backend()
 
 
-def get_backend(name: str = "jax") -> "Backend":
+# NumPy is always available — register eagerly
+register_backend("numpy", lambda: _load_builtin_backend("numpy"))
+
+
+def get_backend(name: str = "numpy") -> Backend:
     """Retrieve a backend by name, loading built-ins on demand.
 
     Parameters
     ----------
-    name : str, default="jax"
+    name : str, default="numpy"
         Backend identifier (case-insensitive).
-        Built-in options: 'jax', 'pytorch'.
+        Built-in options: 'numpy', 'jax', 'pytorch'.
 
     Returns
     -------
@@ -152,9 +154,7 @@ def get_backend(name: str = "jax") -> "Backend":
 
     if normalized not in _BACKENDS:
         available = ", ".join(sorted(available_backends()))
-        raise BackendNotAvailableError(
-            f"Unknown backend '{name}'. Available backends: {available}"
-        )
+        raise BackendNotAvailableError(f"Unknown backend '{name}'. Available backends: {available}")
 
     backend_factory = _BACKENDS[normalized]
     return backend_factory()
