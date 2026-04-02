@@ -64,8 +64,8 @@ import numpy as np
 from scipy import sparse
 from scipy.optimize import minimize_scalar
 
-from .bspline import BSplineBasis
 from ..penalties.difference import difference_penalty
+from .bspline import BSplineBasis
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -196,8 +196,7 @@ class PSplineBasis:
 
         if n_interior < 0:
             raise ValueError(
-                f"Not enough basis functions ({self.n_basis}) "
-                f"for degree {self.degree}"
+                f"Not enough basis functions ({self.n_basis}) for degree {self.degree}"
             )
 
         # Interior knots equally spaced
@@ -212,16 +211,12 @@ class PSplineBasis:
         self.knots_ = np.concatenate([boundary_left, interior_knots, boundary_right])
 
         # Create B-spline basis (BSplineBasis computes n_basis from knots)
-        self._bspline_basis = BSplineBasis(
-            knots=self.knots_, degree=self.degree
-        )
+        self._bspline_basis = BSplineBasis(knots=self.knots_, degree=self.degree)
 
         # Create difference penalty matrix
         self._penalty_matrix = difference_penalty(self.n_basis, order=self.penalty_order)
 
-    def basis_matrix(
-        self, x: NDArray, sparse: bool = False
-    ) -> NDArray | sparse.csr_matrix:
+    def basis_matrix(self, x: NDArray, sparse: bool = False) -> NDArray | sparse.csr_matrix:
         """Evaluate B-spline basis at given points.
 
         Parameters
@@ -257,9 +252,7 @@ class PSplineBasis:
             If basis has not been set up yet (call basis_matrix first)
         """
         if self._penalty_matrix is None:
-            raise ValueError(
-                "Penalty matrix not set up. Call basis_matrix() first."
-            )
+            raise ValueError("Penalty matrix not set up. Call basis_matrix() first.")
         return self._penalty_matrix
 
     def fit(
@@ -269,7 +262,7 @@ class PSplineBasis:
         lambda_: float | str = "gcv",
         weights: NDArray | None = None,
         lambda_range: tuple[float, float] = (1e-6, 1e6),
-    ) -> "PSplineResult":
+    ) -> PSplineResult:
         """Fit P-spline to data.
 
         Parameters
@@ -724,7 +717,7 @@ class PSplineResult:
         """
         residuals = self.y_ - self.fitted_values_
         ss_res = np.sum(self.weights_ * residuals**2)
-        ss_tot = np.sum(self.weights_ * (self.y_ - np.average(self.y_, weights=self.weights_))**2)
+        ss_tot = np.sum(self.weights_ * (self.y_ - np.average(self.y_, weights=self.weights_)) ** 2)
         r_squared = 1 - ss_res / ss_tot if ss_tot > 0 else 0
 
         return {

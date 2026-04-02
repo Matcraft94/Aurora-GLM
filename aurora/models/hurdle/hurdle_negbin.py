@@ -14,17 +14,19 @@ This is appropriate when data has:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.special import gammaln, digamma
-from scipy.optimize import brentq
+from scipy.special import gammaln
 
 from .truncated import TruncatedNegBinFamily
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["fit_hurdle_negbin", "HurdleNegBinResult"]
 
@@ -37,7 +39,7 @@ def fit_hurdle_negbin(
     max_iter: int = 50,
     tol: float = 1e-6,
     verbose: bool = False,
-) -> "HurdleNegBinResult":
+) -> HurdleNegBinResult:
     """Fit Hurdle Negative Binomial model.
 
     Two-stage fitting:
@@ -82,7 +84,7 @@ def fit_hurdle_negbin(
     y_binary = (y > 0).astype(float)
 
     if verbose:
-        print("Stage 1: Fitting binary model...")
+        logger.info("Stage 1: Fitting binary model...")
 
     gamma = _fit_logistic(X_binary, y_binary, max_iter=max_iter, tol=tol)
     eta_binary = X_binary @ gamma
@@ -99,7 +101,7 @@ def fit_hurdle_negbin(
     X_pos = X_count[mask_positive]
 
     if verbose:
-        print(f"Stage 2: Fitting truncated NB on {n_positive} positive counts...")
+        logger.info("Stage 2: Fitting truncated NB on %d positive counts...", n_positive)
 
     # Initialize theta
     if theta_init == "estimate":
@@ -111,9 +113,7 @@ def fit_hurdle_negbin(
         theta = float(theta_init)
 
     # Fit truncated NB with theta estimation
-    beta, theta = _fit_truncated_negbin(
-        X_pos, y_pos, theta_init=theta, max_iter=max_iter, tol=tol
-    )
+    beta, theta = _fit_truncated_negbin(X_pos, y_pos, theta_init=theta, max_iter=max_iter, tol=tol)
 
     mu_all = np.exp(np.clip(X_count @ beta, -20, 20))
 
@@ -127,9 +127,7 @@ def fit_hurdle_negbin(
     expected_count = pi * trunc_mean
 
     # Log-likelihood
-    ll_binary = np.sum(
-        y_binary * np.log(pi + 1e-10) + (1 - y_binary) * np.log(1 - pi + 1e-10)
-    )
+    ll_binary = np.sum(y_binary * np.log(pi + 1e-10) + (1 - y_binary) * np.log(1 - pi + 1e-10))
     ll_count = trunc_family.log_likelihood(y_pos, mu_all[mask_positive], theta)
     ll_total = ll_binary + ll_count
 
@@ -159,14 +157,12 @@ def fit_hurdle_negbin(
     )
 
 
-def _fit_logistic(
-    X: NDArray, y: NDArray, max_iter: int = 50, tol: float = 1e-6
-) -> NDArray:
+def _fit_logistic(X: NDArray, y: NDArray, max_iter: int = 50, tol: float = 1e-6) -> NDArray:
     """Fit logistic regression via IRLS."""
     n, p = X.shape
     gamma = np.zeros(p)
 
-    for iteration in range(max_iter):
+    for _iteration in range(max_iter):
         eta = X @ gamma
         pi = 1 / (1 + np.exp(-eta))
         pi = np.clip(pi, 1e-10, 1 - 1e-10)
@@ -209,7 +205,7 @@ def _fit_truncated_negbin(
     beta[0] = np.log(max(y.mean(), 1))
     theta = theta_init
 
-    for outer_iter in range(max_iter):
+    for _outer_iter in range(max_iter):
         # Update beta given theta
         beta_new = _update_beta_truncnb(X, y, beta, theta, max_iter=20, tol=tol)
 
@@ -218,8 +214,7 @@ def _fit_truncated_negbin(
         theta_new = _update_theta_truncnb(y, mu, theta)
 
         # Check convergence
-        if (np.max(np.abs(beta_new - beta)) < tol and
-            abs(theta_new - theta) / (theta + 1e-10) < tol):
+        if np.max(np.abs(beta_new - beta)) < tol and abs(theta_new - theta) / (theta + 1e-10) < tol:
             beta = beta_new
             theta = theta_new
             break
@@ -242,7 +237,7 @@ def _update_beta_truncnb(
     n, p = X.shape
     beta = beta_init.copy()
 
-    for iteration in range(max_iter):
+    for _iteration in range(max_iter):
         eta = np.clip(X @ beta, -20, 20)
         mu = np.exp(eta)
 
@@ -281,7 +276,7 @@ def _update_beta_truncnb(
 
 def _update_theta_truncnb(y: NDArray, mu: NDArray, theta_init: float) -> float:
     """Update theta via profile likelihood for truncated NB."""
-    n = len(y)
+    len(y)
 
     def neg_profile_ll(log_theta: float) -> float:
         theta = np.exp(log_theta)

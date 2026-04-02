@@ -49,15 +49,18 @@ References
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.special import gammaln, digamma
 from scipy.optimize import brentq
+from scipy.special import digamma, gammaln
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ZeroInflatedNegBinFamily", "fit_zinb", "ZINBResult"]
 
@@ -138,9 +141,7 @@ class ZeroInflatedNegBinFamily:
         log_lik = np.where(is_zero, log_lik_zero, log_lik_pos)
         return float(np.sum(log_lik))
 
-    def e_step(
-        self, y: NDArray, mu: NDArray, pi: NDArray, theta: float | None = None
-    ) -> NDArray:
+    def e_step(self, y: NDArray, mu: NDArray, pi: NDArray, theta: float | None = None) -> NDArray:
         """E-step: Compute posterior probability of structural zero.
 
         Parameters
@@ -181,9 +182,7 @@ class ZeroInflatedNegBinFamily:
         """Compute marginal expected count E[Y] = (1-π)μ."""
         return (1 - pi) * mu
 
-    def prob_zero(
-        self, mu: NDArray, pi: NDArray, theta: float | None = None
-    ) -> NDArray:
+    def prob_zero(self, mu: NDArray, pi: NDArray, theta: float | None = None) -> NDArray:
         """Compute P(Y=0) = π + (1-π)(θ/(θ+μ))^θ."""
         if theta is None:
             theta = self.theta
@@ -199,7 +198,7 @@ def fit_zinb(
     max_iter: int = 100,
     tol: float = 1e-6,
     verbose: bool = False,
-) -> "ZINBResult":
+) -> ZINBResult:
     """Fit Zero-Inflated Negative Binomial model via EM algorithm.
 
     Parameters
@@ -260,8 +259,7 @@ def fit_zinb(
 
     try:
         nb_result = fit_glm(
-            X_count, y, family="negativebinomial", link="log",
-            family_params={"theta": 1.0}
+            X_count, y, family="negativebinomial", link="log", family_params={"theta": 1.0}
         )
         beta = nb_result.coef_.copy()
     except Exception:
@@ -303,7 +301,7 @@ def fit_zinb(
         ll = family.log_likelihood(y, mu, pi, theta)
 
         if verbose and iteration % 10 == 0:
-            print(f"Iteration {iteration}: log-lik = {ll:.4f}, theta = {theta:.4f}")
+            logger.debug("Iteration %d: log-lik = %.4f, theta = %.4f", iteration, ll, theta)
 
         # Check convergence
         if iteration > 0:
@@ -375,9 +373,7 @@ def _estimate_theta_moments(y: NDArray, mu: NDArray) -> float:
     return float(np.clip(theta, 0.01, 1e6))
 
 
-def _estimate_theta_weighted(
-    y: NDArray, mu: NDArray, weights: NDArray, theta_init: float
-) -> float:
+def _estimate_theta_weighted(y: NDArray, mu: NDArray, weights: NDArray, theta_init: float) -> float:
     """ML estimate of theta given current mu and weights."""
     y = np.asarray(y, dtype=float)
     mu = np.maximum(np.asarray(mu, dtype=float), 1e-10)

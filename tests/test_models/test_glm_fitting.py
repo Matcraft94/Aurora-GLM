@@ -1,11 +1,12 @@
 """Tests for the GLM IRLS fitting routine."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from aurora.models.glm import fit_glm, predict_glm
-from tests.conftest import as_backend_array, to_numpy, assert_arrays_close
+from tests.conftest import to_numpy
 
 
 @pytest.mark.parametrize("backend", [None, "torch", "jax"])

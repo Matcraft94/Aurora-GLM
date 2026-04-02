@@ -148,7 +148,7 @@ class LOESSSmoother:
         self.robust = robust
         self.n_robust_iter = n_robust_iter
 
-    def fit(self, x: NDArray, y: NDArray) -> "LOESSResult":
+    def fit(self, x: NDArray, y: NDArray) -> LOESSResult:
         """Fit LOESS smoother to data.
 
         Parameters
@@ -253,7 +253,7 @@ class LOESSSmoother:
         float
             Fitted value at x0
         """
-        n = len(x)
+        len(x)
 
         # Find k nearest neighbors efficiently
         # Since x is sorted, use binary search approach

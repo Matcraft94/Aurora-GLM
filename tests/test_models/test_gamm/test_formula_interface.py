@@ -1,4 +1,5 @@
 """Integration tests for formula-based GAMM interface."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -17,21 +18,23 @@ def test_formula_random_intercept():
     n_groups, n_per_group = 5, 20
     n = n_groups * n_per_group
 
-    data = pd.DataFrame({
-        'y': np.random.randn(n),
-        'x1': np.random.randn(n),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.random.randn(n),
+            "x1": np.random.randn(n),
+            "subject": np.repeat(np.arange(n_groups), n_per_group),
+        }
+    )
 
     # Add random effects to y
     b_true = np.random.randn(n_groups) * 0.5
-    data['y'] = 2.0 + 0.5 * data['x1'] + b_true[data['subject']] + np.random.randn(n) * 0.3
+    data["y"] = 2.0 + 0.5 * data["x1"] + b_true[data["subject"]] + np.random.randn(n) * 0.3
 
     # Fit with formula
     result = fit_gamm(
         formula="y ~ x1 + (1 | subject)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     # Check results
@@ -50,19 +53,23 @@ def test_formula_random_intercept_and_slope():
     n_groups, n_per_group = 8, 15
     n = n_groups * n_per_group
 
-    data = pd.DataFrame({
-        'y': np.zeros(n),
-        'time': np.tile(np.arange(n_per_group), n_groups),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.zeros(n),
+            "time": np.tile(np.arange(n_per_group), n_groups),
+            "subject": np.repeat(np.arange(n_groups), n_per_group),
+        }
+    )
 
     # Generate with random intercepts and slopes
     b0_true = np.random.randn(n_groups) * 0.3
     b1_true = np.random.randn(n_groups) * 0.1
     for i in range(n):
-        subj = data.loc[i, 'subject']
-        data.loc[i, 'y'] = (
-            3.0 + b0_true[subj] + (0.2 + b1_true[subj]) * data.loc[i, 'time']
+        subj = data.loc[i, "subject"]
+        data.loc[i, "y"] = (
+            3.0
+            + b0_true[subj]
+            + (0.2 + b1_true[subj]) * data.loc[i, "time"]
             + np.random.randn() * 0.2
         )
 
@@ -70,7 +77,7 @@ def test_formula_random_intercept_and_slope():
     result = fit_gamm(
         formula="y ~ time + (1 + time | subject)",
         data=data,
-        covariance='unstructured',
+        covariance="unstructured",
     )
 
     # Check results
@@ -92,31 +99,31 @@ def test_formula_crossed_random_effects():
     n_items = 5
     n = n_subjects * n_items
 
-    data = pd.DataFrame({
-        'y': np.zeros(n),
-        'x1': np.random.randn(n),
-        'subject': np.repeat(np.arange(n_subjects), n_items),
-        'item': np.tile(np.arange(n_items), n_subjects),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.zeros(n),
+            "x1": np.random.randn(n),
+            "subject": np.repeat(np.arange(n_subjects), n_items),
+            "item": np.tile(np.arange(n_items), n_subjects),
+        }
+    )
 
     # Generate with crossed random effects
     b_subj = np.random.randn(n_subjects) * 0.4
     b_item = np.random.randn(n_items) * 0.3
 
     for i in range(n):
-        subj = data.loc[i, 'subject']
-        item = data.loc[i, 'item']
-        data.loc[i, 'y'] = (
-            2.0 + 0.5 * data.loc[i, 'x1']
-            + b_subj[subj] + b_item[item]
-            + np.random.randn() * 0.2
+        subj = data.loc[i, "subject"]
+        item = data.loc[i, "item"]
+        data.loc[i, "y"] = (
+            2.0 + 0.5 * data.loc[i, "x1"] + b_subj[subj] + b_item[item] + np.random.randn() * 0.2
         )
 
     # Fit with crossed random effects
     result = fit_gamm(
         formula="y ~ x1 + (1 | subject) + (1 | item)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert result.converged
@@ -135,26 +142,27 @@ def test_formula_nested_random_effects():
     n_obs_per_subject = 5
     n = n_clinics * n_subjects_per_clinic * n_obs_per_subject
 
-    data = pd.DataFrame({
-        'y': np.zeros(n),
-        'x1': np.random.randn(n),
-        'clinic': np.repeat(np.arange(n_clinics), n_subjects_per_clinic * n_obs_per_subject),
-        'subject': np.repeat(
-            np.arange(n_clinics * n_subjects_per_clinic),
-            n_obs_per_subject
-        ),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.zeros(n),
+            "x1": np.random.randn(n),
+            "clinic": np.repeat(np.arange(n_clinics), n_subjects_per_clinic * n_obs_per_subject),
+            "subject": np.repeat(np.arange(n_clinics * n_subjects_per_clinic), n_obs_per_subject),
+        }
+    )
 
     # Generate with nested structure
     b_clinic = np.random.randn(n_clinics) * 0.5
     b_subject = np.random.randn(n_clinics * n_subjects_per_clinic) * 0.3
 
     for i in range(n):
-        clinic = data.loc[i, 'clinic']
-        subject = data.loc[i, 'subject']
-        data.loc[i, 'y'] = (
-            2.0 + 0.3 * data.loc[i, 'x1']
-            + b_clinic[clinic] + b_subject[subject]
+        clinic = data.loc[i, "clinic"]
+        subject = data.loc[i, "subject"]
+        data.loc[i, "y"] = (
+            2.0
+            + 0.3 * data.loc[i, "x1"]
+            + b_clinic[clinic]
+            + b_subject[subject]
             + np.random.randn() * 0.2
         )
 
@@ -162,7 +170,7 @@ def test_formula_nested_random_effects():
     result = fit_gamm(
         formula="y ~ x1 + (1 | clinic/subject)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert result.converged
@@ -178,20 +186,22 @@ def test_formula_without_fixed_effects():
     n_groups, n_per_group = 5, 10
     n = n_groups * n_per_group
 
-    data = pd.DataFrame({
-        'y': np.random.randn(n),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.random.randn(n),
+            "subject": np.repeat(np.arange(n_groups), n_per_group),
+        }
+    )
 
     # Generate with random intercepts only
     b_true = np.random.randn(n_groups)
-    data['y'] = 3.0 + b_true[data['subject']] + np.random.randn(n) * 0.5
+    data["y"] = 3.0 + b_true[data["subject"]] + np.random.randn(n) * 0.5
 
     # Fit intercept-only model
     result = fit_gamm(
         formula="y ~ (1 | subject)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert result.converged
@@ -206,26 +216,32 @@ def test_formula_multiple_fixed_effects():
     n_groups, n_per_group = 6, 15
     n = n_groups * n_per_group
 
-    data = pd.DataFrame({
-        'y': np.random.randn(n),
-        'x1': np.random.randn(n),
-        'x2': np.random.randn(n),
-        'x3': np.random.randn(n),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.random.randn(n),
+            "x1": np.random.randn(n),
+            "x2": np.random.randn(n),
+            "x3": np.random.randn(n),
+            "subject": np.repeat(np.arange(n_groups), n_per_group),
+        }
+    )
 
     # Generate
     b_true = np.random.randn(n_groups) * 0.4
-    data['y'] = (
-        2.0 + 0.5*data['x1'] + 0.3*data['x2'] - 0.4*data['x3']
-        + b_true[data['subject']] + np.random.randn(n) * 0.3
+    data["y"] = (
+        2.0
+        + 0.5 * data["x1"]
+        + 0.3 * data["x2"]
+        - 0.4 * data["x3"]
+        + b_true[data["subject"]]
+        + np.random.randn(n) * 0.3
     )
 
     # Fit with multiple predictors
     result = fit_gamm(
         formula="y ~ x1 + x2 + x3 + (1 | subject)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert result.converged
@@ -234,11 +250,13 @@ def test_formula_multiple_fixed_effects():
 
 def test_formula_mode_validation():
     """Test validation errors in formula mode."""
-    data = pd.DataFrame({
-        'y': np.random.randn(50),
-        'x1': np.random.randn(50),
-        'subject': np.repeat(np.arange(5), 10),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.random.randn(50),
+            "x1": np.random.randn(50),
+            "subject": np.repeat(np.arange(5), 10),
+        }
+    )
 
     # Missing data
     with pytest.raises(ValueError, match="data must be provided"):
@@ -249,7 +267,7 @@ def test_formula_mode_validation():
         fit_gamm(
             formula="y ~ x1 + (1 | subject)",
             data=data,
-            y=data['y'].values,
+            y=data["y"].values,
         )
 
     # Response not in data
@@ -276,16 +294,16 @@ def test_matrix_mode_still_works():
     X = np.column_stack([np.ones(n), x])
 
     b_true = np.random.randn(n_groups) * 0.5
-    y = 2.0 + 0.5*x + b_true[groups] + np.random.randn(n)*0.3
+    y = 2.0 + 0.5 * x + b_true[groups] + np.random.randn(n) * 0.3
 
     # Fit with matrix mode
-    re = RandomEffect(grouping='subject')
+    re = RandomEffect(grouping="subject")
     result = fit_gamm(
         y=y,
         X=X,
         random_effects=[re],
-        groups_data={'subject': groups},
-        covariance='identity',
+        groups_data={"subject": groups},
+        covariance="identity",
     )
 
     assert result.converged
@@ -300,20 +318,20 @@ def test_formula_with_dict_data():
     n = n_groups * n_per_group
 
     data = {
-        'y': np.random.randn(n),
-        'x1': np.random.randn(n),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
+        "y": np.random.randn(n),
+        "x1": np.random.randn(n),
+        "subject": np.repeat(np.arange(n_groups), n_per_group),
     }
 
     # Generate
     b_true = np.random.randn(n_groups) * 0.5
-    data['y'] = 2.0 + 0.5*data['x1'] + b_true[data['subject']] + np.random.randn(n)*0.3
+    data["y"] = 2.0 + 0.5 * data["x1"] + b_true[data["subject"]] + np.random.randn(n) * 0.3
 
     # Fit with dict
     result = fit_gamm(
         formula="y ~ x1 + (1 | subject)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     assert result.converged
@@ -327,20 +345,21 @@ def test_formula_random_slope_adds_variable_to_X():
     n_groups, n_per_group = 5, 15
     n = n_groups * n_per_group
 
-    data = pd.DataFrame({
-        'y': np.random.randn(n),
-        'time': np.tile(np.arange(n_per_group), n_groups),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.random.randn(n),
+            "time": np.tile(np.arange(n_per_group), n_groups),
+            "subject": np.repeat(np.arange(n_groups), n_per_group),
+        }
+    )
 
     # Generate
     b0 = np.random.randn(n_groups) * 0.3
     b1 = np.random.randn(n_groups) * 0.1
     for i in range(n):
-        subj = data.loc[i, 'subject']
-        data.loc[i, 'y'] = (
-            2.0 + b0[subj] + (0.5 + b1[subj]) * data.loc[i, 'time']
-            + np.random.randn() * 0.2
+        subj = data.loc[i, "subject"]
+        data.loc[i, "y"] = (
+            2.0 + b0[subj] + (0.5 + b1[subj]) * data.loc[i, "time"] + np.random.randn() * 0.2
         )
 
     # Formula doesn't include 'time' as fixed effect,
@@ -348,7 +367,7 @@ def test_formula_random_slope_adds_variable_to_X():
     result = fit_gamm(
         formula="y ~ (1 + time | subject)",
         data=data,
-        covariance='unstructured',
+        covariance="unstructured",
     )
 
     assert result.converged
@@ -363,26 +382,27 @@ def test_formula_diagonal_covariance():
     n_groups, n_per_group = 5, 15
     n = n_groups * n_per_group
 
-    data = pd.DataFrame({
-        'y': np.random.randn(n),
-        'time': np.tile(np.arange(n_per_group), n_groups),
-        'subject': np.repeat(np.arange(n_groups), n_per_group),
-    })
+    data = pd.DataFrame(
+        {
+            "y": np.random.randn(n),
+            "time": np.tile(np.arange(n_per_group), n_groups),
+            "subject": np.repeat(np.arange(n_groups), n_per_group),
+        }
+    )
 
     b0 = np.random.randn(n_groups) * 0.3
     b1 = np.random.randn(n_groups) * 0.1
     for i in range(n):
-        subj = data.loc[i, 'subject']
-        data.loc[i, 'y'] = (
-            2.0 + b0[subj] + (0.5 + b1[subj]) * data.loc[i, 'time']
-            + np.random.randn() * 0.2
+        subj = data.loc[i, "subject"]
+        data.loc[i, "y"] = (
+            2.0 + b0[subj] + (0.5 + b1[subj]) * data.loc[i, "time"] + np.random.randn() * 0.2
         )
 
     # Diagonal covariance (independent random effects)
     result = fit_gamm(
         formula="y ~ time + (1 + time | subject)",
         data=data,
-        covariance='diagonal',
+        covariance="diagonal",
     )
 
     assert result.converged
@@ -403,25 +423,25 @@ def test_formula_comparison_with_matrix_mode():
     x = np.random.randn(n)
 
     b_true = np.random.randn(n_groups) * 0.5
-    y = 2.0 + 0.5*x + b_true[groups] + np.random.randn(n)*0.3
+    y = 2.0 + 0.5 * x + b_true[groups] + np.random.randn(n) * 0.3
 
     # Formula mode
-    data = pd.DataFrame({'y': y, 'x1': x, 'subject': groups})
+    data = pd.DataFrame({"y": y, "x1": x, "subject": groups})
     result_formula = fit_gamm(
         formula="y ~ x1 + (1 | subject)",
         data=data,
-        covariance='identity',
+        covariance="identity",
     )
 
     # Matrix mode
     X = np.column_stack([np.ones(n), x])
-    re = RandomEffect(grouping='subject')
+    re = RandomEffect(grouping="subject")
     result_matrix = fit_gamm(
         y=y,
         X=X,
         random_effects=[re],
-        groups_data={'subject': groups},
-        covariance='identity',
+        groups_data={"subject": groups},
+        covariance="identity",
     )
 
     # Should give same results

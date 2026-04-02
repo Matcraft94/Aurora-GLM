@@ -65,7 +65,7 @@ def tps_basis(
     (100, 23)  # 20 radial + 3 polynomial (1, x, y)
     """
     n = X.shape[0]
-    k = knots.shape[0]
+    knots.shape[0]
 
     # Compute pairwise distances
     distances = cdist(X, knots, metric="euclidean")
@@ -234,7 +234,7 @@ def fit_tps(
     if knots is None:
         knots = X.copy()
 
-    k = knots.shape[0]
+    knots.shape[0]
 
     # Compute basis matrix
     B = tps_basis(X, knots, d=d)

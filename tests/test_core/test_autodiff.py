@@ -11,26 +11,27 @@ import pytest
 from numpy.testing import assert_allclose
 
 from aurora.core.autodiff import (
+    check_gradient,
     gradient,
     hessian,
-    jacobian,
     hvp,
+    jacobian,
     jvp,
     vjp,
-    check_gradient,
 )
-
 
 # Check for optional backends
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
-    import jax
+    import jax  # noqa: F401
     import jax.numpy as jnp
+
     HAS_JAX = True
 except ImportError:
     HAS_JAX = False
@@ -40,9 +41,10 @@ except ImportError:
 # Test functions
 # =============================================================================
 
+
 def quadratic_scalar(x):
     """Simple quadratic: f(x) = x^T x / 2 = ||x||²/2."""
-    return 0.5 * np.sum(x ** 2)
+    return 0.5 * np.sum(x**2)
 
 
 def quadratic_matrix(x, A):
@@ -55,7 +57,7 @@ def rosenbrock(x):
 
     f(x) = sum_{i=1}^{n-1} [100(x_{i+1} - x_i²)² + (1 - x_i)²]
     """
-    return np.sum(100.0 * (x[1:] - x[:-1]**2)**2 + (1 - x[:-1])**2)
+    return np.sum(100.0 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
 
 
 def linear_function(x):
@@ -65,12 +67,13 @@ def linear_function(x):
 
 def vector_function(x):
     """Vector-valued function for Jacobian tests."""
-    return np.array([x[0]**2 + x[1], x[0] * x[1], x[1]**3])
+    return np.array([x[0] ** 2 + x[1], x[0] * x[1], x[1] ** 3])
 
 
 # =============================================================================
 # Test gradient (NumPy backend)
 # =============================================================================
+
 
 class TestGradientNumPy:
     """Test gradient computation with NumPy (numerical differentiation)."""
@@ -81,7 +84,7 @@ class TestGradientNumPy:
         Gradient should be ∇f = x.
         """
         x = np.array([1.0, 2.0, 3.0])
-        grad_fn = gradient(quadratic_scalar, backend='numpy')
+        grad_fn = gradient(quadratic_scalar, backend="numpy")
         g = grad_fn(x)
 
         assert_allclose(g, x, rtol=1e-6)
@@ -94,7 +97,7 @@ class TestGradientNumPy:
         x = np.array([1.0, 2.0])
         A = np.array([[2.0, 1.0], [1.0, 3.0]])
 
-        grad_fn = gradient(quadratic_matrix, backend='numpy')
+        grad_fn = gradient(quadratic_matrix, backend="numpy")
         g = grad_fn(x, A)
 
         expected = A @ x
@@ -106,7 +109,7 @@ class TestGradientNumPy:
         Gradient should be ∇f = [1, 1, ..., 1].
         """
         x = np.array([1.0, 2.0, 3.0, 4.0])
-        grad_fn = gradient(linear_function, backend='numpy')
+        grad_fn = gradient(linear_function, backend="numpy")
         g = grad_fn(x)
 
         expected = np.ones_like(x)
@@ -116,7 +119,7 @@ class TestGradientNumPy:
         """Test gradient of Rosenbrock function at minimum."""
         # Minimum at x = [1, 1, ..., 1]
         x = np.ones(5)
-        grad_fn = gradient(rosenbrock, backend='numpy')
+        grad_fn = gradient(rosenbrock, backend="numpy")
         g = grad_fn(x)
 
         # Gradient should be zero at minimum
@@ -127,9 +130,9 @@ class TestGradientNumPy:
         x = np.array([[1.0, 2.0], [3.0, 4.0]])
 
         def f(x):
-            return np.sum(x ** 2)
+            return np.sum(x**2)
 
-        grad_fn = gradient(f, backend='numpy')
+        grad_fn = gradient(f, backend="numpy")
         g = grad_fn(x)
 
         assert g.shape == x.shape
@@ -138,6 +141,7 @@ class TestGradientNumPy:
 # =============================================================================
 # Test Hessian (NumPy backend)
 # =============================================================================
+
 
 class TestHessianNumPy:
     """Test Hessian computation with NumPy (numerical differentiation)."""
@@ -150,7 +154,7 @@ class TestHessianNumPy:
         first derivatives, ~eps^(1/3) for second derivatives).
         """
         x = np.array([1.0, 2.0, 3.0])
-        hess_fn = hessian(quadratic_scalar, backend='numpy')
+        hess_fn = hessian(quadratic_scalar, backend="numpy")
         H = hess_fn(x)
 
         expected = np.eye(len(x))
@@ -165,7 +169,7 @@ class TestHessianNumPy:
         x = np.array([1.0, 2.0])
         A = np.array([[2.0, 1.0], [1.0, 3.0]])
 
-        hess_fn = hessian(quadratic_matrix, backend='numpy')
+        hess_fn = hessian(quadratic_matrix, backend="numpy")
         H = hess_fn(x, A)
 
         # Relax tolerance for numerical second derivatives
@@ -174,7 +178,7 @@ class TestHessianNumPy:
     def test_hessian_symmetry(self):
         """Test that computed Hessian is symmetric."""
         x = np.array([1.0, 2.0, 3.0])
-        hess_fn = hessian(rosenbrock, backend='numpy')
+        hess_fn = hessian(rosenbrock, backend="numpy")
         H = hess_fn(x)
 
         # Check symmetry: H = H^T
@@ -186,7 +190,7 @@ class TestHessianNumPy:
         x = np.array([1.0, 2.0])
         A = np.array([[2.0, 0.5], [0.5, 3.0]])  # Positive definite
 
-        hess_fn = hessian(quadratic_matrix, backend='numpy')
+        hess_fn = hessian(quadratic_matrix, backend="numpy")
         H = hess_fn(x, A)
 
         # All eigenvalues should be positive
@@ -197,6 +201,7 @@ class TestHessianNumPy:
 # =============================================================================
 # Test Jacobian (NumPy backend)
 # =============================================================================
+
 
 class TestJacobianNumPy:
     """Test Jacobian computation with NumPy (numerical differentiation)."""
@@ -211,23 +216,20 @@ class TestJacobianNumPy:
              [0, 3x₁²]]
         """
         x = np.array([2.0, 3.0])
-        jac_fn = jacobian(vector_function, backend='numpy')
+        jac_fn = jacobian(vector_function, backend="numpy")
         J = jac_fn(x)
 
-        expected = np.array([
-            [2 * x[0], 1.0],
-            [x[1], x[0]],
-            [0.0, 3 * x[1]**2]
-        ])
+        expected = np.array([[2 * x[0], 1.0], [x[1], x[0]], [0.0, 3 * x[1] ** 2]])
         assert_allclose(J, expected, rtol=1e-5)
 
     def test_jacobian_identity(self):
         """Test Jacobian of identity function is identity matrix."""
+
         def identity(x):
             return x
 
         x = np.array([1.0, 2.0, 3.0])
-        jac_fn = jacobian(identity, backend='numpy')
+        jac_fn = jacobian(identity, backend="numpy")
         J = jac_fn(x)
 
         expected = np.eye(len(x))
@@ -241,7 +243,7 @@ class TestJacobianNumPy:
             return A @ x
 
         x = np.array([1.0, 2.0])
-        jac_fn = jacobian(linear, backend='numpy')
+        jac_fn = jacobian(linear, backend="numpy")
         J = jac_fn(x)
 
         # Jacobian of Ax is A
@@ -251,6 +253,7 @@ class TestJacobianNumPy:
 # =============================================================================
 # Test Hessian-vector product
 # =============================================================================
+
 
 class TestHVP:
     """Test Hessian-vector product computation."""
@@ -277,7 +280,7 @@ class TestHVP:
         v = np.random.randn(3)
 
         # Compute full Hessian and multiply
-        hess_fn = hessian(rosenbrock, backend='numpy')
+        hess_fn = hessian(rosenbrock, backend="numpy")
         H = hess_fn(x)
         expected = H @ v
 
@@ -295,6 +298,7 @@ class TestHVP:
 # =============================================================================
 # Test JVP and VJP
 # =============================================================================
+
 
 class TestJVPVJP:
     """Test Jacobian-vector and vector-Jacobian products."""
@@ -340,6 +344,7 @@ class TestJVPVJP:
 # Test check_gradient utility
 # =============================================================================
 
+
 class TestCheckGradient:
     """Test gradient checking utility."""
 
@@ -354,8 +359,8 @@ class TestCheckGradient:
         result = check_gradient(quadratic_scalar, x)
 
         # With NumPy backend, both use numerical differentiation so should match
-        assert result['passed']  # Use truthiness, not identity
-        assert result['max_abs_diff'] < 1e-10  # Should be essentially identical
+        assert result["passed"]  # Use truthiness, not identity
+        assert result["max_abs_diff"] < 1e-10  # Should be essentially identical
 
     def test_check_gradient_with_args(self):
         """Test check_gradient with additional arguments."""
@@ -364,12 +369,13 @@ class TestCheckGradient:
 
         result = check_gradient(quadratic_matrix, x, A)
 
-        assert result['passed']  # Use truthiness, not identity
+        assert result["passed"]  # Use truthiness, not identity
 
 
 # =============================================================================
 # Test PyTorch backend (if available)
 # =============================================================================
+
 
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
 class TestGradientTorch:
@@ -380,9 +386,9 @@ class TestGradientTorch:
         x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
 
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
-        grad_fn = gradient(f, backend='torch')
+        grad_fn = gradient(f, backend="torch")
         g = grad_fn(x)
 
         expected = x.detach().numpy()
@@ -396,7 +402,7 @@ class TestGradientTorch:
         def f(x):
             return 0.5 * x @ A @ x
 
-        hess_fn = hessian(f, backend='torch')
+        hess_fn = hessian(f, backend="torch")
         H = hess_fn(x)
 
         assert_allclose(H.numpy(), A.numpy(), rtol=1e-5)
@@ -405,6 +411,7 @@ class TestGradientTorch:
 # =============================================================================
 # Test JAX backend (if available)
 # =============================================================================
+
 
 @pytest.mark.skipif(not HAS_JAX, reason="JAX not available")
 class TestGradientJAX:
@@ -415,9 +422,9 @@ class TestGradientJAX:
         x = jnp.array([1.0, 2.0, 3.0])
 
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
-        grad_fn = gradient(f, backend='jax')
+        grad_fn = gradient(f, backend="jax")
         g = grad_fn(x)
 
         expected = np.array([1.0, 2.0, 3.0])
@@ -431,7 +438,7 @@ class TestGradientJAX:
         def f(x):
             return 0.5 * x @ A @ x
 
-        hess_fn = hessian(f, backend='jax')
+        hess_fn = hessian(f, backend="jax")
         H = hess_fn(x)
 
         assert_allclose(np.asarray(H), np.asarray(A), rtol=1e-5)
@@ -441,16 +448,12 @@ class TestGradientJAX:
         x = jnp.array([2.0, 3.0])
 
         def f(x):
-            return jnp.array([x[0]**2 + x[1], x[0] * x[1], x[1]**3])
+            return jnp.array([x[0] ** 2 + x[1], x[0] * x[1], x[1] ** 3])
 
-        jac_fn = jacobian(f, backend='jax')
+        jac_fn = jacobian(f, backend="jax")
         J = jac_fn(x)
 
-        expected = np.array([
-            [2 * 2.0, 1.0],
-            [3.0, 2.0],
-            [0.0, 3 * 3.0**2]
-        ])
+        expected = np.array([[2 * 2.0, 1.0], [3.0, 2.0], [0.0, 3 * 3.0**2]])
         assert_allclose(np.asarray(J), expected, rtol=1e-5)
 
 
@@ -458,13 +461,14 @@ class TestGradientJAX:
 # Test edge cases
 # =============================================================================
 
+
 class TestEdgeCases:
     """Test edge cases and numerical stability."""
 
     def test_gradient_zero_point(self):
         """Test gradient at zero."""
         x = np.zeros(5)
-        grad_fn = gradient(quadratic_scalar, backend='numpy')
+        grad_fn = gradient(quadratic_scalar, backend="numpy")
         g = grad_fn(x)
 
         assert_allclose(g, np.zeros(5), atol=1e-10)
@@ -472,7 +476,7 @@ class TestEdgeCases:
     def test_gradient_large_values(self):
         """Test gradient with large values (scale invariance)."""
         x = np.array([1e6, 2e6, 3e6])
-        grad_fn = gradient(quadratic_scalar, backend='numpy')
+        grad_fn = gradient(quadratic_scalar, backend="numpy")
         g = grad_fn(x)
 
         # Gradient should be x for f(x) = ||x||²/2
@@ -481,7 +485,7 @@ class TestEdgeCases:
     def test_gradient_small_values(self):
         """Test gradient with small values."""
         x = np.array([1e-6, 2e-6, 3e-6])
-        grad_fn = gradient(quadratic_scalar, backend='numpy')
+        grad_fn = gradient(quadratic_scalar, backend="numpy")
         g = grad_fn(x)
 
         assert_allclose(g, x, rtol=1e-4)
@@ -491,7 +495,7 @@ class TestEdgeCases:
         np.random.seed(42)
         n = 100
         x = np.random.randn(n)
-        grad_fn = gradient(quadratic_scalar, backend='numpy')
+        grad_fn = gradient(quadratic_scalar, backend="numpy")
         g = grad_fn(x)
 
         # Relax tolerance slightly for high-dimensional case

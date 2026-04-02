@@ -13,65 +13,65 @@ import numpy as np
 class GAMResult:
     """Result of fitting a Generalized Additive Model.
 
-    Parameters
-    ----------
-    coefficients : ndarray
-        Spline coefficients.
-    fitted_values : ndarray
-        Fitted values at training data points.
-    residuals : ndarray
-        Residuals (y - fitted_values).
-    lambda_ : float
-        Smoothing parameter used.
-    edf : float
-        Effective degrees of freedom.
-    basis : object
-        Basis object (BSplineBasis or CubicSplineBasis).
-    x : ndarray
-        Training predictor values.
-    y : ndarray
-        Training response values.
-    weights : ndarray, optional
-        Observation weights.
-    gcv_score : float, optional
-        GCV score if lambda was selected automatically.
+        Parameters
+        ----------
+        coefficients : ndarray
+            Spline coefficients.
+        fitted_values : ndarray
+            Fitted values at training data points.
+        residuals : ndarray
+            Residuals (y - fitted_values).
+        lambda_ : float
+            Smoothing parameter used.
+        edf : float
+            Effective degrees of freedom.
+        basis : object
+            Basis object (BSplineBasis or CubicSplineBasis).
+        x : ndarray
+            Training predictor values.
+        y : ndarray
+            Training response values.
+        weights : ndarray, optional
+            Observation weights.
+        gcv_score : float, optional
+            GCV score if lambda was selected automatically.
 
-    Attributes
-    ----------
-    All parameters are stored as attributes.
-    n_obs_ : int
-        Number of observations.
+        Attributes
+        ----------
+        All parameters are stored as attributes.
+        n_obs_ : int
+            Number of observations.
 
-    lambda_opt : float
-        Alias for ``lambda_`` (optimal smoothing parameter).
+        lambda_opt : float
+            Alias for ``lambda_`` (optimal smoothing parameter).
 
-    r_squared : float
-        Coefficient of determination (R-squared), where R-squared = 1 - rss /sum(tss) / tss
+        r_squared : float
+            Coefficient of determination (R-squared), where R-squared = 1 - rss /sum(tss) / tss
 
-**2, Note: R-squared is computed only from residualss and not residuals so the can be negative.
+    **2, Note: R-squared is computed only from residualss and not residuals so the can be negative.
 
-    >>> # Predict at new points
-    >>> y_pred = result.predict(np.linspace(0, 2 * np.pi, 2))
-    >>> print(result.summary())
-    >>> # Using dict with named variables
-    >>> data = {
-    ...     'response': y,
-    ...     'temp': X[:, 0],
-    ...     'humidity': X[:, 1]
-    ... }
-    >>> result = fit_gam_formula("response ~ s(temp) + humidity", data)
-    >>> print(result.summary())
+        >>> # Predict at new points
+        >>> y_pred = result.predict(np.linspace(0, 2 * np.pi, 2))
+        >>> print(result.summary())
+        >>> # Using dict with named variables
+        >>> data = {
+        ...     'response': y,
+        ...     'temp': X[:, 0],
+        ...     'humidity': X[:, 1]
+        ... }
+        >>> result = fit_gam_formula("response ~ s(temp) + humidity", data)
+        >>> print(result.summary())
 
-    See Also
-    --------
-    AdditiveGAMResult : Additive GAM with multiple smooth terms.
-    fit_gam_formula : R-style formula interface.
-    fit_glm : GLM fitting function.
+        See Also
+        --------
+        AdditiveGAMResult : Additive GAM with multiple smooth terms.
+        fit_gam_formula : R-style formula interface.
+        fit_glm : GLM fitting function.
 
-    References
-    ----------
-    Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
-    CRC Press.
+        References
+        ----------
+        Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
+        CRC Press.
     """
 
     def __init__(

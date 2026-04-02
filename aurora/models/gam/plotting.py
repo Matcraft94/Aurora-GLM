@@ -130,8 +130,7 @@ def plot_smooth(
 
         if term_name not in result.smooth_coef:
             raise ValueError(
-                f"Term '{term_name}' not found. "
-                f"Available terms: {list(result.smooth_coef.keys())}"
+                f"Term '{term_name}' not found. Available terms: {list(result.smooth_coef.keys())}"
             )
 
         # Find corresponding smooth term
@@ -153,8 +152,7 @@ def plot_smooth(
     else:  # Univariate GAMResult
         if term is not None:
             raise ValueError(
-                "For univariate GAMResult, term should be None "
-                "(only one smooth term exists)"
+                "For univariate GAMResult, term should be None (only one smooth term exists)"
             )
         x_data = result.x
         basis = result.basis
@@ -205,8 +203,7 @@ def plot_smooth(
         precision_inv = np.linalg.inv(precision)
         var_grid = np.array(
             [
-                residual_var
-                * (B_grid[i : i + 1] @ precision_inv @ B_grid[i : i + 1].T)[0, 0]
+                residual_var * (B_grid[i : i + 1] @ precision_inv @ B_grid[i : i + 1].T)[0, 0]
                 for i in range(len(x_grid))
             ]
         )

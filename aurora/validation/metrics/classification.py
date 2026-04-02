@@ -243,9 +243,7 @@ def brier_score_loss(
     return float(_weighted_mean(losses, sample_weight))
 
 
-def concordance_index(
-    y_true: Any, y_score: Any, *, sample_weight: Any | None = None
-) -> float:
+def concordance_index(y_true: Any, y_score: Any, *, sample_weight: Any | None = None) -> float:
     """Compute the concordance index (c-statistic) for binary outcomes.
 
     The concordance index measures the probability that for a randomly selected
@@ -301,9 +299,7 @@ def concordance_index(
     n_pos = float(np.sum(binary * weights))
     n_neg = float(np.sum((1.0 - binary) * weights))
     if n_pos <= 0.0 or n_neg <= 0.0:
-        raise ValueError(
-            "Concordance index requires both positive and negative examples"
-        )
+        raise ValueError("Concordance index requires both positive and negative examples")
 
     order = np.argsort(-score, kind="mergesort")
     y_sorted = binary[order]
@@ -346,9 +342,7 @@ def concordance_index(
 def _is_binary_labels(labels: np.ndarray) -> bool:
     unique = np.unique(labels)
     return (
-        np.array_equal(unique, [0])
-        or np.array_equal(unique, [1])
-        or np.array_equal(unique, [0, 1])
+        np.array_equal(unique, [0]) or np.array_equal(unique, [1]) or np.array_equal(unique, [0, 1])
     )
 
 

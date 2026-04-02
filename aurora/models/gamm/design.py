@@ -152,7 +152,7 @@ def construct_Z_matrix(
         for g_idx, group_val in enumerate(unique_groups):
             obs_indices = group_indices[group_val]
             col_start = g_idx * n_effects
-            col_end = col_start + n_effects
+            col_start + n_effects
 
             if is_temporal:
                 # Temporal: each observation gets indicator in its temporal position

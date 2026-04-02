@@ -1,6 +1,6 @@
 """Tests for smoothing parameter selection in GAMM (Phase 5.1.3)."""
+
 import numpy as np
-import pytest
 
 from aurora.distributions.families import BinomialFamily, PoissonFamily
 from aurora.models.gamm.smoothing_selection import (
@@ -48,8 +48,8 @@ def test_select_smoothing_gcv_single_term():
 
     lambda_opt = select_smoothing_gcv(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x)': B},
-        S_smooth_dict={'s(x)': S},
+        X_smooth_dict={"s(x)": B},
+        S_smooth_dict={"s(x)": S},
         Z=Z,
         y=y,
         family_obj=family_obj,
@@ -59,11 +59,11 @@ def test_select_smoothing_gcv_single_term():
     )
 
     # Check result
-    assert 's(x)' in lambda_opt
-    assert lambda_opt['s(x)'] > 0
-    assert np.isfinite(lambda_opt['s(x)'])
+    assert "s(x)" in lambda_opt
+    assert lambda_opt["s(x)"] > 0
+    assert np.isfinite(lambda_opt["s(x)"])
     # Should select something reasonable (not too small or too large)
-    assert 1e-4 < lambda_opt['s(x)'] < 1e4
+    assert 1e-4 < lambda_opt["s(x)"] < 1e4
 
 
 def test_select_smoothing_gcv_multiple_terms():
@@ -108,8 +108,8 @@ def test_select_smoothing_gcv_multiple_terms():
 
     lambda_opt = select_smoothing_gcv(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x1)': B1, 's(x2)': B2},
-        S_smooth_dict={'s(x1)': S1, 's(x2)': S2},
+        X_smooth_dict={"s(x1)": B1, "s(x2)": B2},
+        S_smooth_dict={"s(x1)": S1, "s(x2)": S2},
         Z=Z,
         y=y,
         family_obj=family_obj,
@@ -119,12 +119,12 @@ def test_select_smoothing_gcv_multiple_terms():
     )
 
     # Check results
-    assert 's(x1)' in lambda_opt
-    assert 's(x2)' in lambda_opt
-    assert lambda_opt['s(x1)'] > 0
-    assert lambda_opt['s(x2)'] > 0
-    assert np.isfinite(lambda_opt['s(x1)'])
-    assert np.isfinite(lambda_opt['s(x2)'])
+    assert "s(x1)" in lambda_opt
+    assert "s(x2)" in lambda_opt
+    assert lambda_opt["s(x1)"] > 0
+    assert lambda_opt["s(x2)"] > 0
+    assert np.isfinite(lambda_opt["s(x1)"])
+    assert np.isfinite(lambda_opt["s(x2)"])
 
 
 def test_select_smoothing_gcv_binomial():
@@ -160,8 +160,8 @@ def test_select_smoothing_gcv_binomial():
 
     lambda_opt = select_smoothing_gcv(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x)': B},
-        S_smooth_dict={'s(x)': S},
+        X_smooth_dict={"s(x)": B},
+        S_smooth_dict={"s(x)": S},
         Z=Z,
         y=y,
         family_obj=family_obj,
@@ -170,8 +170,8 @@ def test_select_smoothing_gcv_binomial():
         verbose=False,
     )
 
-    assert 's(x)' in lambda_opt
-    assert lambda_opt['s(x)'] > 0
+    assert "s(x)" in lambda_opt
+    assert lambda_opt["s(x)"] > 0
 
 
 def test_select_smoothing_custom_grid():
@@ -202,15 +202,15 @@ def test_select_smoothing_custom_grid():
     Psi = np.array([[0.3]])
 
     # Custom grid (coarser)
-    lambda_grid = {'s(x)': np.array([0.01, 0.1, 1.0, 10.0, 100.0])}
+    lambda_grid = {"s(x)": np.array([0.01, 0.1, 1.0, 10.0, 100.0])}
 
     family_obj = PoissonFamily()
     link = family_obj.default_link
 
     lambda_opt = select_smoothing_gcv(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x)': B},
-        S_smooth_dict={'s(x)': S},
+        X_smooth_dict={"s(x)": B},
+        S_smooth_dict={"s(x)": S},
         Z=Z,
         y=y,
         family_obj=family_obj,
@@ -221,7 +221,7 @@ def test_select_smoothing_custom_grid():
     )
 
     # Should be one of the grid values
-    assert lambda_opt['s(x)'] in lambda_grid['s(x)']
+    assert lambda_opt["s(x)"] in lambda_grid["s(x)"]
 
 
 def test_performance_iteration():
@@ -248,28 +248,28 @@ def test_performance_iteration():
 
     Z = np.zeros((n, n_groups))
     Z[np.arange(n), groups] = 1.0
-    Z_info = [{'n_levels': n_groups, 'dim': 1, 'type': 'intercept'}]
+    Z_info = [{"n_levels": n_groups, "dim": 1, "type": "intercept"}]
 
     # Run performance iteration
     result = select_smoothing_performance_iter(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x)': B},
-        S_smooth_dict={'s(x)': S},
+        X_smooth_dict={"s(x)": B},
+        S_smooth_dict={"s(x)": S},
         Z=Z,
         Z_info=Z_info,
         y=y,
-        family='poisson',
+        family="poisson",
         max_iter=3,  # Just a few iterations for testing
         verbose=False,
     )
 
     # Check results
-    assert 'lambda_opt' in result
-    assert 's(x)' in result['lambda_opt']
-    assert result['lambda_opt']['s(x)'] > 0
-    assert 'beta_parametric' in result
-    assert 'beta_smooth' in result
-    assert 'converged' in result
+    assert "lambda_opt" in result
+    assert "s(x)" in result["lambda_opt"]
+    assert result["lambda_opt"]["s(x)"] > 0
+    assert "beta_parametric" in result
+    assert "beta_smooth" in result
+    assert "converged" in result
 
 
 def test_automatic_selection_in_fit():
@@ -296,33 +296,33 @@ def test_automatic_selection_in_fit():
 
     Z = np.zeros((n, n_groups))
     Z[np.arange(n), groups] = 1.0
-    Z_info = [{'n_levels': n_groups, 'dim': 1, 'type': 'intercept'}]
+    Z_info = [{"n_levels": n_groups, "dim": 1, "type": "intercept"}]
 
     # Fit with automatic λ selection (lambda_smooth=None)
     from aurora.models.gamm.pql_smooth import fit_pql_with_smooth
 
     result = fit_pql_with_smooth(
         X_parametric=np.ones((n, 1)),
-        X_smooth_dict={'s(x)': B},
+        X_smooth_dict={"s(x)": B},
         Z=Z,
         Z_info=Z_info,
         y=y,
-        family='poisson',
-        S_smooth_dict={'s(x)': S},
+        family="poisson",
+        S_smooth_dict={"s(x)": S},
         lambda_smooth=None,  # Auto-select
         maxiter_outer=10,  # More iterations for GCV to converge
         verbose=False,
     )
 
     # Check that λ was selected automatically
-    assert 's(x)' in result['smoothing_parameters']
+    assert "s(x)" in result["smoothing_parameters"]
     # λ should be positive (valid smoothing parameter)
-    assert result['smoothing_parameters']['s(x)'] > 0
+    assert result["smoothing_parameters"]["s(x)"] > 0
     # λ should be finite and reasonable
-    assert result['smoothing_parameters']['s(x)'] < 1e10
+    assert result["smoothing_parameters"]["s(x)"] < 1e10
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests
     test_select_smoothing_gcv_single_term()
     print("✓ GCV single term test passed")

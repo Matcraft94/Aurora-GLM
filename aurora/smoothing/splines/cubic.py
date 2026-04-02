@@ -204,7 +204,7 @@ class CubicSplineBasis:
         The first two basis functions (constant and linear) receive zero penalty
         since their second derivatives are zero.
         """
-        k = len(self.knots_)
+        len(self.knots_)
         n_basis = self.n_basis_
 
         # Initialize penalty matrix
@@ -229,9 +229,7 @@ class CubicSplineBasis:
 
         return S
 
-    def _integrate_second_derivatives(
-        self, i: int, j: int, all_knots: np.ndarray
-    ) -> float:
+    def _integrate_second_derivatives(self, i: int, j: int, all_knots: np.ndarray) -> float:
         """Compute the penalty integral for a pair of cubic basis functions.
 
         Evaluates  integral f_i''(x) f_j''(x) dx  analytically, where each

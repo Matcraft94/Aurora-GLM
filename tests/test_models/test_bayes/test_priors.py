@@ -1,21 +1,19 @@
 """Tests for prior specification classes."""
 
 import pytest
-import numpy as np
 
 from aurora.models.bayes import (
-    Prior,
-    Normal,
     Cauchy,
-    HalfNormal,
-    HalfCauchy,
     Exponential,
     Gamma,
+    HalfCauchy,
+    HalfNormal,
     InverseGamma,
-    Uniform,
-    StudentT,
     Laplace,
+    Normal,
     PriorSpec,
+    StudentT,
+    Uniform,
 )
 
 

@@ -206,10 +206,7 @@ class BaseResult(ABC):
     def __repr__(self) -> str:
         class_name = self.__class__.__name__
         return (
-            f"{class_name}("
-            f"n_obs={self.n_obs_}, "
-            f"converged={self.converged_}, "
-            f"n_iter={self.n_iter_})"
+            f"{class_name}(n_obs={self.n_obs_}, converged={self.converged_}, n_iter={self.n_iter_})"
         )
 
 

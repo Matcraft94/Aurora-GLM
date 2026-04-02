@@ -316,9 +316,7 @@ def bootstrap_inference(
         # Resample with replacement
         idx = np.random.choice(n, size=n, replace=True)
         X_boot = (
-            X_no_intercept[idx]
-            if X_no_intercept.ndim == 2
-            else X_no_intercept[idx].reshape(-1, 1)
+            X_no_intercept[idx] if X_no_intercept.ndim == 2 else X_no_intercept[idx].reshape(-1, 1)
         )
         y_boot = y[idx]
 
@@ -351,6 +349,7 @@ def bootstrap_inference(
             f"Only {len(boot_coefs)}/{n_bootstrap} bootstrap samples succeeded. "
             "Results may be unreliable.",
             RuntimeWarning,
+            stacklevel=2,
         )
 
     # Compute standard errors

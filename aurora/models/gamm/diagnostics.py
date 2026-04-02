@@ -84,7 +84,7 @@ def interpret_variance_components(
     lines.append("=" * 75)
     lines.append("")
 
-    for i, (vc, group_name) in enumerate(zip(variance_components, group_names)):
+    for _i, (vc, group_name) in enumerate(zip(variance_components, group_names, strict=False)):
         lines.append(f"Grupo: {group_name}")
         lines.append("-" * 75)
 
@@ -97,15 +97,9 @@ def interpret_variance_components(
             lines.append(f"  Desviación estándar: {sd:.4f}")
             lines.append("")
             lines.append("  Interpretación:")
-            lines.append(
-                f"    - Hay una variabilidad de ±{sd:.2f} unidades entre {group_name}s"
-            )
-            lines.append(
-                f"    - Aproximadamente 95% de {group_name}s tienen interceptos"
-            )
-            lines.append(
-                f"      aleatorios dentro de ±{1.96 * sd:.2f} unidades del promedio"
-            )
+            lines.append(f"    - Hay una variabilidad de ±{sd:.2f} unidades entre {group_name}s")
+            lines.append(f"    - Aproximadamente 95% de {group_name}s tienen interceptos")
+            lines.append(f"      aleatorios dentro de ±{1.96 * sd:.2f} unidades del promedio")
 
         elif vc.shape[0] == 2:
             # Random intercept + slope
@@ -131,9 +125,7 @@ def interpret_variance_components(
             lines.append(f"  Correlación: {correlation:.4f}")
             lines.append("")
             lines.append("  Interpretación:")
-            lines.append(
-                f"    - Variabilidad en niveles basales: ±{sd_intercept:.2f} unidades"
-            )
+            lines.append(f"    - Variabilidad en niveles basales: ±{sd_intercept:.2f} unidades")
             lines.append(
                 f"    - Variabilidad en tasas de cambio: ±{sd_slope:.2f} unidades/unidad de X"
             )
@@ -145,23 +137,13 @@ def interpret_variance_components(
                 )
                 lines.append("      tienen mayores (o menores) tasas de cambio")
             elif correlation > 0.3:
-                lines.append(
-                    f"    - Correlación positiva moderada/fuerte ({correlation:.3f}):"
-                )
-                lines.append(
-                    f"      Los {group_name}s con mayores valores basales tienden a"
-                )
+                lines.append(f"    - Correlación positiva moderada/fuerte ({correlation:.3f}):")
+                lines.append(f"      Los {group_name}s con mayores valores basales tienden a")
                 lines.append("      tener mayores tasas de cambio")
             elif correlation < -0.3:
-                lines.append(
-                    f"    - Correlación negativa moderada/fuerte ({correlation:.3f}):"
-                )
-                lines.append(
-                    f"      Los {group_name}s con mayores valores basales tienden a"
-                )
-                lines.append(
-                    "      tener menores tasas de cambio (efecto compensatorio)"
-                )
+                lines.append(f"    - Correlación negativa moderada/fuerte ({correlation:.3f}):")
+                lines.append(f"      Los {group_name}s con mayores valores basales tienden a")
+                lines.append("      tener menores tasas de cambio (efecto compensatorio)")
 
         else:
             # Multiple components
@@ -456,9 +438,7 @@ def plot_random_effects(result, group_name=None, figsize=(15, 5)):
     random_effects_matrix = np.vstack(random_effects_list)
 
     # Determine structure
-    vc = result.variance_components[
-        list(result.random_effects.keys()).index(group_name)
-    ]
+    vc = result.variance_components[list(result.random_effects.keys()).index(group_name)]
     n_components = vc.shape[0]
     n_groups = len(group_ids)
 
@@ -521,13 +501,11 @@ def plot_random_effects(result, group_name=None, figsize=(15, 5)):
             transform=axes[2].transAxes,
             fontsize=12,
             verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
         )
 
         plt.tight_layout()
         return fig, axes
 
     else:
-        raise NotImplementedError(
-            f"Plotting for {n_components} components not yet implemented"
-        )
+        raise NotImplementedError(f"Plotting for {n_components} components not yet implemented")

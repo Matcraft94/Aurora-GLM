@@ -90,9 +90,7 @@ class ANOVAResult:
 
         for i, src in enumerate(self.source):
             p_str = (
-                f"{self.p_value[i]:.4e}"
-                if self.p_value[i] < 0.0001
-                else f"{self.p_value[i]:.4f}"
+                f"{self.p_value[i]:.4e}" if self.p_value[i] < 0.0001 else f"{self.p_value[i]:.4f}"
             )
             sig = ""
             if self.p_value[i] < 0.001:
@@ -269,9 +267,7 @@ def _anova_single(
 
     # Get residual SS
     if hasattr(model, "residual_variance_"):
-        residual_ss = model.residual_variance_ * (
-            n_obs - len(coef) - (1 if intercept else 0)
-        )
+        residual_ss = model.residual_variance_ * (n_obs - len(coef) - (1 if intercept else 0))
     elif hasattr(model, "residuals"):
         residual_ss = np.sum(model.residuals**2)
     else:
@@ -294,10 +290,7 @@ def _anova_single(
     ms = ss / df
     f_stat = ms / residual_ms if residual_ms > 0 else np.full(n_params, np.nan)
     p_values = np.array(
-        [
-            1 - stats.f.cdf(f, 1, residual_df) if not np.isnan(f) else np.nan
-            for f in f_stat
-        ]
+        [1 - stats.f.cdf(f, 1, residual_df) if not np.isnan(f) else np.nan for f in f_stat]
     )
 
     return ANOVAResult(
@@ -371,7 +364,7 @@ def _anova_compare(
     p_values = np.array(
         [
             1 - stats.f.cdf(f, d, residual_df) if not np.isnan(f) and d > 0 else np.nan
-            for f, d in zip(f_stat, df)
+            for f, d in zip(f_stat, df, strict=False)
         ]
     )
 

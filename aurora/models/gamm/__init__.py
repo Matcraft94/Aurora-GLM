@@ -6,22 +6,26 @@
 from __future__ import annotations
 
 from aurora.models.gamm.covariance import (
-    CovarianceStructure,
-    DiagonalCovariance,
-    IdentityCovariance,
-    UnstructuredCovariance,
     AR1Covariance,
     CompoundSymmetryCovariance,
+    CovarianceStructure,
+    DiagonalCovariance,
     ExponentialSpatialCovariance,
+    IdentityCovariance,
     MaternCovariance,
     ToeplitzCovariance,
+    UnstructuredCovariance,
     get_covariance_structure,
 )
 from aurora.models.gamm.design import construct_Z_matrix, extract_random_effects
 from aurora.models.gamm.diagnostics import (
     compute_r2_conditional_marginal,
     interpret_variance_components,
+)
+from aurora.models.gamm.diagnostics import (
     plot_diagnostics as plot_gamm_diagnostics,
+)
+from aurora.models.gamm.diagnostics import (
     plot_random_effects as plot_gamm_random_effects,
 )
 from aurora.models.gamm.estimation import (

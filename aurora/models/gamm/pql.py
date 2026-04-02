@@ -345,11 +345,11 @@ def fit_pql(
     n_iter_inner_total = 0
 
     # Outer loop: update variance components
-    for iter_outer in range(maxiter_outer):
+    for iter_outer in range(maxiter_outer):  # noqa: B007
         psi_old = psi.copy()
 
         # Inner loop: update fixed and random effects
-        for iter_inner in range(maxiter_inner):
+        for _iter_inner in range(maxiter_inner):
             beta_old = beta.copy()
             b_old = b.copy()
 
@@ -590,7 +590,7 @@ def _solve_pql_equations(
     if not np.all(np.isfinite(psi)):
         import warnings
 
-        warnings.warn("NaN/Inf in psi matrix, using identity")
+        warnings.warn("NaN/Inf in psi matrix, using identity", stacklevel=2)
         psi = np.eye(n_effects)
 
     # Ensure psi is positive definite before inversion
@@ -710,7 +710,7 @@ def _update_variance_components(
     if not np.all(np.isfinite(b_matrix)):
         import warnings
 
-        warnings.warn("NaN/Inf detected in random effects, using identity covariance")
+        warnings.warn("NaN/Inf detected in random effects, using identity covariance", stacklevel=2)
         return np.eye(n_effects)
 
     if method == "empirical":
@@ -721,7 +721,7 @@ def _update_variance_components(
         if not np.all(np.isfinite(psi_emp)):
             import warnings
 
-            warnings.warn("NaN/Inf in empirical covariance, using identity")
+            warnings.warn("NaN/Inf in empirical covariance, using identity", stacklevel=2)
             return np.eye(n_effects)
 
         # Phase 1.4: Add shrinkage toward identity (5%)
@@ -770,9 +770,7 @@ def _get_family(family_name: str) -> Family:
     }
 
     if family_name.lower() not in families:
-        raise ValueError(
-            f"Unknown family '{family_name}'. Must be one of {list(families.keys())}"
-        )
+        raise ValueError(f"Unknown family '{family_name}'. Must be one of {list(families.keys())}")
 
     return families[family_name.lower()]()
 
@@ -904,8 +902,7 @@ def fit_pql_gamm(
     # Phase 1: No smooth terms yet
     if X_smooth is not None:
         raise NotImplementedError(
-            "Smooth terms in PQL not yet implemented (Phase 2). "
-            "Use X_parametric only for now."
+            "Smooth terms in PQL not yet implemented (Phase 2). Use X_parametric only for now."
         )
 
     X_combined = X_parametric
@@ -927,7 +924,7 @@ def fit_pql_gamm(
     # Get covariance structure (Phase 2.3 / Phase 5)
     from aurora.models.gamm.covariance import get_covariance_structure
 
-    cov_structure = get_covariance_structure(covariance)
+    get_covariance_structure(covariance)
 
     # Initialize Ψ based on covariance structure
     if covariance == "identity":

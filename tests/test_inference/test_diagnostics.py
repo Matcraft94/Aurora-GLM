@@ -1,4 +1,5 @@
 """Tests for GLM diagnostic utilities."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -35,13 +36,17 @@ def test_glm_diagnostics_gaussian_identity():
     variance = np.asarray(result.family.variance(result.mu_), dtype=float)
     sqrt_var = np.sqrt(np.clip(variance, 1e-12, None))
     pearson_expected = response_expected / sqrt_var
-    np.testing.assert_allclose(diagnostics.pearson_residuals, pearson_expected, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(
+        diagnostics.pearson_residuals, pearson_expected, rtol=1e-6, atol=1e-6
+    )
 
     deriv = np.asarray(result.link.derivative(result.mu_), dtype=float)
     working_expected = response_expected * deriv
     np.testing.assert_allclose(diagnostics.working_residuals, working_expected, atol=1e-6)
 
-    deviance_expected = np.sign(response_expected) * np.sqrt(np.clip((response_expected**2) / np.clip(variance, 1e-12, None), 0.0, None))
+    deviance_expected = np.sign(response_expected) * np.sqrt(
+        np.clip((response_expected**2) / np.clip(variance, 1e-12, None), 0.0, None)
+    )
     np.testing.assert_allclose(diagnostics.deviance_residuals, deviance_expected, atol=1e-6)
 
     leverage_sum = np.sum(diagnostics.leverage)
@@ -51,7 +56,9 @@ def test_glm_diagnostics_gaussian_identity():
     assert np.all(diagnostics.leverage <= 1.0 + 1e-6)
     assert np.all(diagnostics.cooks_distance >= -1e-9)
 
-    studentized_expected = pearson_expected / np.sqrt(np.clip(1.0 - diagnostics.leverage, 1e-12, None))
+    studentized_expected = pearson_expected / np.sqrt(
+        np.clip(1.0 - diagnostics.leverage, 1e-12, None)
+    )
     np.testing.assert_allclose(diagnostics.studentized_residuals, studentized_expected, atol=1e-6)
 
     assert diagnostics.summary.shape == (y.shape[0], len(diagnostics.summary_columns))
@@ -85,7 +92,9 @@ def test_dfbetas_approximate_leave_one_out():
 
     if result.intercept_ is not None:
         beta_full = np.concatenate(([result.intercept_], np.asarray(result.coef_, dtype=float)))
-        se_full = np.concatenate(([result.intercept_std_error_], np.asarray(result.std_errors_, dtype=float)))
+        se_full = np.concatenate(
+            ([result.intercept_std_error_], np.asarray(result.std_errors_, dtype=float))
+        )
     else:
         beta_full = np.asarray(result.coef_, dtype=float)
         se_full = np.asarray(result.std_errors_, dtype=float)

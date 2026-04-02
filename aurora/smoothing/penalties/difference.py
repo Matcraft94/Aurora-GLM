@@ -326,7 +326,7 @@ def combine_penalties(
 
     # Combine with weights
     S_combined = np.zeros((n, n), dtype=np.float64)
-    for w, S in zip(weights, penalties):
+    for w, S in zip(weights, penalties, strict=False):
         S_combined += w * S
 
     return S_combined

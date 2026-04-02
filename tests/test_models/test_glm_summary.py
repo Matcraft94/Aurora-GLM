@@ -1,8 +1,8 @@
 """Tests for GLMResult.summary() method."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from aurora.models.glm import fit_glm
 

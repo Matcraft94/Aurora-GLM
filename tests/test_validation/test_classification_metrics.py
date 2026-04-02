@@ -1,4 +1,5 @@
 """Tests for classification metric utilities."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -135,4 +136,6 @@ def test_concordance_index_with_sample_weights():
         concordance_index(y_true, y_score, sample_weight=np.array([1.0, -1.0, 1.0, 1.0, 1.0, 1.0]))
 
     with pytest.raises(ValueError, match="sample_weight must be finite"):
-        concordance_index(y_true, y_score, sample_weight=np.array([1.0, np.inf, 1.0, 1.0, 1.0, 1.0]))
+        concordance_index(
+            y_true, y_score, sample_weight=np.array([1.0, np.inf, 1.0, 1.0, 1.0, 1.0])
+        )

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from aurora.models.zero_inflated import fit_zip, ZIPResult, ZeroInflatedPoissonFamily
+from aurora.models.zero_inflated import ZeroInflatedPoissonFamily, ZIPResult, fit_zip
 
 
 class TestZeroInflatedPoissonFamily:

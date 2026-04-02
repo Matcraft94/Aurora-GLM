@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol, TypeAlias, Union
+from collections.abc import Callable
+from typing import Any, Protocol, TypeAlias
 
 import numpy as np
 
@@ -24,8 +25,8 @@ except ImportError:  # pragma: no cover - optional dependency
     TorchTensor = Any
 
 # Type aliases for arrays
-Array: TypeAlias = Union[np.ndarray, JAXArray, TorchTensor]
-Scalar: TypeAlias = Union[int, float, complex]
+Array: TypeAlias = np.ndarray | JAXArray | TorchTensor
+Scalar: TypeAlias = int | float | complex
 
 # Shape and dtype types
 Shape: TypeAlias = tuple[int, ...]

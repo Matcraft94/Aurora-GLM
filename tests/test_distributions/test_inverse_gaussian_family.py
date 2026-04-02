@@ -1,4 +1,5 @@
 """Unit tests for the Inverse Gaussian distribution family with multi-backend support."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def _as_array(xp, data):
     """Convert data to array in specified namespace."""
@@ -76,6 +78,7 @@ if _jax_available():
 # Test Functions - Basic Properties
 # ============================================================================
 
+
 class TestInverseGaussianFamilyBasicProperties:
     """Tests for basic Inverse Gaussian family properties."""
 
@@ -116,8 +119,8 @@ class TestInverseGaussianFamilyBasicProperties:
 
     def test_estimate_lambda_option(self):
         """Test that 'estimate' is valid for lambda."""
-        family = InverseGaussianFamily(lambda_='estimate')
-        assert family.lambda_ == 'estimate'
+        family = InverseGaussianFamily(lambda_="estimate")
+        assert family.lambda_ == "estimate"
 
     def test_wald_alias(self):
         """Test that WaldFamily is an alias for InverseGaussianFamily."""
@@ -127,6 +130,7 @@ class TestInverseGaussianFamilyBasicProperties:
 # ============================================================================
 # Test Functions - Log-Likelihood
 # ============================================================================
+
 
 class TestInverseGaussianFamilyLogLikelihood:
     """Tests for Inverse Gaussian family log-likelihood computation."""
@@ -172,7 +176,7 @@ class TestInverseGaussianFamilyLogLikelihood:
 
         assert np.isfinite(ll_scalar), f"Log-likelihood not finite for small y: {ll_scalar}"
 
-    @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS) 
+    @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
     def test_log_likelihood_known_values(self, xp):
         """Test log-likelihood against manually computed values."""
         # For inverse Gaussian with μ=1, λ=2, y=1:
@@ -187,7 +191,7 @@ class TestInverseGaussianFamilyLogLikelihood:
         ll = _to_scalar(family.log_likelihood(y, mu), xp)
 
         # Check against expected value
-        expected = 0.5 * (np.log(2) - np.log(2 * np.pi) - 3 * np.log(1))  # - 0 for (y-μ)²
+        0.5 * (np.log(2) - np.log(2 * np.pi) - 3 * np.log(1))  # - 0 for (y-μ)²
         expected_approx = 0.5 * np.log(2 / (2 * np.pi))
 
         assert abs(ll - expected_approx) < 0.01, f"Expected {expected_approx}, got {ll}"
@@ -196,6 +200,7 @@ class TestInverseGaussianFamilyLogLikelihood:
 # ============================================================================
 # Test Functions - Deviance
 # ============================================================================
+
 
 class TestInverseGaussianFamilyDeviance:
     """Tests for Inverse Gaussian family deviance computation."""
@@ -246,6 +251,7 @@ class TestInverseGaussianFamilyDeviance:
 # Test Functions - Initialization
 # ============================================================================
 
+
 class TestInverseGaussianFamilyInitialization:
     """Tests for Inverse Gaussian family initialization."""
 
@@ -291,6 +297,7 @@ class TestInverseGaussianFamilyInitialization:
 # Test Functions - Lambda Estimation
 # ============================================================================
 
+
 class TestInverseGaussianFamilyLambdaEstimation:
     """Tests for Inverse Gaussian family lambda estimation."""
 
@@ -305,7 +312,7 @@ class TestInverseGaussianFamilyLambdaEstimation:
         y = np.abs(np.random.normal(mu_true, 0.5, size=500))  # Approximate
         y = np.maximum(y, 0.01)  # Ensure positive
 
-        family = InverseGaussianFamily(lambda_='estimate')
+        family = InverseGaussianFamily(lambda_="estimate")
 
         # Estimate lambda
         lambda_est = family.estimate_lambda(y, np.full_like(y, mu_true))
@@ -317,6 +324,7 @@ class TestInverseGaussianFamilyLambdaEstimation:
 # ============================================================================
 # Test Functions - Multi-Backend Consistency
 # ============================================================================
+
 
 class TestInverseGaussianFamilyMultiBackend:
     """Tests for multi-backend consistency."""
@@ -358,6 +366,7 @@ class TestInverseGaussianFamilyMultiBackend:
 # Test Functions - Default Link
 # ============================================================================
 
+
 class TestInverseGaussianFamilyDefaultLink:
     """Tests for default link function."""
 
@@ -392,6 +401,7 @@ class TestInverseGaussianFamilyDefaultLink:
 # ============================================================================
 # Test Functions - Edge Cases
 # ============================================================================
+
 
 class TestInverseGaussianFamilyEdgeCases:
     """Tests for edge cases and numerical stability."""

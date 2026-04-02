@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from aurora.smoothing.local import LOESSSmoother, LOESSResult, loess
+from aurora.smoothing.local import LOESSResult, LOESSSmoother, loess
 
 
 class TestLOESSSmoother:
@@ -89,8 +89,12 @@ class TestLOESSFitting:
 
         # Both should produce reasonable fits
         true_y = np.sin(x)
-        r2_linear = 1 - np.sum((result_linear.fitted_values_ - true_y) ** 2) / np.sum((true_y - true_y.mean()) ** 2)
-        r2_quad = 1 - np.sum((result_quad.fitted_values_ - true_y) ** 2) / np.sum((true_y - true_y.mean()) ** 2)
+        r2_linear = 1 - np.sum((result_linear.fitted_values_ - true_y) ** 2) / np.sum(
+            (true_y - true_y.mean()) ** 2
+        )
+        r2_quad = 1 - np.sum((result_quad.fitted_values_ - true_y) ** 2) / np.sum(
+            (true_y - true_y.mean()) ** 2
+        )
 
         assert r2_linear > 0.7
         assert r2_quad > 0.7

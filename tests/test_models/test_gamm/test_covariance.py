@@ -1,4 +1,5 @@
 """Tests for covariance structures."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,8 +12,8 @@ from aurora.models.gamm import (
     get_covariance_structure,
 )
 
-
 # Unstructured Covariance Tests
+
 
 def test_unstructured_n_parameters():
     """UnstructuredCovariance should compute correct parameter count."""
@@ -98,6 +99,7 @@ def test_unstructured_non_positive_definite_raises():
 
 # Diagonal Covariance Tests
 
+
 def test_diagonal_n_parameters():
     """DiagonalCovariance should have q parameters."""
     cov = DiagonalCovariance()
@@ -170,6 +172,7 @@ def test_diagonal_negative_variance_raises():
 
 
 # Identity Covariance Tests
+
 
 def test_identity_n_parameters():
     """IdentityCovariance should have 1 parameter."""
@@ -251,23 +254,24 @@ def test_identity_with_off_diagonal_raises():
 
 # Factory function tests
 
+
 def test_get_covariance_structure_unstructured():
     """get_covariance_structure should return UnstructuredCovariance."""
-    cov = get_covariance_structure('unstructured')
+    cov = get_covariance_structure("unstructured")
 
     assert isinstance(cov, UnstructuredCovariance)
 
 
 def test_get_covariance_structure_diagonal():
     """get_covariance_structure should return DiagonalCovariance."""
-    cov = get_covariance_structure('diagonal')
+    cov = get_covariance_structure("diagonal")
 
     assert isinstance(cov, DiagonalCovariance)
 
 
 def test_get_covariance_structure_identity():
     """get_covariance_structure should return IdentityCovariance."""
-    cov = get_covariance_structure('identity')
+    cov = get_covariance_structure("identity")
 
     assert isinstance(cov, IdentityCovariance)
 
@@ -275,4 +279,4 @@ def test_get_covariance_structure_identity():
 def test_get_covariance_structure_invalid_raises():
     """get_covariance_structure should raise for invalid structure."""
     with pytest.raises(ValueError, match="Unknown covariance structure"):
-        get_covariance_structure('invalid')
+        get_covariance_structure("invalid")

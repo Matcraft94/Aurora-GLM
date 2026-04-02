@@ -1,4 +1,5 @@
 """Integration tests for GAMM with smooth terms via formula interface (Phase 5.1.2)."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -28,32 +29,28 @@ def test_gamm_poisson_smooth_formula():
     y = np.random.poisson(mu_true)
 
     # Create DataFrame
-    data = pd.DataFrame({
-        'y': y,
-        'x': x,
-        'subject': groups
-    })
+    data = pd.DataFrame({"y": y, "x": x, "subject": groups})
 
     # Fit model with formula
     from aurora.models.gamm import fit_gamm
 
     result = fit_gamm(
-        formula='y ~ s(x) + (1 | subject)',
+        formula="y ~ s(x) + (1 | subject)",
         data=data,
-        family='poisson',
+        family="poisson",
         maxiter=10,
     )
 
     # Check results
     assert result.converged, "Model should converge"
-    assert result.family == 'poisson'
-    assert 's(x)' in result.beta_smooth
-    assert result.beta_smooth['s(x)'].shape[0] == 10  # Default n_basis
+    assert result.family == "poisson"
+    assert "s(x)" in result.beta_smooth
+    assert result.beta_smooth["s(x)"].shape[0] == 10  # Default n_basis
     assert len(result.variance_components) > 0
 
     # Check EDF
-    assert 's(x)' in result.edf_smooth
-    edf = result.edf_smooth['s(x)']
+    assert "s(x)" in result.edf_smooth
+    edf = result.edf_smooth["s(x)"]
     assert 1.0 < edf < 10.0, f"EDF should be between 1 and 10, got {edf}"
 
     # Check fitted values
@@ -85,28 +82,24 @@ def test_gamm_binomial_smooth_formula():
     y = np.random.binomial(1, prob_true)
 
     # Create DataFrame
-    data = pd.DataFrame({
-        'y': y,
-        'x': x,
-        'group': groups
-    })
+    data = pd.DataFrame({"y": y, "x": x, "group": groups})
 
     # Fit model - binomial PQL needs more iterations
     from aurora.models.gamm import fit_gamm
 
     result = fit_gamm(
-        formula='y ~ s(x) + (1 | group)',
+        formula="y ~ s(x) + (1 | group)",
         data=data,
-        family='binomial',
+        family="binomial",
         maxiter=20,  # More iterations for binomial convergence
     )
 
     # Check results - focus on structure rather than strict convergence
     # Binomial PQL may not always converge with stochastic binary data
-    assert result.family == 'binomial'
-    assert 's(x)' in result.beta_smooth
+    assert result.family == "binomial"
+    assert "s(x)" in result.beta_smooth
     # edf_smooth may not be computed depending on convergence
-    assert len(result.beta_smooth['s(x)']) > 0
+    assert len(result.beta_smooth["s(x)"]) > 0
 
 
 def test_gamm_multiple_smooths_formula():
@@ -135,30 +128,25 @@ def test_gamm_multiple_smooths_formula():
     y = np.random.poisson(mu_true)
 
     # Create DataFrame
-    data = pd.DataFrame({
-        'count': y,
-        'time': x1,
-        'temperature': x2,
-        'subject': groups
-    })
+    data = pd.DataFrame({"count": y, "time": x1, "temperature": x2, "subject": groups})
 
     # Fit model with multiple smooths
     from aurora.models.gamm import fit_gamm
 
     result = fit_gamm(
-        formula='count ~ s(time) + s(temperature) + (1 | subject)',
+        formula="count ~ s(time) + s(temperature) + (1 | subject)",
         data=data,
-        family='poisson',
+        family="poisson",
         maxiter=10,
     )
 
     # Check results
     assert result.converged
-    assert result.family == 'poisson'
-    assert 's(time)' in result.beta_smooth
-    assert 's(temperature)' in result.beta_smooth
-    assert 's(time)' in result.edf_smooth
-    assert 's(temperature)' in result.edf_smooth
+    assert result.family == "poisson"
+    assert "s(time)" in result.beta_smooth
+    assert "s(temperature)" in result.beta_smooth
+    assert "s(time)" in result.edf_smooth
+    assert "s(temperature)" in result.edf_smooth
 
 
 def test_gamm_smooth_with_parametric():
@@ -187,27 +175,22 @@ def test_gamm_smooth_with_parametric():
     y = np.random.poisson(mu_true)
 
     # Create DataFrame
-    data = pd.DataFrame({
-        'y': y,
-        'x_smooth': x_smooth,
-        'x_para': x_para,
-        'subject': groups
-    })
+    data = pd.DataFrame({"y": y, "x_smooth": x_smooth, "x_para": x_para, "subject": groups})
 
     # Fit model
     from aurora.models.gamm import fit_gamm
 
     result = fit_gamm(
-        formula='y ~ x_para + s(x_smooth) + (1 | subject)',
+        formula="y ~ x_para + s(x_smooth) + (1 | subject)",
         data=data,
-        family='poisson',
+        family="poisson",
         maxiter=10,
     )
 
     # Check results
     assert result.converged
     assert result.beta_parametric.shape[0] == 2  # Intercept + x_para
-    assert 's(x_smooth)' in result.beta_smooth
+    assert "s(x_smooth)" in result.beta_smooth
 
 
 def test_gamm_smooth_custom_parameters():
@@ -226,24 +209,20 @@ def test_gamm_smooth_custom_parameters():
     mu_true = np.exp(eta_true)
     y = np.random.poisson(mu_true)
 
-    data = pd.DataFrame({
-        'y': y,
-        'x': x,
-        'subject': groups
-    })
+    data = pd.DataFrame({"y": y, "x": x, "subject": groups})
 
     # Fit with custom basis size
     from aurora.models.gamm import fit_gamm
 
     result = fit_gamm(
-        formula='y ~ s(x, k=8) + (1 | subject)',  # 8 basis functions instead of default 10
+        formula="y ~ s(x, k=8) + (1 | subject)",  # 8 basis functions instead of default 10
         data=data,
-        family='poisson',
+        family="poisson",
         maxiter=10,
     )
 
     # Check custom basis size was used
-    assert result.beta_smooth['s(x)'].shape[0] == 8
+    assert result.beta_smooth["s(x)"].shape[0] == 8
 
 
 def test_gamm_smooth_validation():
@@ -253,24 +232,20 @@ def test_gamm_smooth_validation():
     groups = np.repeat(np.arange(5), 10)
     y = np.random.poisson(1, size=n)
 
-    data = pd.DataFrame({
-        'y': y,
-        'x': x,
-        'subject': groups
-    })
+    data = pd.DataFrame({"y": y, "x": x, "subject": groups})
 
     from aurora.models.gamm import fit_gamm
 
     # Variable not in data
     with pytest.raises(ValueError, match="not found in data"):
         fit_gamm(
-            formula='y ~ s(unknown_var) + (1 | subject)',
+            formula="y ~ s(unknown_var) + (1 | subject)",
             data=data,
-            family='poisson',
+            family="poisson",
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run tests
     test_gamm_poisson_smooth_formula()
     print("✓ Poisson smooth formula test passed")

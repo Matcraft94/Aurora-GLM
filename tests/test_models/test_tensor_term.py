@@ -1,4 +1,5 @@
 """Tests for TensorTerm specification."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,16 +12,16 @@ def test_tensor_term_basic():
     term = TensorTerm(variables=(0, 1))
 
     assert term.variables == (0, 1)
-    assert term.basis_types == ('bspline', 'bspline')
+    assert term.basis_types == ("bspline", "bspline")
     assert term.n_basis == (10, 10)
     assert term.lambdas is None
 
 
 def test_tensor_term_named_variables():
     """TensorTerm should work with named variables."""
-    term = TensorTerm(variables=('x1', 'x2'))
+    term = TensorTerm(variables=("x1", "x2"))
 
-    assert term.variables == ('x1', 'x2')
+    assert term.variables == ("x1", "x2")
 
 
 def test_tensor_term_custom_n_basis():
@@ -32,30 +33,21 @@ def test_tensor_term_custom_n_basis():
 
 def test_tensor_term_custom_basis_types():
     """TensorTerm should accept different basis types."""
-    term = TensorTerm(
-        variables=(0, 1),
-        basis_types=('bspline', 'cubic')
-    )
+    term = TensorTerm(variables=(0, 1), basis_types=("bspline", "cubic"))
 
-    assert term.basis_types == ('bspline', 'cubic')
+    assert term.basis_types == ("bspline", "cubic")
 
 
 def test_tensor_term_with_lambdas():
     """TensorTerm should accept fixed smoothing parameters."""
-    term = TensorTerm(
-        variables=(0, 1),
-        lambdas=(0.1, 0.5)
-    )
+    term = TensorTerm(variables=(0, 1), lambdas=(0.1, 0.5))
 
     assert term.lambdas == (0.1, 0.5)
 
 
 def test_tensor_term_three_variables():
     """TensorTerm should work with 3+ variables."""
-    term = TensorTerm(
-        variables=(0, 1, 2),
-        n_basis=(8, 10, 12)
-    )
+    term = TensorTerm(variables=(0, 1, 2), n_basis=(8, 10, 12))
 
     assert len(term.variables) == 3
     assert term.n_basis == (8, 10, 12)
@@ -72,7 +64,7 @@ def test_tensor_term_validation_basis_types_length():
     with pytest.raises(ValueError, match="same length as variables"):
         TensorTerm(
             variables=(0, 1),
-            basis_types=('bspline',)  # Too short
+            basis_types=("bspline",),  # Too short
         )
 
 
@@ -81,7 +73,7 @@ def test_tensor_term_validation_n_basis_length():
     with pytest.raises(ValueError, match="same length as variables"):
         TensorTerm(
             variables=(0, 1),
-            n_basis=(10, 12, 8)  # Too long
+            n_basis=(10, 12, 8),  # Too long
         )
 
 
@@ -90,7 +82,7 @@ def test_tensor_term_validation_lambdas_length():
     with pytest.raises(ValueError, match="same length as variables"):
         TensorTerm(
             variables=(0, 1),
-            lambdas=(0.1,)  # Too short
+            lambdas=(0.1,),  # Too short
         )
 
 
@@ -99,7 +91,7 @@ def test_tensor_term_validation_min_n_basis():
     with pytest.raises(ValueError, match="at least 3"):
         TensorTerm(
             variables=(0, 1),
-            n_basis=(10, 2)  # Second one too small
+            n_basis=(10, 2),  # Second one too small
         )
 
 
@@ -108,7 +100,7 @@ def test_tensor_term_validation_negative_lambda():
     with pytest.raises(ValueError, match="non-negative"):
         TensorTerm(
             variables=(0, 1),
-            lambdas=(0.1, -0.5)  # Second one negative
+            lambdas=(0.1, -0.5),  # Second one negative
         )
 
 
@@ -117,14 +109,14 @@ def test_tensor_term_validation_unsupported_basis():
     with pytest.raises(NotImplementedError, match="not supported"):
         TensorTerm(
             variables=(0, 1),
-            basis_types=('bspline', 'tp')  # tp not yet supported
+            basis_types=("bspline", "tp"),  # tp not yet supported
         )
 
 
 def test_tensor_term_repr():
     """TensorTerm should have informative repr."""
-    term = TensorTerm(variables=('x1', 'x2'), n_basis=(12, 15))
+    term = TensorTerm(variables=("x1", "x2"), n_basis=(12, 15))
 
     repr_str = repr(term)
-    assert 'TensorTerm' in repr_str
-    assert 'x1' in repr_str or '0' in repr_str
+    assert "TensorTerm" in repr_str
+    assert "x1" in repr_str or "0" in repr_str

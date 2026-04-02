@@ -1,4 +1,5 @@
 """Tests for GAM fitting functionality."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -115,9 +116,7 @@ def test_fit_gam_different_degrees():
     assert result_cubic.coefficients.shape[0] == 12
 
     # Should give different fits
-    assert not np.allclose(
-        result_linear.fitted_values, result_cubic.fitted_values
-    )
+    assert not np.allclose(result_linear.fitted_values, result_cubic.fitted_values)
 
 
 def test_fit_gam_knot_methods():
@@ -318,9 +317,7 @@ def test_fit_gam_penalty_orders():
     assert result_order2.coefficients.shape[0] == 12
 
     # Should give different fits
-    assert not np.allclose(
-        result_order1.fitted_values, result_order2.fitted_values
-    )
+    assert not np.allclose(result_order1.fitted_values, result_order2.fitted_values)
 
 
 def test_fit_gam_linear_function():

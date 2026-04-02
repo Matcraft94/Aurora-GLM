@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import LinkFunction
 from .._utils import (
     as_namespace_array,
     clip_probability,
@@ -15,6 +14,7 @@ from .._utils import (
     namespace,
     ones_like,
 )
+from ..base import LinkFunction
 
 try:  # pragma: no cover - optional dependency
     import torch

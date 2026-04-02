@@ -1,12 +1,13 @@
 """Tests for cross-validation utilities."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from aurora.models.glm import fit_glm
-from aurora.validation.metrics import mean_squared_error
 from aurora.validation.cross_val import CrossValResult, KFold, StratifiedKFold, cross_val_score
+from aurora.validation.metrics import mean_squared_error
 
 
 def _dataset(seed: int = 2024) -> tuple[np.ndarray, np.ndarray]:
@@ -235,10 +236,10 @@ def test_stratified_kfold_shuffle_is_reproducible():
     splitter = StratifiedKFold(n_splits=4, shuffle=True, random_state=7)
     first = list(splitter.split(X, y))
     second = list(splitter.split(X, y))
-    assert all(np.array_equal(f1[0], f2[0]) and np.array_equal(f1[1], f2[1]) for f1, f2 in zip(first, second))
+    assert all(
+        np.array_equal(f1[0], f2[0]) and np.array_equal(f1[1], f2[1])
+        for f1, f2 in zip(first, second, strict=False)
+    )
 
     different = list(StratifiedKFold(n_splits=4, shuffle=True, random_state=9).split(X, y))
-    assert any(
-        not np.array_equal(f1[1], f2[1])
-        for f1, f2 in zip(first, different)
-    )
+    assert any(not np.array_equal(f1[1], f2[1]) for f1, f2 in zip(first, different, strict=False))

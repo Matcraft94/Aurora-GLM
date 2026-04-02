@@ -22,8 +22,10 @@ Examples
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -31,6 +33,8 @@ from .optimizers import AdamOptimizer, Optimizer
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["fit_glm_sgd", "SGDResult"]
 
@@ -47,7 +51,7 @@ def fit_glm_sgd(
     n_features: int | None = None,
     verbose: bool = False,
     seed: int | None = None,
-) -> "SGDResult":
+) -> SGDResult:
     """Fit GLM using mini-batch stochastic gradient descent.
 
     This function fits a GLM by iterating through data in batches,
@@ -156,9 +160,7 @@ def fit_glm_sgd(
             # Initialize beta on first batch
             if beta is None:
                 if n_features is not None and p != n_features:
-                    raise ValueError(
-                        f"Expected {n_features} features but got {p}"
-                    )
+                    raise ValueError(f"Expected {n_features} features but got {p}")
                 beta = np.zeros(p)
 
             # Forward pass
@@ -189,7 +191,7 @@ def fit_glm_sgd(
         loss_history.append(avg_loss)
 
         if verbose:
-            print(f"Epoch {epoch + 1}/{max_epochs}: loss = {avg_loss:.6f}")
+            logger.info("Epoch %d/%d: loss = %.6f", epoch + 1, max_epochs, avg_loss)
 
     # Final predictions on all data
     all_mu = []
@@ -284,7 +286,7 @@ class SGDResult:
 
 def _create_optimizer(name: str, learning_rate: float) -> Optimizer:
     """Create optimizer by name."""
-    from .optimizers import SGDOptimizer, AdamOptimizer, AdaGradOptimizer
+    from .optimizers import AdaGradOptimizer, SGDOptimizer
 
     if name == "adam":
         return AdamOptimizer(learning_rate=learning_rate)

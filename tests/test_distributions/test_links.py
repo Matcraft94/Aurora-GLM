@@ -1,4 +1,5 @@
 """Unit tests for standard link functions."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -9,8 +10,8 @@ from aurora.distributions.links import (
     IdentityLink,
     InverseLink,
     InverseSquareLink,
-    LogLink,
     LogitLink,
+    LogLink,
     PowerLink,
     ProbitLink,
     SqrtLink,
@@ -156,43 +157,43 @@ def test_cloglog_link_clips_extremes(xp):
 # ProbitLink Tests
 # ============================================================================
 
+
 @pytest.mark.parametrize("xp", _namespaces())
 def test_probit_link_roundtrip(xp):
     """Test that inverse(link(mu)) ≈ mu for Probit link."""
     link = ProbitLink()
     mu_values = [0.1, 0.3, 0.5, 0.7, 0.9]
     mu = _as_array(xp, mu_values)
-    
+
     eta = link.link(mu)
     mu_back = link.inverse(eta)
-    
+
     assert _allclose(mu_back, mu_values, xp, rtol=1e-6)
 
 
 @pytest.mark.parametrize("xp", _namespaces())
 def test_probit_link_known_values(xp):
     """Test Probit link against known values.
-    
+
     For standard normal:
     - Φ^{-1}(0.5) = 0
     - Φ^{-1}(0.84134) ≈ 1
     - Φ^{-1}(0.15866) ≈ -1
     """
-    from scipy.stats import norm
-    
+
     link = ProbitLink()
     mu = _as_array(xp, [0.5, 0.8413447, 0.1586553])
-    
+
     eta = link.link(mu)
     expected_eta = [0.0, 1.0, -1.0]
-    
+
     assert _allclose(eta, expected_eta, xp, atol=1e-4, rtol=1e-3)
 
 
 @pytest.mark.parametrize("xp", _namespaces())
 def test_probit_inverse_known_values(xp):
     """Test Probit inverse against known values.
-    
+
     For standard normal:
     - Φ(0) = 0.5
     - Φ(1) ≈ 0.8413
@@ -200,10 +201,10 @@ def test_probit_inverse_known_values(xp):
     """
     link = ProbitLink()
     eta = _as_array(xp, [0.0, 1.0, -1.0])
-    
+
     mu = link.inverse(eta)
     expected_mu = [0.5, 0.8413447, 0.1586553]
-    
+
     assert _allclose(mu, expected_mu, xp, atol=1e-4, rtol=1e-3)
 
 
@@ -212,9 +213,9 @@ def test_probit_link_derivative_positive(xp):
     """Test that Probit derivative is always positive."""
     link = ProbitLink()
     mu = _as_array(xp, [0.1, 0.3, 0.5, 0.7, 0.9])
-    
+
     deriv = link.derivative(mu)
-    
+
     if xp is np:
         assert np.all(deriv > 0)
     else:
@@ -225,17 +226,17 @@ def test_probit_link_derivative_positive(xp):
 def test_probit_link_derivative_formula(xp):
     """Test Probit derivative: dη/dμ = 1/φ(Φ^{-1}(μ))."""
     from scipy.stats import norm
-    
+
     link = ProbitLink()
     mu_values = [0.2, 0.5, 0.8]
     mu = _as_array(xp, mu_values)
-    
+
     deriv = link.derivative(mu)
-    
+
     # Expected: 1/φ(Φ^{-1}(μ))
     z = norm.ppf(mu_values)
     expected_deriv = 1.0 / norm.pdf(z)
-    
+
     assert _allclose(deriv, expected_deriv, xp, rtol=1e-5)
 
 
@@ -244,9 +245,9 @@ def test_probit_link_clips_extremes(xp):
     """Test that Probit handles extreme values (near 0 and 1)."""
     link = ProbitLink()
     mu = _as_array(xp, [0.001, 0.999])
-    
+
     eta = link.link(mu)
-    
+
     if xp is np:
         assert np.all(np.isfinite(eta))
     else:
@@ -256,24 +257,24 @@ def test_probit_link_clips_extremes(xp):
 @pytest.mark.parametrize("xp", _namespaces())
 def test_probit_vs_logit_similarity(xp):
     """Test that Probit and Logit are similar in the middle range.
-    
+
     For μ ∈ [0.2, 0.8], Probit ≈ (π/√3) × Logit at μ ≠ 0.5
     At μ = 0.5, both are 0, so we exclude it from ratio comparison.
     """
     probit = ProbitLink()
     logit = LogitLink()
-    
+
     # Exclude 0.5 where both are 0 (causes division issues)
     mu = _as_array(xp, [0.3, 0.4, 0.6, 0.7])
-    
+
     eta_probit = probit.link(mu)
     eta_logit = logit.link(mu)
-    
+
     # Scaling factor: π/√3 ≈ 1.814
     scale = np.pi / np.sqrt(3)
-    
+
     scaled_logit = eta_logit / scale
-    
+
     # Should be approximately equal (within 15% - approximation is rough)
     if xp is np:
         ratio = eta_probit / scaled_logit
@@ -287,16 +288,17 @@ def test_probit_vs_logit_similarity(xp):
 # InverseSquareLink Tests
 # ============================================================================
 
+
 @pytest.mark.parametrize("xp", _namespaces())
 def test_inverse_square_link_roundtrip(xp):
     """Test that inverse(link(mu)) ≈ mu for InverseSquare link."""
     link = InverseSquareLink()
     mu_values = [0.5, 1.0, 2.0, 4.0]
     mu = _as_array(xp, mu_values)
-    
+
     eta = link.link(mu)
     mu_back = link.inverse(eta)
-    
+
     assert _allclose(mu_back, mu_values, xp, rtol=1e-6)
 
 
@@ -306,10 +308,10 @@ def test_inverse_square_link_formula(xp):
     link = InverseSquareLink()
     mu_values = [0.5, 1.0, 2.0]
     mu = _as_array(xp, mu_values)
-    
+
     eta = link.link(mu)
     expected_eta = [4.0, 1.0, 0.25]
-    
+
     assert _allclose(eta, expected_eta, xp)
 
 
@@ -319,10 +321,10 @@ def test_inverse_square_link_derivative(xp):
     link = InverseSquareLink()
     mu_values = [0.5, 1.0, 2.0]
     mu = _as_array(xp, mu_values)
-    
+
     deriv = link.derivative(mu)
     expected_deriv = [-2.0 / (v**3) for v in mu_values]
-    
+
     assert _allclose(deriv, expected_deriv, xp)
 
 
@@ -330,16 +332,17 @@ def test_inverse_square_link_derivative(xp):
 # SqrtLink Tests
 # ============================================================================
 
+
 @pytest.mark.parametrize("xp", _namespaces())
 def test_sqrt_link_roundtrip(xp):
     """Test that inverse(link(mu)) ≈ mu for Sqrt link."""
     link = SqrtLink()
     mu_values = [0.25, 1.0, 4.0, 9.0]
     mu = _as_array(xp, mu_values)
-    
+
     eta = link.link(mu)
     mu_back = link.inverse(eta)
-    
+
     assert _allclose(mu_back, mu_values, xp)
 
 
@@ -349,16 +352,17 @@ def test_sqrt_link_formula(xp):
     link = SqrtLink()
     mu_values = [1.0, 4.0, 9.0, 16.0]
     mu = _as_array(xp, mu_values)
-    
+
     eta = link.link(mu)
     expected_eta = [1.0, 2.0, 3.0, 4.0]
-    
+
     assert _allclose(eta, expected_eta, xp)
 
 
 # ============================================================================
 # PowerLink Tests
 # ============================================================================
+
 
 @pytest.mark.parametrize("xp", _namespaces())
 def test_power_link_roundtrip(xp):
@@ -367,10 +371,10 @@ def test_power_link_roundtrip(xp):
         link = PowerLink(power=power)
         mu_values = [0.5, 1.0, 2.0]
         mu = _as_array(xp, mu_values)
-        
+
         eta = link.link(mu)
         mu_back = link.inverse(eta)
-        
+
         assert _allclose(mu_back, mu_values, xp, rtol=1e-5)
 
 
@@ -379,10 +383,10 @@ def test_power_link_zero_power_is_log(xp):
     """Test that power=0 acts like log link."""
     power_link = PowerLink(power=0.0)
     log_link = LogLink()
-    
+
     mu = _as_array(xp, [0.5, 1.0, 2.0])
-    
+
     eta_power = power_link.link(mu)
     eta_log = log_link.link(mu)
-    
+
     assert _allclose(eta_power, eta_log, xp, rtol=1e-5)

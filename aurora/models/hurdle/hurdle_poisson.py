@@ -26,16 +26,18 @@ are separable - they can be fit independently.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.special import gammaln
 
 from .truncated import TruncatedPoissonFamily
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["fit_hurdle_poisson", "HurdlePoissonResult"]
 
@@ -47,7 +49,7 @@ def fit_hurdle_poisson(
     max_iter: int = 50,
     tol: float = 1e-6,
     verbose: bool = False,
-) -> "HurdlePoissonResult":
+) -> HurdlePoissonResult:
     """Fit Hurdle Poisson model.
 
     Two-stage fitting:
@@ -118,7 +120,7 @@ def fit_hurdle_poisson(
     y_binary = (y > 0).astype(float)
 
     if verbose:
-        print("Stage 1: Fitting binary model...")
+        logger.info("Stage 1: Fitting binary model...")
 
     gamma = _fit_logistic(X_binary, y_binary, max_iter=max_iter, tol=tol)
     eta_binary = X_binary @ gamma
@@ -135,7 +137,7 @@ def fit_hurdle_poisson(
     X_pos = X_count[mask_positive]
 
     if verbose:
-        print(f"Stage 2: Fitting truncated Poisson on {n_positive} positive counts...")
+        logger.info("Stage 2: Fitting truncated Poisson on %d positive counts...", n_positive)
 
     beta = _fit_truncated_poisson(X_pos, y_pos, max_iter=max_iter, tol=tol)
     mu_all = np.exp(np.clip(X_count @ beta, -20, 20))
@@ -180,14 +182,12 @@ def fit_hurdle_poisson(
     )
 
 
-def _fit_logistic(
-    X: NDArray, y: NDArray, max_iter: int = 50, tol: float = 1e-6
-) -> NDArray:
+def _fit_logistic(X: NDArray, y: NDArray, max_iter: int = 50, tol: float = 1e-6) -> NDArray:
     """Fit logistic regression via IRLS."""
     n, p = X.shape
     gamma = np.zeros(p)
 
-    for iteration in range(max_iter):
+    for _iteration in range(max_iter):
         eta = X @ gamma
         pi = 1 / (1 + np.exp(-eta))
         pi = np.clip(pi, 1e-10, 1 - 1e-10)
@@ -229,7 +229,7 @@ def _fit_truncated_poisson(
     beta = np.zeros(p)
     beta[0] = np.log(max(y.mean(), 1))  # Initialize at data mean
 
-    for iteration in range(max_iter):
+    for _iteration in range(max_iter):
         eta = np.clip(X @ beta, -20, 20)
         mu = np.exp(eta)
 

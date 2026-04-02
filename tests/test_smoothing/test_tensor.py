@@ -1,8 +1,8 @@
 """Tests for tensor product smooths."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from aurora.smoothing.splines.bspline import BSplineBasis
 from aurora.smoothing.splines.cubic import CubicSplineBasis
@@ -169,23 +169,20 @@ def test_fit_tensor_product_basic():
     S2 = basis2.penalty_matrix(order=2)
 
     # Fit tensor product
-    result = fit_tensor_product(
-        x1, x2, y, basis1, basis2, S1, S2,
-        lambda1=0.001, lambda2=0.001
-    )
+    result = fit_tensor_product(x1, x2, y, basis1, basis2, S1, S2, lambda1=0.001, lambda2=0.001)
 
     # Check result structure
-    assert 'coefficients' in result
-    assert 'fitted_values' in result
-    assert 'basis_matrix' in result
-    assert 'edf' in result
+    assert "coefficients" in result
+    assert "fitted_values" in result
+    assert "basis_matrix" in result
+    assert "edf" in result
 
     # Check shapes
-    assert result['fitted_values'].shape == (n,)
-    assert result['coefficients'].shape[0] == 10 * 10
+    assert result["fitted_values"].shape == (n,)
+    assert result["coefficients"].shape[0] == 10 * 10
 
     # Check fit quality
-    r_squared = 1 - np.sum((y - result['fitted_values'])**2) / np.sum((y - np.mean(y))**2)
+    r_squared = 1 - np.sum((y - result["fitted_values"]) ** 2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.7  # Should capture interaction well
 
 
@@ -209,12 +206,10 @@ def test_fit_tensor_product_with_weights():
     S2 = basis2.penalty_matrix(order=2)
 
     result = fit_tensor_product(
-        x1, x2, y, basis1, basis2, S1, S2,
-        lambda1=0.01, lambda2=0.01,
-        weights=weights
+        x1, x2, y, basis1, basis2, S1, S2, lambda1=0.01, lambda2=0.01, weights=weights
     )
 
-    assert result['fitted_values'].shape == (n,)
+    assert result["fitted_values"].shape == (n,)
 
 
 def test_fit_tensor_product_different_smoothing():
@@ -239,13 +234,19 @@ def test_fit_tensor_product_different_smoothing():
 
     # More smoothing in x1, less in x2
     result = fit_tensor_product(
-        x1, x2, y, basis1, basis2, S1, S2,
-        lambda1=1.0,    # Smoother in x1
-        lambda2=0.001   # More flexible in x2
+        x1,
+        x2,
+        y,
+        basis1,
+        basis2,
+        S1,
+        S2,
+        lambda1=1.0,  # Smoother in x1
+        lambda2=0.001,  # More flexible in x2
     )
 
     # Should still provide reasonable fit
-    r_squared = 1 - np.sum((y - result['fitted_values'])**2) / np.sum((y - np.mean(y))**2)
+    r_squared = 1 - np.sum((y - result["fitted_values"]) ** 2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.5
 
 
@@ -267,15 +268,12 @@ def test_fit_tensor_product_edf():
     S1 = basis1.penalty_matrix(order=2)
     S2 = basis2.penalty_matrix(order=2)
 
-    result = fit_tensor_product(
-        x1, x2, y, basis1, basis2, S1, S2,
-        lambda1=0.1, lambda2=0.1
-    )
+    result = fit_tensor_product(x1, x2, y, basis1, basis2, S1, S2, lambda1=0.1, lambda2=0.1)
 
     # EDF should be positive and less than total parameters
-    assert result['edf'] > 0
-    assert result['edf'] < 6 * 6
-    assert np.isfinite(result['edf'])
+    assert result["edf"] > 0
+    assert result["edf"] < 6 * 6
+    assert np.isfinite(result["edf"])
 
 
 def test_tensor_product_additive_vs_interaction():
@@ -301,8 +299,7 @@ def test_tensor_product_additive_vs_interaction():
 
     # Fit tensor product (captures interaction)
     result_tensor = fit_tensor_product(
-        x1, x2, y, basis1, basis2, S1, S2,
-        lambda1=0.01, lambda2=0.01
+        x1, x2, y, basis1, basis2, S1, S2, lambda1=0.01, lambda2=0.01
     )
 
     # Fit additive model (no interaction)
@@ -311,6 +308,7 @@ def test_tensor_product_additive_vs_interaction():
     B_additive = np.column_stack([B1, B2])
 
     from scipy.linalg import block_diag
+
     S_additive = block_diag(S1, S2)
 
     # Simple penalized fit
@@ -321,8 +319,10 @@ def test_tensor_product_additive_vs_interaction():
     fitted_additive = B_additive @ coef_additive
 
     # Compute R² for both
-    r2_tensor = 1 - np.sum((y - result_tensor['fitted_values'])**2) / np.sum((y - np.mean(y))**2)
-    r2_additive = 1 - np.sum((y - fitted_additive)**2) / np.sum((y - np.mean(y))**2)
+    r2_tensor = 1 - np.sum((y - result_tensor["fitted_values"]) ** 2) / np.sum(
+        (y - np.mean(y)) ** 2
+    )
+    r2_additive = 1 - np.sum((y - fitted_additive) ** 2) / np.sum((y - np.mean(y)) ** 2)
 
     # Tensor product should be much better at capturing pure interaction
     assert r2_tensor > r2_additive + 0.2  # At least 20% better

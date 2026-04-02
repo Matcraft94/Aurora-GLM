@@ -128,9 +128,7 @@ def plot_caterpillar(
 
         if info is None:
             available = [z["grouping"] for z in result._Z_info]
-            raise ValueError(
-                f"Grouping '{grouping}' not found in model. Available: {available}"
-            )
+            raise ValueError(f"Grouping '{grouping}' not found in model. Available: {available}")
 
     # Check effect_index is valid
     if effect_index >= info["n_effects"]:
@@ -382,9 +380,7 @@ def plot_random_effects_density(
     # Determine grouping
     if grouping is None:
         if len(result._Z_info) > 1:
-            raise ValueError(
-                "Model has multiple grouping variables. Please specify which one."
-            )
+            raise ValueError("Model has multiple grouping variables. Please specify which one.")
         grouping_to_plot = result._Z_info[0]["grouping"]
         info = result._Z_info[0]
     else:
@@ -401,9 +397,7 @@ def plot_random_effects_density(
 
     # Check effect_index
     if effect_index >= info["n_effects"]:
-        raise ValueError(
-            f"effect_index={effect_index} invalid for {info['n_effects']} effects"
-        )
+        raise ValueError(f"effect_index={effect_index} invalid for {info['n_effects']} effects")
 
     # Extract random effects
     # GAMMResult already has random_effects in the correct format
@@ -543,9 +537,7 @@ def plot_diagnostics(
             sort_idx = np.argsort(fitted)
             fitted_sorted = fitted[sort_idx]
             residuals_sorted = residuals[sort_idx]
-            smooth = gaussian_filter1d(
-                residuals_sorted, sigma=max(1, len(fitted) // 20)
-            )
+            smooth = gaussian_filter1d(residuals_sorted, sigma=max(1, len(fitted) // 20))
             ax.plot(fitted_sorted, smooth, "b-", linewidth=2, alpha=0.7)
 
         ax.set_xlabel("Fitted Values")
@@ -589,9 +581,7 @@ def plot_diagnostics(
             sort_idx = np.argsort(fitted)
             fitted_sorted = fitted[sort_idx]
             sqrt_std_resid_sorted = sqrt_std_resid[sort_idx]
-            smooth = gaussian_filter1d(
-                sqrt_std_resid_sorted, sigma=max(1, len(fitted) // 20)
-            )
+            smooth = gaussian_filter1d(sqrt_std_resid_sorted, sigma=max(1, len(fitted) // 20))
             ax.plot(fitted_sorted, smooth, "r-", linewidth=2, alpha=0.7)
 
         ax.set_xlabel("Fitted Values")
@@ -657,14 +647,10 @@ def plot_random_effects_summary(
     plot_caterpillar(result, grouping=grouping, effect_index=effect_index, ax=axes[0])
 
     # 2. Q-Q plot
-    plot_random_effects_qq(
-        result, grouping=grouping, effect_index=effect_index, ax=axes[1]
-    )
+    plot_random_effects_qq(result, grouping=grouping, effect_index=effect_index, ax=axes[1])
 
     # 3. Density plot
-    plot_random_effects_density(
-        result, grouping=grouping, effect_index=effect_index, ax=axes[2]
-    )
+    plot_random_effects_density(result, grouping=grouping, effect_index=effect_index, ax=axes[2])
 
     # 4. Residuals vs fitted
     plot_diagnostics(result, plot_type="residuals", ax=axes[3])
@@ -825,9 +811,7 @@ def plot_diagnostics_panel(
         ax.plot(h_range, r_neg, "r--", alpha=0.5, linewidth=0.8)
 
         # Label
-        ax.text(
-            h_range[-1], r_pos[-1], f"D={cook_d}", fontsize=8, color="red", alpha=0.7
-        )
+        ax.text(h_range[-1], r_pos[-1], f"D={cook_d}", fontsize=8, color="red", alpha=0.7)
 
     ax.set_xlabel("Leverage")
     ax.set_ylabel("Standardized residuals")
@@ -941,9 +925,7 @@ def plot_smooth_effect(
         x_data = result._data[var_name]
     else:
         # Use range from smooth info if available
-        x_data = np.linspace(
-            smooth_info.get("x_min", 0), smooth_info.get("x_max", 1), n_points
-        )
+        x_data = np.linspace(smooth_info.get("x_min", 0), smooth_info.get("x_max", 1), n_points)
 
     # Create evaluation grid
     x_grid = np.linspace(x_data.min(), x_data.max(), n_points)
@@ -954,9 +936,9 @@ def plot_smooth_effect(
     smooth_coefs = result.coefficients[coef_start:coef_end]
 
     # Build basis matrix for grid points
-    basis_type = smooth_info.get("basis", "cr")  # Default to cubic regression splines
+    smooth_info.get("basis", "cr")  # Default to cubic regression splines
     n_basis = smooth_info.get("n_basis", 10)
-    knots = smooth_info.get("knots", None)
+    smooth_info.get("knots", None)
 
     # Simple B-spline basis construction
     try:
@@ -1017,9 +999,7 @@ def plot_smooth_effect(
         smooth_at_data = X_data @ smooth_coefs
         partial_resid = smooth_at_data + result.residuals
 
-        ax.scatter(
-            x_data, partial_resid, alpha=0.3, s=20, c="gray", label="Partial residuals"
-        )
+        ax.scatter(x_data, partial_resid, alpha=0.3, s=20, c="gray", label="Partial residuals")
 
     # Rug plot
     if show_data:

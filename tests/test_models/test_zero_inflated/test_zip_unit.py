@@ -4,15 +4,13 @@ These tests verify individual components of the ZIP implementation
 in isolation.
 """
 
-import pytest
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less
+import pytest
+from numpy.testing import assert_allclose
 
 from aurora.models.zero_inflated import (
-    fit_zip,
-    fit_zinb,
-    ZIPResult,
     ZeroInflatedPoissonFamily,
+    fit_zip,
 )
 
 

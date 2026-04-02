@@ -1,4 +1,5 @@
 """Tests for GCV smoothing parameter selection."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -170,9 +171,7 @@ def test_select_smoothing_parameter_methods():
     )
 
     # GCV scores should be similar
-    np.testing.assert_allclose(
-        result_golden["gcv_score"], result_brent["gcv_score"], rtol=0.01
-    )
+    np.testing.assert_allclose(result_golden["gcv_score"], result_brent["gcv_score"], rtol=0.01)
 
 
 def test_select_smoothing_parameter_with_weights():
@@ -320,9 +319,7 @@ def test_select_smoothing_parameter_lambda_bounds():
     S = basis.penalty_matrix(order=2)
 
     # Narrow bounds
-    result = select_smoothing_parameter(
-        y, X, S, lambda_min=0.1, lambda_max=1.0
-    )
+    result = select_smoothing_parameter(y, X, S, lambda_min=0.1, lambda_max=1.0)
 
     # Should be within bounds
     assert 0.1 <= result["lambda_opt"] <= 1.0

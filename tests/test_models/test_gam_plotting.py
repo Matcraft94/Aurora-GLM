@@ -1,11 +1,11 @@
 """Tests for GAM plotting functions."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from aurora.models.gam import (
-    AdditiveGAMResult,
     ParametricTerm,
     SmoothTerm,
     fit_additive_gam,
@@ -53,12 +53,7 @@ def test_plot_smooth_univariate_custom_labels():
 
     result = fit_gam(x, y, n_basis=15)
 
-    fig = plot_smooth(
-        result,
-        title="Custom Title",
-        xlabel="Custom X",
-        ylabel="Custom Y"
-    )
+    fig = plot_smooth(result, title="Custom Title", xlabel="Custom X", ylabel="Custom Y")
 
     ax = fig.axes[0]
     assert ax.get_title() == "Custom Title"
@@ -115,11 +110,7 @@ def test_plot_smooth_additive_single_term():
     y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0, n_basis=12),
-            SmoothTerm(variable=1, n_basis=12)
-        ]
+        X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=12), SmoothTerm(variable=1, n_basis=12)]
     )
 
     # Plot first term using term name
@@ -141,10 +132,7 @@ def test_plot_smooth_additive_requires_term():
     X = np.random.randn(n, 2)
     y = np.sin(X[:, 0]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0)]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0)])
 
     # Should raise error without term
     with pytest.raises(ValueError, match="must specify which term"):
@@ -159,10 +147,7 @@ def test_plot_smooth_additive_invalid_term():
     X = np.random.randn(n, 2)
     y = np.sin(X[:, 0]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0)]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0)])
 
     with pytest.raises(ValueError, match="not found"):
         plot_smooth(result, term="s(5)")
@@ -208,18 +193,16 @@ def test_plot_all_smooths_basic():
     n = 150
 
     X = np.random.randn(n, 3)
-    y = (np.sin(2 * X[:, 0]) +
-         np.cos(X[:, 1]) +
-         X[:, 2]**2 +
-         0.1 * rng.normal(size=n))
+    y = np.sin(2 * X[:, 0]) + np.cos(X[:, 1]) + X[:, 2] ** 2 + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[
             SmoothTerm(variable=0, n_basis=10),
             SmoothTerm(variable=1, n_basis=10),
-            SmoothTerm(variable=2, n_basis=10)
-        ]
+            SmoothTerm(variable=2, n_basis=10),
+        ],
     )
 
     fig = plot_all_smooths(result, ncols=2)
@@ -240,10 +223,7 @@ def test_plot_all_smooths_single_term():
     X = np.random.randn(n, 1)
     y = np.sin(X[:, 0]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0)]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0)])
 
     fig = plot_all_smooths(result)
 
@@ -260,18 +240,17 @@ def test_plot_all_smooths_ncols():
     n = 150
 
     X = np.random.randn(n, 4)
-    y = (np.sin(X[:, 0]) + np.cos(X[:, 1]) +
-         X[:, 2]**2 + X[:, 3] +
-         0.1 * rng.normal(size=n))
+    y = np.sin(X[:, 0]) + np.cos(X[:, 1]) + X[:, 2] ** 2 + X[:, 3] + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
+        X,
+        y,
         smooth_terms=[
             SmoothTerm(variable=0),
             SmoothTerm(variable=1),
             SmoothTerm(variable=2),
-            SmoothTerm(variable=3)
-        ]
+            SmoothTerm(variable=3),
+        ],
     )
 
     # 4 terms with ncols=2 should give 2 rows
@@ -292,13 +271,7 @@ def test_plot_all_smooths_no_partial_residuals():
     X = np.random.randn(n, 2)
     y = np.sin(X[:, 0]) + np.cos(X[:, 1]) + 0.1 * rng.normal(size=n)
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[
-            SmoothTerm(variable=0),
-            SmoothTerm(variable=1)
-        ]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0), SmoothTerm(variable=1)])
 
     fig = plot_all_smooths(result, partial_residuals=False)
 
@@ -368,9 +341,7 @@ def test_plot_smooth_additive_with_parametric():
     y = np.sin(X[:, 0]) + 2 * X[:, 1] + 0.1 * rng.normal(size=n)
 
     result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0)],
-        parametric_terms=[ParametricTerm(variable=1)]
+        X, y, smooth_terms=[SmoothTerm(variable=0)], parametric_terms=[ParametricTerm(variable=1)]
     )
 
     # Plot the smooth term

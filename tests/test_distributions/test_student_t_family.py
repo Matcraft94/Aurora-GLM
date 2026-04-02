@@ -47,6 +47,7 @@ References
     "Multivariate Student-t regression models."
     Journal of the Royal Statistical Society: Series B, 61(3), 579-602.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -55,8 +56,8 @@ from scipy import special
 from scipy.stats import t as t_dist
 
 from aurora.distributions.families.student_t import (
-    StudentTFamily,
     CauchyFamily,
+    StudentTFamily,
 )
 
 
@@ -66,9 +67,10 @@ class TestStudentTFamilyBasic:
     def test_instantiation_default(self):
         """Test default instantiation with df=5, link='identity'."""
         from aurora.distributions.links import IdentityLink
+
         family = StudentTFamily()
         assert family.df == 5.0
-        assert family.name == 'student_t'
+        assert family.name == "student_t"
         assert isinstance(family.default_link, IdentityLink)
 
     def test_instantiation_custom_df(self):
@@ -94,21 +96,22 @@ class TestStudentTFamilyBasic:
     def test_link_log(self):
         """Test log link instantiation."""
         from aurora.distributions.links import LogLink
-        family = StudentTFamily(link='log')
+
+        family = StudentTFamily(link="log")
         assert isinstance(family.default_link, LogLink)
 
     def test_link_invalid(self):
         """Test invalid link raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported link"):
-            StudentTFamily(link='logit')
+            StudentTFamily(link="logit")
 
     def test_repr(self):
         """Test string representation."""
         family = StudentTFamily(df=5.0)
         repr_str = repr(family)
-        assert 'StudentTFamily' in repr_str
-        assert '5' in repr_str
-        assert 'identity' in repr_str
+        assert "StudentTFamily" in repr_str
+        assert "5" in repr_str
+        assert "identity" in repr_str
 
 
 class TestStudentTVariance:
@@ -175,10 +178,10 @@ class TestStudentTLogLikelihood:
         # Manual calculation
         z = (y - mu) / scale
         log_const = (
-            special.gammaln((df + 1) / 2) -
-            special.gammaln(df / 2) -
-            0.5 * np.log(df * np.pi) -
-            np.log(scale)
+            special.gammaln((df + 1) / 2)
+            - special.gammaln(df / 2)
+            - 0.5 * np.log(df * np.pi)
+            - np.log(scale)
         )
         log_kernel = -(df + 1) / 2 * np.log(1 + z**2 / df)
         expected = np.sum(log_const + log_kernel)
@@ -417,7 +420,7 @@ class TestCauchyFamily:
     def test_name(self):
         """Check the name attribute."""
         family = CauchyFamily()
-        assert family.name == 'cauchy'
+        assert family.name == "cauchy"
 
     def test_variance_infinite(self):
         """Cauchy has infinite variance."""
@@ -432,8 +435,8 @@ class TestCauchyFamily:
         """Test string representation."""
         family = CauchyFamily()
         repr_str = repr(family)
-        assert 'CauchyFamily' in repr_str
-        assert 'identity' in repr_str
+        assert "CauchyFamily" in repr_str
+        assert "identity" in repr_str
 
     def test_weights_extreme_downweighting(self):
         """Cauchy weights should downweight outliers more aggressively."""
@@ -466,6 +469,7 @@ class TestStudentTEdgeCases:
 
         # Gaussian log-likelihood (up to constants)
         from scipy.stats import norm
+
         ll_gaussian = np.sum(norm.logpdf(y, loc=mu, scale=scale))
 
         # Should be very close
@@ -533,5 +537,5 @@ class TestStudentTVsGaussian:
         assert w_large / w_small < 0.2
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

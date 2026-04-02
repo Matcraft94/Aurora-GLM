@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 
 from .backends import detect_backend

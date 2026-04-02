@@ -19,8 +19,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
@@ -34,7 +32,7 @@ def build_pymc_model(
     y: NDArray,
     family: str,
     link: str | None,
-    priors: "PriorSpec",
+    priors: PriorSpec,
 ) -> Any:
     """Build a PyMC model from Aurora GLM specification.
 
@@ -77,9 +75,7 @@ def build_pymc_model(
             beta = pm.Normal("beta", mu=coef_prior.mu, sigma=coef_prior.sigma, shape=p)
         elif hasattr(coef_prior, "loc") and hasattr(coef_prior, "scale"):
             # Cauchy or similar
-            beta = pm.Cauchy(
-                "beta", alpha=coef_prior.loc, beta=coef_prior.scale, shape=p
-            )
+            beta = pm.Cauchy("beta", alpha=coef_prior.loc, beta=coef_prior.scale, shape=p)
         else:
             # Default to Normal
             beta = pm.Normal("beta", mu=0, sigma=10, shape=p)

@@ -54,9 +54,9 @@ References
 
 from __future__ import annotations
 
-from .hurdle_poisson import fit_hurdle_poisson, HurdlePoissonResult
-from .hurdle_negbin import fit_hurdle_negbin, HurdleNegBinResult
-from .truncated import TruncatedPoissonFamily, TruncatedNegBinFamily
+from .hurdle_negbin import HurdleNegBinResult, fit_hurdle_negbin
+from .hurdle_poisson import HurdlePoissonResult, fit_hurdle_poisson
+from .truncated import TruncatedNegBinFamily, TruncatedPoissonFamily
 
 __all__ = [
     "fit_hurdle_poisson",

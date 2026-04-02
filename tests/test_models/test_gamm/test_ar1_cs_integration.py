@@ -12,7 +12,7 @@ realistic GAMM fitting scenarios, including:
 import numpy as np
 import pytest
 
-from aurora.models.gamm import fit_gamm, RandomEffect, predict_from_gamm
+from aurora.models.gamm import RandomEffect, fit_gamm, predict_from_gamm
 
 
 class TestAR1Integration:
@@ -68,7 +68,10 @@ class TestAR1Integration:
         # Fit GAMM with AR1
         re = RandomEffect(grouping="subject", covariance="ar1")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"subject": data["subject_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"subject": data["subject_id"]},
         )
 
         # Check convergence
@@ -87,7 +90,10 @@ class TestAR1Integration:
         # Fit GAMM with AR1
         re = RandomEffect(grouping="subject", covariance="ar1")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"subject": data["subject_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"subject": data["subject_id"]},
         )
 
         # Extract estimates
@@ -102,12 +108,11 @@ class TestAR1Integration:
         # Check fixed effects (more lenient for temporal covariance)
         # Temporal correlation makes between-subject effects harder to estimate
         true_beta = data["true_params"]["beta"]
-        for i, (est, true) in enumerate(zip(beta_est, true_beta)):
+        for i, (est, true) in enumerate(zip(beta_est, true_beta, strict=False)):
             rel_error = abs(est - true) / abs(true) if true != 0 else abs(est)
             # More lenient tolerance: 30% relative or 0.7 absolute for temporal models
             assert rel_error < 0.30 or abs(est - true) < 0.7, (
-                f"Beta[{i}] recovery failed: {est:.3f} vs {true:.3f} "
-                f"(rel_error={rel_error:.3f})"
+                f"Beta[{i}] recovery failed: {est:.3f} vs {true:.3f} (rel_error={rel_error:.3f})"
             )
 
         # Check AR1 parameters (more lenient tolerances)
@@ -121,7 +126,9 @@ class TestAR1Integration:
         )
 
         rho_abs_error = abs(rho_est - true_rho)
-        assert rho_abs_error < 0.20, f"Rho recovery: {rho_est:.3f} vs {true_rho:.3f} (error={rho_abs_error:.3f})"
+        assert rho_abs_error < 0.20, (
+            f"Rho recovery: {rho_est:.3f} vs {true_rho:.3f} (error={rho_abs_error:.3f})"
+        )
 
     def test_ar1_vs_independence(self, ar1_longitudinal_data):
         """AR1 should fit better than independence for AR1 data."""
@@ -130,13 +137,19 @@ class TestAR1Integration:
         # Fit with AR1
         re_ar1 = RandomEffect(grouping="subject", covariance="ar1")
         result_ar1 = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re_ar1], groups_data={"subject": data["subject_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re_ar1],
+            groups_data={"subject": data["subject_id"]},
         )
 
         # Fit with independence
         re_indep = RandomEffect(grouping="subject", covariance="identity")
         result_indep = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re_indep], groups_data={"subject": data["subject_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re_indep],
+            groups_data={"subject": data["subject_id"]},
         )
 
         # AR1 should have better AIC
@@ -155,7 +168,10 @@ class TestAR1Integration:
 
         re = RandomEffect(grouping="subject", covariance="ar1")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"subject": data["subject_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"subject": data["subject_id"]},
         )
 
         # Population-level prediction (new subject)
@@ -172,13 +188,18 @@ class TestAR1Integration:
 
         re = RandomEffect(grouping="subject", covariance="ar1")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"subject": data["subject_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"subject": data["subject_id"]},
         )
 
         # Conditional prediction (existing subject 0)
         X_new_cond = np.array([[1, 10, data["treatment"][0]]])
         groups_new = np.array([0])  # First subject
-        pred_cond = predict_from_gamm(result, X_new_cond, groups_new=groups_new, include_random=True)
+        pred_cond = predict_from_gamm(
+            result, X_new_cond, groups_new=groups_new, include_random=True
+        )
 
         assert np.isfinite(pred_cond).all(), "Conditional prediction has non-finite values"
         assert len(pred_cond) == 1
@@ -187,7 +208,9 @@ class TestAR1Integration:
         pred_pop = predict_from_gamm(result, X_new_cond, include_random=False)
 
         # Conditional and population predictions should differ (random effect contribution)
-        assert abs(pred_cond[0] - pred_pop[0]) > 0.1, "Conditional and population predictions are too similar"
+        assert abs(pred_cond[0] - pred_pop[0]) > 0.1, (
+            "Conditional and population predictions are too similar"
+        )
 
 
 class TestCompoundSymmetryIntegration:
@@ -237,7 +260,10 @@ class TestCompoundSymmetryIntegration:
         # Fit GAMM with CS
         re = RandomEffect(grouping="cluster", covariance="compound_symmetry")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"cluster": data["cluster_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"cluster": data["cluster_id"]},
         )
 
         # Check convergence
@@ -255,7 +281,10 @@ class TestCompoundSymmetryIntegration:
         # Fit GAMM with 'cs' alias
         re = RandomEffect(grouping="cluster", covariance="cs")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"cluster": data["cluster_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"cluster": data["cluster_id"]},
         )
 
         assert result.converged, "GAMM with 'cs' alias did not converge"
@@ -267,7 +296,10 @@ class TestCompoundSymmetryIntegration:
         # Fit GAMM with CS
         re = RandomEffect(grouping="cluster", covariance="compound_symmetry")
         result = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re], groups_data={"cluster": data["cluster_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re],
+            groups_data={"cluster": data["cluster_id"]},
         )
 
         # Extract estimates
@@ -280,16 +312,19 @@ class TestCompoundSymmetryIntegration:
 
         # Check fixed effects (more lenient for temporal covariance)
         true_beta = data["true_params"]["beta"]
-        for i, (est, true) in enumerate(zip(beta_est, true_beta)):
+        for i, (est, true) in enumerate(zip(beta_est, true_beta, strict=False)):
             rel_error = abs(est - true) / abs(true)
             # More lenient tolerance for compound symmetry
-            assert rel_error < 0.30, f"Beta[{i}] recovery: {est:.3f} vs {true:.3f} (rel_error={rel_error:.3f})"
+            assert rel_error < 0.30, (
+                f"Beta[{i}] recovery: {est:.3f} vs {true:.3f} (rel_error={rel_error:.3f})"
+            )
 
         # Check variance parameter (more lenient)
         true_sigma2 = data["true_params"]["sigma2"]
         sigma2_rel_error = abs(sigma2_est - true_sigma2) / true_sigma2
         assert sigma2_rel_error < 0.40, (
-            f"Sigma2 recovery: {sigma2_est:.3f} vs {true_sigma2:.3f} " f"(rel_error={sigma2_rel_error:.3f})"
+            f"Sigma2 recovery: {sigma2_est:.3f} vs {true_sigma2:.3f} "
+            f"(rel_error={sigma2_rel_error:.3f})"
         )
 
     def test_cs_vs_independence(self, cs_clustered_data):
@@ -304,13 +339,19 @@ class TestCompoundSymmetryIntegration:
         # Fit with compound symmetry
         re_cs = RandomEffect(grouping="cluster", covariance="compound_symmetry")
         result_cs = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re_cs], groups_data={"cluster": data["cluster_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re_cs],
+            groups_data={"cluster": data["cluster_id"]},
         )
 
         # Fit with independence
         re_indep = RandomEffect(grouping="cluster", covariance="identity")
         result_indep = fit_gamm(
-            y=data["y"], X=data["X"], random_effects=[re_indep], groups_data={"cluster": data["cluster_id"]}
+            y=data["y"],
+            X=data["X"],
+            random_effects=[re_indep],
+            groups_data={"cluster": data["cluster_id"]},
         )
 
         # Both should converge
@@ -357,9 +398,9 @@ class TestMixedCovariances:
         for i in range(n_subjects):
             subject_effects[i, 0] = np.random.randn()
             for t in range(1, n_times):
-                subject_effects[i, t] = (
-                    rho * subject_effects[i, t - 1] + np.random.randn() * np.sqrt(1 - rho**2)
-                )
+                subject_effects[i, t] = rho * subject_effects[
+                    i, t - 1
+                ] + np.random.randn() * np.sqrt(1 - rho**2)
         subject_effects_flat = subject_effects.ravel()
 
         # Response
@@ -371,7 +412,10 @@ class TestMixedCovariances:
         re_site = RandomEffect(grouping="site", covariance="compound_symmetry")
 
         result = fit_gamm(
-            y=y, X=X, random_effects=[re_subject, re_site], groups_data={"subject": subject_id, "site": site_id}
+            y=y,
+            X=X,
+            random_effects=[re_subject, re_site],
+            groups_data={"subject": subject_id, "site": site_id},
         )
 
         # Should converge
@@ -382,10 +426,10 @@ class TestMixedCovariances:
 
         # Fixed effects should be reasonable
         assert abs(result.beta_parametric[0] - 15.0) < 1.5, (
-            f"Intercept estimate {result.beta_parametric[0]:.3f} " f"far from true value 15.0"
+            f"Intercept estimate {result.beta_parametric[0]:.3f} far from true value 15.0"
         )
         assert abs(result.beta_parametric[1] - 0.4) < 0.25, (
-            f"Slope estimate {result.beta_parametric[1]:.3f} " f"far from true value 0.4"
+            f"Slope estimate {result.beta_parametric[1]:.3f} far from true value 0.4"
         )
 
 
@@ -407,7 +451,9 @@ class TestAR1EdgeCases:
         result = fit_gamm(y=y, X=X, random_effects=[re], groups_data={"subject": subject_id})
 
         # Should still converge with small sample
-        assert result.converged or result.n_iterations >= 50, "Should converge or exhaust iterations"
+        assert result.converged or result.n_iterations >= 50, (
+            "Should converge or exhaust iterations"
+        )
 
     def test_ar1_short_timeseries(self):
         """Test AR1 with short time series (few observations per subject)."""

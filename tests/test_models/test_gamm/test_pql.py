@@ -1,4 +1,5 @@
 """Tests for Penalized Quasi-Likelihood (PQL) estimation."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -29,7 +30,7 @@ def test_pql_gaussian_identity():
     y = 2.0 + 0.5 * x + b_true[groups] + np.random.randn(n) * 0.3
 
     # Fit with PQL
-    result = fit_pql(X, Z, y, family='gaussian', maxiter_outer=10)
+    result = fit_pql(X, Z, y, family="gaussian", maxiter_outer=10)
 
     # Should converge
     assert result.converged
@@ -70,12 +71,7 @@ def test_pql_poisson_log():
     y = np.random.poisson(mu_true)
 
     # Fit with PQL
-    result = fit_pql(
-        X, Z, y,
-        family='poisson',
-        maxiter_outer=15,
-        maxiter_inner=10
-    )
+    result = fit_pql(X, Z, y, family="poisson", maxiter_outer=15, maxiter_inner=10)
 
     # Should converge (may take a few iterations)
     assert result.converged
@@ -116,12 +112,7 @@ def test_pql_binomial_logit():
     y = np.random.binomial(1, p_true)
 
     # Fit with PQL
-    result = fit_pql(
-        X, Z, y,
-        family='binomial',
-        maxiter_outer=20,
-        maxiter_inner=10
-    )
+    result = fit_pql(X, Z, y, family="binomial", maxiter_outer=20, maxiter_inner=10)
 
     # Should converge
     assert result.converged
@@ -165,13 +156,7 @@ def test_pql_with_penalty():
     lambda_ = 0.1
 
     # Fit with penalty
-    result = fit_pql(
-        X, Z, y,
-        family='poisson',
-        S=S,
-        lambda_=lambda_,
-        maxiter_outer=15
-    )
+    result = fit_pql(X, Z, y, family="poisson", S=S, lambda_=lambda_, maxiter_outer=15)
 
     assert result.converged
 
@@ -203,11 +188,13 @@ def test_pql_no_variance_update():
     psi_fixed = np.array([[0.25]])
 
     result = fit_pql(
-        X, Z, y,
-        family='gaussian',
+        X,
+        Z,
+        y,
+        family="gaussian",
         psi_init=psi_fixed,
         update_psi=False,  # Don't update variance
-        maxiter_outer=5
+        maxiter_outer=5,
     )
 
     # Variance should remain at initial value
@@ -233,12 +220,7 @@ def test_pql_convergence_tracking():
 
     y = np.random.randn(n)
 
-    result = fit_pql(
-        X, Z, y,
-        family='gaussian',
-        maxiter_outer=10,
-        maxiter_inner=5
-    )
+    result = fit_pql(X, Z, y, family="gaussian", maxiter_outer=10, maxiter_inner=5)
 
     # Should have iteration counts
     assert result.n_iter_outer > 0
@@ -266,13 +248,13 @@ def test_pql_diagnostics():
     eta = 1.0 + 0.3 * x + b_true[groups]
     y = np.random.poisson(np.exp(eta))
 
-    result = fit_pql(X, Z, y, family='poisson', maxiter_outer=15)
+    result = fit_pql(X, Z, y, family="poisson", maxiter_outer=15)
 
     # Should have all diagnostic fields
-    assert hasattr(result, 'deviance')
-    assert hasattr(result, 'log_likelihood')
-    assert hasattr(result, 'fitted_values')
-    assert hasattr(result, 'linear_predictor')
+    assert hasattr(result, "deviance")
+    assert hasattr(result, "log_likelihood")
+    assert hasattr(result, "fitted_values")
+    assert hasattr(result, "linear_predictor")
 
     # Values should be finite
     assert np.isfinite(result.deviance)
@@ -291,7 +273,7 @@ def test_pql_invalid_family_raises():
     y = np.random.randn(50)
 
     with pytest.raises(ValueError, match="Unknown family"):
-        fit_pql(X, Z, y, family='invalid_family')
+        fit_pql(X, Z, y, family="invalid_family")
 
 
 def test_pql_small_groups():
@@ -311,7 +293,7 @@ def test_pql_small_groups():
     b_true = np.random.randn(n_groups) * 0.3
     y = 2.0 + b_true[groups] + np.random.randn(n) * 0.5
 
-    result = fit_pql(X, Z, y, family='gaussian', maxiter_outer=15)
+    result = fit_pql(X, Z, y, family="gaussian", maxiter_outer=15)
 
     # Should still converge (though estimates may be less accurate)
     assert result.converged or result.n_iter_outer == 15
@@ -336,14 +318,14 @@ def test_pql_large_variance():
     eta = 1.0 + b_true[groups]
     y = np.random.poisson(np.exp(eta))
 
-    result = fit_pql(X, Z, y, family='poisson', maxiter_outer=25)
+    result = fit_pql(X, Z, y, family="poisson", maxiter_outer=25)
 
     # Should complete without error (may or may not converge with extreme data)
     assert result.n_iter_outer > 0
 
     # Variance should be positive definite
     assert result.psi[0, 0] >= 0.0
-    
+
     # Should have valid fixed effects
     assert len(result.beta) == 2
     assert np.all(np.isfinite(result.beta))
@@ -369,7 +351,7 @@ def test_pql_zero_counts():
     eta = -1.0 + 0.2 * x + b_true[groups]
     y = np.random.poisson(np.exp(eta))
 
-    result = fit_pql(X, Z, y, family='poisson', maxiter_outer=20)
+    result = fit_pql(X, Z, y, family="poisson", maxiter_outer=20)
 
     # Should handle zeros gracefully
     assert result.converged or result.n_iter_outer == 20
@@ -394,7 +376,7 @@ def test_pql_working_response():
     # Constant mean
     y = np.random.poisson(5, size=n)
 
-    result = fit_pql(X, Z, y, family='poisson', maxiter_outer=10)
+    result = fit_pql(X, Z, y, family="poisson", maxiter_outer=10)
 
     # Working response should be finite
     assert np.all(np.isfinite(result.linear_predictor))

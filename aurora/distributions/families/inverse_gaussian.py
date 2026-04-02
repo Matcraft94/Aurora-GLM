@@ -48,11 +48,10 @@ aurora.distributions.links.common.InverseLink : Alternative link
 
 from __future__ import annotations
 
-
 import numpy as np
 
-from ..base import Family, LinkFunction
 from .._utils import as_namespace_array, ensure_positive, namespace
+from ..base import Family, LinkFunction
 from ..links import InverseSquareLink
 
 try:  # pragma: no cover - optional dependency
@@ -126,9 +125,7 @@ class InverseGaussianFamily(Family):
     distribution of the first passage time for Brownian motion with drift.
     """
 
-    def __init__(
-        self, lambda_: float | str = 1.0, link: LinkFunction | None = None
-    ) -> None:
+    def __init__(self, lambda_: float | str = 1.0, link: LinkFunction | None = None) -> None:
         """Initialize Inverse Gaussian family.
 
         Parameters
@@ -184,15 +181,15 @@ class InverseGaussianFamily(Family):
         if xp is torch:  # type: ignore[comparison-overlap]
             y_arr = y
             mu_arr = mu
-            n = y.shape[0]
+            y.shape[0]
         elif xp is jnp:  # type: ignore[comparison-overlap]
             y_arr = y
             mu_arr = mu
-            n = y.shape[0]
+            y.shape[0]
         else:
             y_arr = np.asarray(y)
             mu_arr = np.asarray(mu)
-            n = len(y_arr)
+            len(y_arr)
 
         # Deviance-based estimator
         # From McCullagh & Nelder: φ = (1/n) Σ[(y-μ)² / (μ²y)]
@@ -251,9 +248,9 @@ class InverseGaussianFamily(Family):
         # Use namespace-compatible constant for 2π
         two_pi = as_namespace_array(2 * np.pi, xp, like=y_arr)
 
-        log_lik = 0.5 * (
-            xp.log(lambda_val) - xp.log(two_pi) - 3 * xp.log(y_arr)
-        ) - lambda_val * (y_arr - mu_arr) ** 2 / (2 * mu_arr**2 * y_arr)
+        log_lik = 0.5 * (xp.log(lambda_val) - xp.log(two_pi) - 3 * xp.log(y_arr)) - lambda_val * (
+            y_arr - mu_arr
+        ) ** 2 / (2 * mu_arr**2 * y_arr)
 
         if xp is torch:  # type: ignore[comparison-overlap]
             return torch.sum(log_lik)

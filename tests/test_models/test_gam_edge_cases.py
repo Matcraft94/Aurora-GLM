@@ -1,7 +1,9 @@
 """Edge case tests for GAM module."""
+
 import numpy as np
 import pytest
-from aurora.models.gam import fit_gam, fit_additive_gam, SmoothTerm, ParametricTerm, TensorTerm
+
+from aurora.models.gam import ParametricTerm, SmoothTerm, TensorTerm, fit_additive_gam, fit_gam
 
 
 def test_gam_single_knot():
@@ -11,7 +13,7 @@ def test_gam_single_knot():
     y = np.sin(2 * np.pi * x) + np.random.randn(50) * 0.1
 
     # Fix: n_basis=4 is minimum for degree=3
-    result = fit_gam(x, y, n_basis=4, basis_type='bspline')
+    result = fit_gam(x, y, n_basis=4, basis_type="bspline")
     assert result is not None
 
 
@@ -58,14 +60,10 @@ def test_gam_single_smooth_term():
     X = np.random.randn(100, 3)
     y = np.sin(2 * X[:, 0]) + 0.5 * X[:, 1] + np.random.randn(100) * 0.1
 
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[SmoothTerm(variable=0, n_basis=10)],
-        method='GCV'
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0, n_basis=10)], method="GCV")
     # Fix: AdditiveGAMResult doesn't have 'converged' attribute
     assert result is not None
-    assert hasattr(result, 'predict')
+    assert hasattr(result, "predict")
 
 
 @pytest.mark.skip(reason="Parametric-only GAM not supported - must have at least one smooth term")
@@ -77,19 +75,18 @@ def test_gam_parametric_only():
 
     # Feature not supported: must specify at least one smooth term
     with pytest.raises(ValueError, match="Must specify at least one smooth term"):
-        result = fit_additive_gam(
-            X, y,
-            smooth_terms=[],
-            parametric_terms=[ParametricTerm(0), ParametricTerm(1)]
+        fit_additive_gam(
+            X, y, smooth_terms=[], parametric_terms=[ParametricTerm(0), ParametricTerm(1)]
         )
 
 
 def test_gam_formula_invalid_syntax():
     """Invalid formula syntax should raise clear error."""
-    from aurora.models.gam import fit_gam_formula
     import pandas as pd
 
-    df = pd.DataFrame({'y': np.random.randn(50), 'x1': np.random.randn(50)})
+    from aurora.models.gam import fit_gam_formula
+
+    df = pd.DataFrame({"y": np.random.randn(50), "x1": np.random.randn(50)})
 
     with pytest.raises((ValueError, SyntaxError, KeyError)):
         fit_gam_formula("y ~ s(x1, invalid_arg=5)", data=df)
@@ -125,7 +122,9 @@ def test_gam_edf_bounds():
     assert 1 <= result.edf <= 10
 
 
-@pytest.mark.skip(reason="TensorTerm not fully integrated with fit_additive_gam - term.variable vs term.variables")
+@pytest.mark.skip(
+    reason="TensorTerm not fully integrated with fit_additive_gam - term.variable vs term.variables"
+)
 def test_gam_tensor_product_dimensions():
     """Tensor product with 2D input."""
     np.random.seed(42)
@@ -135,9 +134,6 @@ def test_gam_tensor_product_dimensions():
 
     # Fix: TensorTerm has 'variables' attribute but fit_additive_gam looks for 'variable'
     # This is a known limitation - tensor products not fully integrated yet
-    result = fit_additive_gam(
-        X, y,
-        smooth_terms=[TensorTerm(variables=(0, 1), n_basis=(8, 8))]
-    )
+    result = fit_additive_gam(X, y, smooth_terms=[TensorTerm(variables=(0, 1), n_basis=(8, 8))])
     assert result is not None
-    assert hasattr(result, 'predict')
+    assert hasattr(result, "predict")

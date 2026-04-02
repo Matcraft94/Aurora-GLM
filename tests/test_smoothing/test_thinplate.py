@@ -1,4 +1,5 @@
 """Tests for thin plate splines."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,8 +53,8 @@ def test_tps_basis_polynomial_part():
 
     # Last d+1 columns should be [1, x1, x2]
     np.testing.assert_array_equal(B[:, k], np.ones(n))  # Intercept
-    np.testing.assert_array_equal(B[:, k+1], X[:, 0])   # x1
-    np.testing.assert_array_equal(B[:, k+2], X[:, 1])   # x2
+    np.testing.assert_array_equal(B[:, k + 1], X[:, 0])  # x1
+    np.testing.assert_array_equal(B[:, k + 2], X[:, 1])  # x2
 
 
 def test_tps_basis_radial_symmetry():
@@ -154,17 +155,17 @@ def test_fit_tps_basic():
     result = fit_tps(X, y, knots=knots, lambda_=0.01)
 
     # Check result structure
-    assert 'coefficients' in result
-    assert 'fitted_values' in result
-    assert 'knots' in result
-    assert 'edf' in result
+    assert "coefficients" in result
+    assert "fitted_values" in result
+    assert "knots" in result
+    assert "edf" in result
 
     # Check shapes
-    assert result['fitted_values'].shape == (n,)
-    assert result['knots'].shape == knots.shape
+    assert result["fitted_values"].shape == (n,)
+    assert result["knots"].shape == knots.shape
 
     # Check fit quality
-    r_squared = 1 - np.sum((y - result['fitted_values'])**2) / np.sum((y - np.mean(y))**2)
+    r_squared = 1 - np.sum((y - result["fitted_values"]) ** 2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.7  # Should capture smooth surface well
 
 
@@ -182,7 +183,7 @@ def test_fit_tps_with_weights():
 
     result = fit_tps(X, y, knots=knots, lambda_=0.05, weights=weights)
 
-    assert result['fitted_values'].shape == (n,)
+    assert result["fitted_values"].shape == (n,)
 
 
 def test_fit_tps_no_knots():
@@ -197,8 +198,8 @@ def test_fit_tps_no_knots():
     result = fit_tps(X, y, knots=None, lambda_=0.1)
 
     # Should use all n points as knots
-    assert result['knots'].shape == (n, d)
-    np.testing.assert_array_equal(result['knots'], X)
+    assert result["knots"].shape == (n, d)
+    np.testing.assert_array_equal(result["knots"], X)
 
 
 def test_fit_tps_3d():
@@ -214,8 +215,8 @@ def test_fit_tps_3d():
 
     result = fit_tps(X, y, knots=knots, lambda_=0.1)
 
-    assert result['fitted_values'].shape == (n,)
-    r_squared = 1 - np.sum((y - result['fitted_values'])**2) / np.sum((y - np.mean(y))**2)
+    assert result["fitted_values"].shape == (n,)
+    r_squared = 1 - np.sum((y - result["fitted_values"]) ** 2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.5
 
 
@@ -237,7 +238,7 @@ def test_fit_tps_smoothing_parameter():
     result_smooth = fit_tps(X, y, knots=knots, lambda_=10.0)
 
     # Wiggly fit should have higher EDF
-    assert result_wiggly['edf'] > result_smooth['edf']
+    assert result_wiggly["edf"] > result_smooth["edf"]
 
 
 def test_fit_tps_edf():
@@ -250,13 +251,13 @@ def test_fit_tps_edf():
     y = X[:, 0] + X[:, 1] + 0.1 * np.random.randn(n)
 
     knots = X[::4]
-    k = knots.shape[0]
+    knots.shape[0]
 
     result = fit_tps(X, y, knots=knots, lambda_=0.1)
 
     # EDF should be finite (may be negative due to numerical issues with TPS)
     # This is a known issue with thin plate splines and nearly singular matrices
-    assert np.isfinite(result['edf'])
+    assert np.isfinite(result["edf"])
 
 
 def test_select_knots_uniform():
@@ -265,7 +266,7 @@ def test_select_knots_uniform():
     d = 2
 
     X = np.random.randn(n, d)
-    knots = select_knots(X, n_knots=50, method='uniform')
+    knots = select_knots(X, n_knots=50, method="uniform")
 
     assert knots.shape == (50, d)
     # Should be a subset of original points
@@ -282,7 +283,7 @@ def test_select_knots_random():
     d = 2
 
     X = np.random.randn(n, d)
-    knots = select_knots(X, n_knots=30, method='random')
+    knots = select_knots(X, n_knots=30, method="random")
 
     assert knots.shape == (30, d)
 
@@ -293,7 +294,7 @@ def test_select_knots_default():
     d = 2
 
     X = np.random.randn(n, d)
-    knots = select_knots(X, n_knots=None, method='uniform')
+    knots = select_knots(X, n_knots=None, method="uniform")
 
     # Should use min(n, 100)
     assert knots.shape[0] == 100
@@ -305,7 +306,7 @@ def test_select_knots_too_many():
     d = 2
 
     X = np.random.randn(n, d)
-    knots = select_knots(X, n_knots=100, method='uniform')
+    knots = select_knots(X, n_knots=100, method="uniform")
 
     # Should return at most n knots
     assert knots.shape[0] <= n
@@ -316,7 +317,7 @@ def test_select_knots_invalid_method():
     X = np.random.randn(100, 2)
 
     with pytest.raises(ValueError, match="Unknown method"):
-        select_knots(X, n_knots=20, method='invalid')
+        select_knots(X, n_knots=20, method="invalid")
 
 
 def test_select_knots_kmeans_not_implemented():
@@ -324,7 +325,7 @@ def test_select_knots_kmeans_not_implemented():
     X = np.random.randn(100, 2)
 
     with pytest.raises(NotImplementedError, match="kmeans"):
-        select_knots(X, n_knots=20, method='kmeans')
+        select_knots(X, n_knots=20, method="kmeans")
 
 
 def test_tps_interpolation_exact():
@@ -340,7 +341,7 @@ def test_tps_interpolation_exact():
     result = fit_tps(X, y, knots=X, lambda_=0.0)
 
     # Should interpolate exactly (or very close due to numerical issues)
-    np.testing.assert_allclose(result['fitted_values'], y, atol=1e-6)
+    np.testing.assert_allclose(result["fitted_values"], y, atol=1e-6)
 
 
 def test_tps_1d():
@@ -356,16 +357,14 @@ def test_tps_1d():
 
     result = fit_tps(X, y, knots=knots, lambda_=0.01)
 
-    assert result['fitted_values'].shape == (n,)
-    r_squared = 1 - np.sum((y - result['fitted_values'])**2) / np.sum((y - np.mean(y))**2)
+    assert result["fitted_values"].shape == (n,)
+    r_squared = 1 - np.sum((y - result["fitted_values"]) ** 2) / np.sum((y - np.mean(y)) ** 2)
     assert r_squared > 0.5
 
 
 def test_tps_basis_1d_radial():
     """TPS 1D radial function should be r³."""
-    n = 10
     k = 5
-    d = 1
 
     X = np.array([[0.0], [1.0], [2.0], [3.0], [4.0], [5.0], [6.0], [7.0], [8.0], [9.0]])
     knots = X[:k]
@@ -391,5 +390,5 @@ def test_tps_reproducibility():
     result1 = fit_tps(X, y, knots=knots, lambda_=0.1)
     result2 = fit_tps(X, y, knots=knots, lambda_=0.1)
 
-    np.testing.assert_array_equal(result1['fitted_values'], result2['fitted_values'])
-    np.testing.assert_array_equal(result1['coefficients'], result2['coefficients'])
+    np.testing.assert_array_equal(result1["fitted_values"], result2["fitted_values"])
+    np.testing.assert_array_equal(result1["coefficients"], result2["coefficients"])

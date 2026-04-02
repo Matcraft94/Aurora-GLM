@@ -10,7 +10,7 @@ and provide methods for posterior summaries and predictions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -129,14 +129,12 @@ class BayesianGLMResult:
 
         # Coefficients
         coef_samples = self.coef_samples_
-        n_coef = coef_samples.shape[1]
+        coef_samples.shape[1]
 
         coef_summary = {
             "mean": np.mean(coef_samples, axis=0),
             "std": np.std(coef_samples, axis=0),
-            "percentiles": {
-                p: np.percentile(coef_samples, p, axis=0) for p in percentiles
-            },
+            "percentiles": {p: np.percentile(coef_samples, p, axis=0) for p in percentiles},
         }
 
         # Add R-hat and ESS if available
@@ -153,9 +151,7 @@ class BayesianGLMResult:
             summary["scale"] = {
                 "mean": float(np.mean(scale_samples)),
                 "std": float(np.std(scale_samples)),
-                "percentiles": {
-                    p: float(np.percentile(scale_samples, p)) for p in percentiles
-                },
+                "percentiles": {p: float(np.percentile(scale_samples, p)) for p in percentiles},
             }
 
         # Model info
@@ -169,9 +165,7 @@ class BayesianGLMResult:
 
         return summary
 
-    def credible_intervals(
-        self, level: float = 0.95, method: str = "hdi"
-    ) -> dict[str, NDArray]:
+    def credible_intervals(self, level: float = 0.95, method: str = "hdi") -> dict[str, NDArray]:
         """Compute credible intervals for parameters.
 
         Parameters
@@ -302,9 +296,7 @@ class BayesianGLMResult:
         else:
             raise ValueError(f"Unknown link function: {self.link}")
 
-    def posterior_predictive(
-        self, X_new: NDArray | None = None, n_samples: int = 1000
-    ) -> NDArray:
+    def posterior_predictive(self, X_new: NDArray | None = None, n_samples: int = 1000) -> NDArray:
         """Sample from posterior predictive distribution.
 
         Parameters
@@ -374,7 +366,9 @@ class BayesianGLMResult:
         p_waic = np.sum(np.var(ll, axis=0))
 
         waic = -2 * (lppd - p_waic)
-        se = 2 * np.sqrt(self.n_obs_ * np.var(-2 * (np.log(np.mean(np.exp(ll), axis=0)) - np.var(ll, axis=0))))
+        se = 2 * np.sqrt(
+            self.n_obs_ * np.var(-2 * (np.log(np.mean(np.exp(ll), axis=0)) - np.var(ll, axis=0)))
+        )
 
         return {"waic": waic, "p_waic": p_waic, "se": se}
 
@@ -415,7 +409,7 @@ class BayesianGLMResult:
         family: str,
         link: str,
         n_chains: int = 1,
-    ) -> "BayesianGLMResult":
+    ) -> BayesianGLMResult:
         """Construct result from NumPyro samples.
 
         Parameters
@@ -463,7 +457,7 @@ class BayesianGLMResult:
         y: NDArray,
         family: str,
         link: str,
-    ) -> "BayesianGLMResult":
+    ) -> BayesianGLMResult:
         """Construct result from PyMC InferenceData.
 
         Parameters

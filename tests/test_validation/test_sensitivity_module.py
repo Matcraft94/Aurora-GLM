@@ -3,13 +3,14 @@
 This tests both the low-level aurora.validation.sensitivity module and
 the integrated diagnostics available through GLMResult.diagnostics_.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from aurora.models import fit_glm
 from aurora.inference.diagnostics import glm_diagnostics
+from aurora.models import fit_glm
 
 
 @pytest.fixture
@@ -31,10 +32,10 @@ def sample_data_with_outlier():
     X = np.column_stack([np.ones(n), np.random.randn(n, 2)])
     beta = np.array([1.0, 2.0, -1.0])
     y = X @ beta + np.random.randn(n) * 0.5
-    
+
     # Add an outlier
     y[0] = 100.0  # Extreme value
-    
+
     return X, y
 
 
@@ -46,11 +47,11 @@ def sample_data_with_leverage_point():
     X = np.column_stack([np.ones(n), np.random.randn(n, 2)])
     beta = np.array([1.0, 2.0, -1.0])
     y = X @ beta + np.random.randn(n) * 0.5
-    
+
     # Add a high leverage point
     X[0, 1] = 10.0  # Far from center
     X[0, 2] = 10.0
-    
+
     return X, y
 
 
@@ -68,29 +69,29 @@ class TestGLMDiagnostics:
         """Test basic diagnostics computation."""
         diag = fitted_model.diagnostics_
         assert diag is not None
-        
+
     def test_diagnostics_has_leverage(self, fitted_model):
         """Test diagnostics has leverage."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'leverage')
+        assert hasattr(diag, "leverage")
         assert len(diag.leverage) > 0
 
     def test_diagnostics_has_cooks_distance(self, fitted_model):
         """Test diagnostics has Cook's distance."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'cooks_distance')
+        assert hasattr(diag, "cooks_distance")
         assert len(diag.cooks_distance) > 0
 
     def test_diagnostics_has_studentized_residuals(self, fitted_model):
         """Test diagnostics has studentized residuals."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'studentized_residuals')
+        assert hasattr(diag, "studentized_residuals")
         assert len(diag.studentized_residuals) > 0
 
     def test_diagnostics_has_dfbetas(self, fitted_model):
         """Test diagnostics has DFBETAS."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'dfbetas')
+        assert hasattr(diag, "dfbetas")
         assert diag.dfbetas is not None
 
 
@@ -122,7 +123,7 @@ class TestLeverage:
         model = fit_glm(X, y, family="gaussian")
         diag = model.diagnostics_
         lev = diag.leverage
-        
+
         # First point should have high leverage
         assert lev[0] > np.median(lev)
 
@@ -142,7 +143,7 @@ class TestCooksDistance:
         model = fit_glm(X, y, family="gaussian")
         diag = model.diagnostics_
         cd = diag.cooks_distance
-        
+
         # First point (outlier) should have high Cook's D
         assert cd[0] > np.median(cd)
 
@@ -152,7 +153,7 @@ class TestCooksDistance:
         diag = fitted_model.diagnostics_
         cd = diag.cooks_distance
         n = len(y)
-        
+
         # Common cutoff is 4/n
         cutoff = 4 / n
         # Most points should be below cutoff in well-behaved data
@@ -166,10 +167,10 @@ class TestStudentizedResiduals:
         """Test studentized residuals are approximately standard normal."""
         diag = fitted_model.diagnostics_
         sr = diag.studentized_residuals
-        
+
         # Mean should be near 0
         assert abs(np.mean(sr)) < 0.5
-        
+
         # SD should be near 1
         assert 0.5 < np.std(sr) < 2.0
 
@@ -179,7 +180,7 @@ class TestStudentizedResiduals:
         model = fit_glm(X, y, family="gaussian")
         diag = model.diagnostics_
         sr = diag.studentized_residuals
-        
+
         # First point should have large absolute studentized residual
         assert abs(sr[0]) > 2.0
 
@@ -192,7 +193,7 @@ class TestDFBETAS:
         X, y = sample_data
         diag = fitted_model.diagnostics_
         db = diag.dfbetas
-        
+
         assert db.shape[0] == len(y)
         # Number of columns should match parameters
         assert db.shape[1] > 0
@@ -203,10 +204,10 @@ class TestDFBETAS:
         diag = fitted_model.diagnostics_
         db = diag.dfbetas
         n = len(y)
-        
+
         # Common cutoff is 2/sqrt(n)
         cutoff = 2 / np.sqrt(n)
-        
+
         # Most entries should be below cutoff
         assert np.mean(np.abs(db) < cutoff) > 0.5
 
@@ -217,20 +218,20 @@ class TestDiagnosticsSummary:
     def test_summary_exists(self, fitted_model):
         """Test summary array exists."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'summary')
+        assert hasattr(diag, "summary")
         assert diag.summary is not None
 
     def test_summary_columns_exist(self, fitted_model):
         """Test summary columns are defined."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'summary_columns')
+        assert hasattr(diag, "summary_columns")
         assert len(diag.summary_columns) > 0
 
     def test_summary_shape(self, sample_data, fitted_model):
         """Test summary has correct shape."""
         X, y = sample_data
         diag = fitted_model.diagnostics_
-        
+
         assert diag.summary.shape[0] == len(y)
         assert diag.summary.shape[1] == len(diag.summary_columns)
 
@@ -241,25 +242,25 @@ class TestResidualTypes:
     def test_response_residuals(self, fitted_model):
         """Test response residuals exist."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'response_residuals')
+        assert hasattr(diag, "response_residuals")
         assert len(diag.response_residuals) > 0
 
     def test_pearson_residuals(self, fitted_model):
         """Test Pearson residuals exist."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'pearson_residuals')
+        assert hasattr(diag, "pearson_residuals")
         assert len(diag.pearson_residuals) > 0
 
     def test_deviance_residuals(self, fitted_model):
         """Test deviance residuals exist."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'deviance_residuals')
+        assert hasattr(diag, "deviance_residuals")
         assert len(diag.deviance_residuals) > 0
 
     def test_working_residuals(self, fitted_model):
         """Test working residuals exist."""
         diag = fitted_model.diagnostics_
-        assert hasattr(diag, 'working_residuals')
+        assert hasattr(diag, "working_residuals")
         assert len(diag.working_residuals) > 0
 
 
@@ -269,7 +270,7 @@ class TestInfluenceIntegration:
     def test_all_measures_computed(self, fitted_model):
         """Test all influence measures are computed."""
         diag = fitted_model.diagnostics_
-        
+
         # All should be non-None
         assert diag.leverage is not None
         assert diag.cooks_distance is not None
@@ -283,10 +284,10 @@ class TestInfluenceIntegration:
         X = np.column_stack([np.ones(n), np.random.randn(n)])
         mu = np.exp(X @ np.array([1.0, 0.3]))
         y = np.random.poisson(mu)
-        
+
         model = fit_glm(X, y, family="poisson")
         diag = model.diagnostics_
-        
+
         assert len(diag.leverage) == n
         assert len(diag.cooks_distance) == n
 
@@ -297,10 +298,10 @@ class TestInfluenceIntegration:
         X = np.column_stack([np.ones(n), np.random.randn(n)])
         p = 1 / (1 + np.exp(-X @ np.array([0.0, 1.0])))
         y = (np.random.rand(n) < p).astype(float)
-        
+
         model = fit_glm(X, y, family="binomial")
         diag = model.diagnostics_
-        
+
         assert len(diag.leverage) == n
         assert len(diag.cooks_distance) == n
 
@@ -309,7 +310,7 @@ class TestInfluenceIntegration:
         X, y = sample_data_with_leverage_point
         model = fit_glm(X, y, family="gaussian")
         diag = model.diagnostics_
-        
+
         # High leverage point should have above-average leverage
         assert diag.leverage[0] > np.mean(diag.leverage)
 
@@ -320,7 +321,7 @@ class TestGlmDiagnosticsFunction:
     def test_glm_diagnostics_direct_call(self, fitted_model):
         """Test calling glm_diagnostics directly."""
         diag = glm_diagnostics(fitted_model)
-        
+
         assert diag.leverage is not None
         assert diag.cooks_distance is not None
         assert diag.studentized_residuals is not None
@@ -329,7 +330,7 @@ class TestGlmDiagnosticsFunction:
         """Test glm_diagnostics matches diagnostics_ property."""
         diag1 = fitted_model.diagnostics_
         diag2 = glm_diagnostics(fitted_model)
-        
+
         # Both should return GLMDiagnosticResult with same values
         np.testing.assert_array_equal(diag1.leverage, diag2.leverage)
         np.testing.assert_array_equal(diag1.cooks_distance, diag2.cooks_distance)
@@ -344,10 +345,10 @@ class TestEdgeCases:
         n = 10
         X = np.column_stack([np.ones(n), np.random.randn(n)])
         y = X @ np.array([1.0, 2.0]) + np.random.randn(n) * 0.5
-        
+
         model = fit_glm(X, y, family="gaussian")
         diag = model.diagnostics_
-        
+
         assert len(diag.leverage) == n
         assert len(diag.cooks_distance) == n
 
@@ -356,13 +357,13 @@ class TestEdgeCases:
         np.random.seed(42)
         n = 100
         p = 10
-        X = np.column_stack([np.ones(n), np.random.randn(n, p-1)])
+        X = np.column_stack([np.ones(n), np.random.randn(n, p - 1)])
         beta = np.random.randn(p)
         y = X @ beta + np.random.randn(n) * 0.5
-        
+
         model = fit_glm(X, y, family="gaussian")
         diag = model.diagnostics_
-        
+
         assert len(diag.leverage) == n
         # DFBETAS includes intercept added by fit_glm, so shape is (n, p+1)
         assert diag.dfbetas.shape[0] == n

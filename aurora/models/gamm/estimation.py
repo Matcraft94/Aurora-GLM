@@ -180,8 +180,13 @@ def compute_P_matrix(
     XtV_inv = X.T @ V_inv
     XtV_invX = XtV_inv @ X
 
-    # Compute (X'V⁻¹X)⁻¹
-    L_XtV_invX = linalg.cholesky(XtV_invX, lower=True)
+    # Compute (X'V⁻¹X)⁻¹ with ridge fallback for ill-conditioned matrices
+    try:
+        L_XtV_invX = linalg.cholesky(XtV_invX, lower=True)
+    except linalg.LinAlgError:
+        ridge = np.trace(XtV_invX) / XtV_invX.shape[0] * 1e-10
+        XtV_invX = XtV_invX + ridge * np.eye(XtV_invX.shape[0])
+        L_XtV_invX = linalg.cholesky(XtV_invX, lower=True)
     XtV_invX_inv = linalg.cho_solve((L_XtV_invX, True), np.eye(XtV_invX.shape[0]))
 
     # P = V⁻¹ - V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹
@@ -330,11 +335,7 @@ def reml_objective(
 
             for i in range(n_terms):
                 n_eff = n_effects[i] if isinstance(n_effects, list) else n_effects
-                cov = (
-                    cov_structure[i]
-                    if isinstance(cov_structure, list)
-                    else cov_structure
-                )
+                cov = cov_structure[i] if isinstance(cov_structure, list) else cov_structure
 
                 # Extract parameters for this term
                 n_params = cov.n_parameters(n_eff)
@@ -545,9 +546,7 @@ def estimate_variance_components(
             for i, psi_i in enumerate(psi_per_term):
                 n_groups = Z_info[i]["n_groups"]
                 psi_blocks.append(linalg.block_diag(*([psi_i] * n_groups)))
-            psi_full = (
-                linalg.block_diag(*psi_blocks) if len(psi_blocks) > 1 else psi_blocks[0]
-            )
+            psi_full = linalg.block_diag(*psi_blocks) if len(psi_blocks) > 1 else psi_blocks[0]
 
         V_opt = Z @ psi_full @ Z.T + sigma2_opt * np.eye(n)
         P_opt = compute_P_matrix(V_opt, X)

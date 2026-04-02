@@ -1,11 +1,12 @@
 """Tests for default link behaviour in distribution families."""
+
 from __future__ import annotations
 
 import pytest
 
-from aurora.distributions.families import BinomialFamily, GaussianFamily, PoissonFamily
-from aurora.distributions.links import IdentityLink, LogLink, LogitLink
 from aurora.distributions.base import LinkFunction
+from aurora.distributions.families import BinomialFamily, GaussianFamily, PoissonFamily
+from aurora.distributions.links import IdentityLink, LogitLink, LogLink
 
 
 class _ScaledIdentity(LinkFunction):

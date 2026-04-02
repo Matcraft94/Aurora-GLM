@@ -128,9 +128,7 @@ def root_mean_squared_error(
     r_squared : Coefficient of determination.
     """
 
-    return mean_squared_error(
-        y_true, y_pred, sample_weight=sample_weight, squared=False
-    )
+    return mean_squared_error(y_true, y_pred, sample_weight=sample_weight, squared=False)
 
 
 def r_squared(

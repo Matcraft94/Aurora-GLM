@@ -104,6 +104,7 @@ aurora.smoothing.selection.gcv : GCV for Gaussian responses
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -111,6 +112,8 @@ from scipy import linalg
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
+logger = logging.getLogger(__name__)
 
 
 def select_smoothing_gcv(
@@ -178,7 +181,7 @@ def select_smoothing_gcv(
     ...     Psi=Psi_current,
     ... )
     """
-    n = len(y)
+    len(y)
     smooth_names = list(X_smooth_dict.keys())
 
     # Default grid if not provided
@@ -189,18 +192,16 @@ def select_smoothing_gcv(
         }
 
     # Initialize with middle of grid
-    lambda_current = {
-        name: lambda_grid[name][len(lambda_grid[name]) // 2] for name in smooth_names
-    }
+    lambda_current = {name: lambda_grid[name][len(lambda_grid[name]) // 2] for name in smooth_names}
 
     # Coordinate descent over smooth terms
     max_coord_iter = 3  # Usually converges quickly
-    for coord_iter in range(max_coord_iter):
+    for _coord_iter in range(max_coord_iter):
         lambda_old = lambda_current.copy()
 
         for term_name in smooth_names:
             if verbose:
-                print(f"\nOptimizing λ for '{term_name}'...")
+                logger.info("Optimizing λ for '%s'...", term_name)
 
             # Get current λ values
             lambda_fixed = {k: v for k, v in lambda_current.items() if k != term_name}
@@ -231,14 +232,14 @@ def select_smoothing_gcv(
             lambda_current[term_name] = lambda_grid[term_name][best_idx]
 
             if verbose:
-                print(
-                    f"  Best λ: {lambda_current[term_name]:.2e} (GCV: {gcv_scores[best_idx]:.4f})"
+                logger.debug(
+                    "Best λ: %.2e (GCV: %.4f)",
+                    lambda_current[term_name],
+                    gcv_scores[best_idx],
                 )
 
         # Check convergence
-        change = max(
-            abs(np.log(lambda_current[k]) - np.log(lambda_old[k])) for k in smooth_names
-        )
+        change = max(abs(np.log(lambda_current[k]) - np.log(lambda_old[k])) for k in smooth_names)
         if change < 0.1:  # Converged in log scale
             break
 
@@ -320,7 +321,7 @@ def _compute_gcv_score(
     # Build Lambda matrix
     p_smooth_list = [X_smooth_dict[name].shape[1] for name in smooth_names]
     Lambda_blocks = []
-    for name, K_j in zip(smooth_names, p_smooth_list):
+    for name, K_j in zip(smooth_names, p_smooth_list, strict=False):
         lambda_j = lambda_dict[name]
         Lambda_blocks.append(lambda_j * np.eye(K_j))
     Lambda = linalg.block_diag(*Lambda_blocks)
@@ -480,12 +481,12 @@ def select_smoothing_performance_iter(
     link = family_obj.default_link
 
     # Initialize with default λ
-    lambda_current = {name: 1.0 for name in X_smooth_dict.keys()}
+    lambda_current = dict.fromkeys(X_smooth_dict.keys(), 1.0)
 
     for iter_num in range(max_iter):
         if verbose:
-            print(f"\n=== Performance Iteration {iter_num + 1}/{max_iter} ===")
-            print(f"Current λ: {lambda_current}")
+            logger.info("Performance Iteration %d/%d", iter_num + 1, max_iter)
+            logger.debug("Current λ: %s", lambda_current)
 
         # Step 1: Fit model with current λ
         result = fit_pql_with_smooth(
@@ -518,17 +519,16 @@ def select_smoothing_performance_iter(
 
         # Check convergence
         change = max(
-            abs(np.log(lambda_new[k]) - np.log(lambda_current[k]))
-            for k in lambda_new.keys()
+            abs(np.log(lambda_new[k]) - np.log(lambda_current[k])) for k in lambda_new.keys()
         )
 
         if verbose:
-            print(f"New λ: {lambda_new}")
-            print(f"Max log change: {change:.4f}")
+            logger.debug("New λ: %s", lambda_new)
+            logger.debug("Max log change: %.4f", change)
 
         if change < 0.05:  # Converged
             if verbose:
-                print("Converged!")
+                logger.info("Converged!")
             result["lambda_opt"] = lambda_new
             result["converged"] = True
             return result

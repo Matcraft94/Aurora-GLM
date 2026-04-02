@@ -44,9 +44,9 @@ References
 
 from __future__ import annotations
 
-from .zip import ZeroInflatedPoissonFamily, fit_zip, ZIPResult
-from .zinb import ZeroInflatedNegBinFamily, fit_zinb, ZINBResult
-from .diagnostics import vuong_test, score_test_zero_inflation
+from .diagnostics import score_test_zero_inflation, vuong_test
+from .zinb import ZeroInflatedNegBinFamily, ZINBResult, fit_zinb
+from .zip import ZeroInflatedPoissonFamily, ZIPResult, fit_zip
 
 __all__ = [
     # ZIP

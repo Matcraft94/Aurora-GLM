@@ -2,16 +2,17 @@
 
 Tests ANOVA and LRT: anova_glm, likelihood_ratio_test, ANOVAResult, LRTResult.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from aurora.inference.anova import (
-    anova_glm,
-    likelihood_ratio_test,
     ANOVAResult,
     LRTResult,
+    anova_glm,
+    likelihood_ratio_test,
 )
 from aurora.models import fit_glm
 
@@ -21,11 +22,13 @@ def sample_glm_data():
     """Generate sample data for GLM testing."""
     np.random.seed(42)
     n = 100
-    X = np.column_stack([
-        np.ones(n),
-        np.random.randn(n),
-        np.random.randn(n),
-    ])
+    X = np.column_stack(
+        [
+            np.ones(n),
+            np.random.randn(n),
+            np.random.randn(n),
+        ]
+    )
     beta = np.array([1.0, 2.0, -1.0])
     y = X @ beta + np.random.randn(n) * 0.5
     return X, y
@@ -177,34 +180,34 @@ class TestLikelihoodRatioTest:
 
     def test_lrt_basic(self, fitted_reduced_model, fitted_full_model):
         """Test basic LRT between two models."""
-        if not hasattr(fitted_full_model, 'log_likelihood_'):
+        if not hasattr(fitted_full_model, "log_likelihood_"):
             pytest.skip("Model doesn't provide log_likelihood")
-        
+
         result = likelihood_ratio_test(fitted_reduced_model, fitted_full_model)
         assert result is not None
         assert isinstance(result, LRTResult)
 
     def test_lrt_statistic_positive(self, fitted_reduced_model, fitted_full_model):
         """Test LRT statistic is non-negative."""
-        if not hasattr(fitted_full_model, 'log_likelihood_'):
+        if not hasattr(fitted_full_model, "log_likelihood_"):
             pytest.skip("Model doesn't provide log_likelihood")
-        
+
         result = likelihood_ratio_test(fitted_reduced_model, fitted_full_model)
         assert result.statistic >= -1e-10
 
     def test_lrt_df_positive(self, fitted_reduced_model, fitted_full_model):
         """Test LRT degrees of freedom is positive."""
-        if not hasattr(fitted_full_model, 'log_likelihood_'):
+        if not hasattr(fitted_full_model, "log_likelihood_"):
             pytest.skip("Model doesn't provide log_likelihood")
-        
+
         result = likelihood_ratio_test(fitted_reduced_model, fitted_full_model)
         assert result.df > 0
 
     def test_lrt_p_value_valid(self, fitted_reduced_model, fitted_full_model):
         """Test LRT p-value is in [0, 1]."""
-        if not hasattr(fitted_full_model, 'log_likelihood_'):
+        if not hasattr(fitted_full_model, "log_likelihood_"):
             pytest.skip("Model doesn't provide log_likelihood")
-        
+
         result = likelihood_ratio_test(fitted_reduced_model, fitted_full_model)
         assert 0 <= result.p_value <= 1
 
@@ -212,21 +215,21 @@ class TestLikelihoodRatioTest:
         """Test LRT detects significant predictor."""
         X, y = sample_glm_data
         full_model = fit_glm(X, y, family="gaussian")
-        
-        if not hasattr(full_model, 'log_likelihood_'):
+
+        if not hasattr(full_model, "log_likelihood_"):
             pytest.skip("Model doesn't provide log_likelihood")
-        
+
         X_reduced = X[:, :2]
         reduced_model = fit_glm(X_reduced, y, family="gaussian")
-        
+
         result = likelihood_ratio_test(reduced_model, full_model)
         assert result.p_value < 0.05
 
     def test_lrt_same_model(self, fitted_full_model):
         """Test LRT with same model gives statistic near 0."""
-        if not hasattr(fitted_full_model, 'log_likelihood_'):
+        if not hasattr(fitted_full_model, "log_likelihood_"):
             pytest.skip("Model doesn't provide log_likelihood")
-        
+
         result = likelihood_ratio_test(fitted_full_model, fitted_full_model)
         assert abs(result.statistic) < 1e-10
 
@@ -238,8 +241,8 @@ class TestANOVAIntegration:
         """Test using ANOVA and LRT together."""
         anova_result = anova_glm(fitted_full_model)
         assert anova_result is not None
-        
-        if hasattr(fitted_full_model, 'log_likelihood_'):
+
+        if hasattr(fitted_full_model, "log_likelihood_"):
             lrt_result = likelihood_ratio_test(fitted_reduced_model, fitted_full_model)
             assert lrt_result is not None
 
@@ -250,9 +253,9 @@ class TestANOVAIntegration:
         X = np.column_stack([np.ones(n), np.random.randn(n)])
         mu = np.exp(X @ np.array([1.0, 0.5]))
         y = np.random.poisson(mu)
-        
+
         model = fit_glm(X, y, family="poisson")
         result = anova_glm(model)
-        
+
         assert result is not None
         assert len(result.source) > 0

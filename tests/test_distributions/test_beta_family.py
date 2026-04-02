@@ -1,4 +1,5 @@
 """Unit tests for the Beta distribution family with multi-backend support."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def _as_array(xp, data):
     """Convert data to array in specified namespace."""
@@ -77,6 +79,7 @@ if _jax_available():
 # Test Functions - Basic Properties
 # ============================================================================
 
+
 class TestBetaFamilyBasicProperties:
     """Tests for basic Beta family properties."""
 
@@ -103,11 +106,7 @@ class TestBetaFamilyBasicProperties:
         result = family.full_variance(mu)
 
         # Expected: μ(1-μ)/(φ+1)
-        expected = [
-            0.3 * 0.7 / 5.0,
-            0.5 * 0.5 / 5.0,
-            0.7 * 0.3 / 5.0
-        ]
+        expected = [0.3 * 0.7 / 5.0, 0.5 * 0.5 / 5.0, 0.7 * 0.3 / 5.0]
 
         assert _allclose(result, expected, xp, rtol=1e-10)
 
@@ -121,18 +120,19 @@ class TestBetaFamilyBasicProperties:
 
     def test_estimate_phi_option(self):
         """Test that 'estimate' is valid for phi."""
-        family = BetaFamily(phi='estimate')
-        assert family.phi == 'estimate'
+        family = BetaFamily(phi="estimate")
+        assert family.phi == "estimate"
 
     def test_invalid_phi_string_raises_error(self):
         """Test that invalid string for phi raises ValueError."""
         with pytest.raises(ValueError, match="phi must be a positive float or 'estimate'"):
-            BetaFamily(phi='invalid')
+            BetaFamily(phi="invalid")
 
 
 # ============================================================================
 # Test Functions - Log-Likelihood
 # ============================================================================
+
 
 class TestBetaFamilyLogLikelihood:
     """Tests for Beta family log-likelihood computation."""
@@ -183,6 +183,7 @@ class TestBetaFamilyLogLikelihood:
 # Test Functions - Deviance
 # ============================================================================
 
+
 class TestBetaFamilyDeviance:
     """Tests for Beta family deviance computation."""
 
@@ -219,6 +220,7 @@ class TestBetaFamilyDeviance:
 # ============================================================================
 # Test Functions - Initialization
 # ============================================================================
+
 
 class TestBetaFamilyInitialization:
     """Tests for Beta family initialization."""
@@ -269,6 +271,7 @@ class TestBetaFamilyInitialization:
 # Test Functions - Phi Estimation
 # ============================================================================
 
+
 class TestBetaFamilyPhiEstimation:
     """Tests for Beta family phi estimation."""
 
@@ -279,7 +282,7 @@ class TestBetaFamilyPhiEstimation:
         true_alpha, true_beta = 3.0, 7.0  # True mean = 0.3
         y = np.random.beta(true_alpha, true_beta, size=500)
 
-        family = BetaFamily(phi='estimate')
+        family = BetaFamily(phi="estimate")
 
         # Estimate phi
         phi_est = family.estimate_phi(y)
@@ -292,7 +295,7 @@ class TestBetaFamilyPhiEstimation:
         np.random.seed(123)
         y = np.random.beta(2, 8, size=100)  # Mean ≈ 0.2
 
-        family = BetaFamily(phi='estimate')
+        family = BetaFamily(phi="estimate")
         mu = np.full_like(y, 0.2)
 
         # Should not raise error even though phi='estimate'
@@ -303,6 +306,7 @@ class TestBetaFamilyPhiEstimation:
 # ============================================================================
 # Test Functions - Multi-Backend Consistency
 # ============================================================================
+
 
 class TestBetaFamilyMultiBackend:
     """Tests for multi-backend consistency."""
@@ -345,6 +349,7 @@ class TestBetaFamilyMultiBackend:
 # Test Functions - Edge Cases
 # ============================================================================
 
+
 class TestBetaFamilyEdgeCases:
     """Tests for edge cases and numerical stability."""
 
@@ -385,6 +390,7 @@ class TestBetaFamilyEdgeCases:
 # ============================================================================
 # Test Functions - Default Link
 # ============================================================================
+
 
 class TestBetaFamilyDefaultLink:
     """Tests for default link function."""

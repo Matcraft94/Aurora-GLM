@@ -131,9 +131,7 @@ class RandomEffect:
             "matern",  # Spatial correlation
         }
         if self.covariance not in valid_cov:
-            raise ValueError(
-                f"covariance must be one of {valid_cov}, got '{self.covariance}'"
-            )
+            raise ValueError(f"covariance must be one of {valid_cov}, got '{self.covariance}'")
 
         # Check that we have at least one effect
         if not self.include_intercept and len(self.variables) == 0:

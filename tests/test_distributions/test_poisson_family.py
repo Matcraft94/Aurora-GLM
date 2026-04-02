@@ -1,4 +1,5 @@
 """Unit tests for the Poisson distribution family."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -34,7 +35,9 @@ def test_poisson_log_likelihood_matches_reference(xp):
     y = _as_array(xp, [0.0, 1.0, 3.0])
     mu = _as_array(xp, [0.6, 1.2, 2.8])
     result = family.log_likelihood(y, mu)
-    expected = float(np.sum(np.asarray([0.0, 1.0, 3.0]) * np.log([0.6, 1.2, 2.8]) - np.asarray([0.6, 1.2, 2.8])))
+    expected = float(
+        np.sum(np.asarray([0.0, 1.0, 3.0]) * np.log([0.6, 1.2, 2.8]) - np.asarray([0.6, 1.2, 2.8]))
+    )
     assert pytest.approx(expected) == _to_scalar(result, xp)
 
 
@@ -47,7 +50,7 @@ def test_poisson_deviance_handles_zero_counts(xp):
     mu = _as_array(xp, mu_values)
     result = family.deviance(y, mu)
     expected_terms = []
-    for y_i, mu_i in zip(y_values, mu_values):
+    for y_i, mu_i in zip(y_values, mu_values, strict=False):
         if y_i == 0:
             expected_terms.append(2.0 * mu_i)
         else:

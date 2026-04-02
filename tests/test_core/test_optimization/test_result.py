@@ -1,4 +1,5 @@
 """Tests for the OptimizationResult container."""
+
 from __future__ import annotations
 
 import numpy as np

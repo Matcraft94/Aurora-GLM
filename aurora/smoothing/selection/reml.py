@@ -99,10 +99,10 @@ def reml_score(
     # Weight matrix
     if weights is None:
         W = np.eye(n)
-        sqrt_W = np.eye(n)
+        np.eye(n)
     else:
         W = np.diag(weights)
-        sqrt_W = np.diag(np.sqrt(weights))
+        np.diag(np.sqrt(weights))
 
     # Penalized precision matrix
     XtWX = X.T @ W @ X
@@ -370,18 +370,14 @@ def select_multiple_smoothing_parameters_reml(
     m = len(X_list)  # Number of smooth terms
 
     if len(S_list) != m:
-        raise ValueError(
-            f"X_list and S_list must have same length, got {m} and {len(S_list)}"
-        )
+        raise ValueError(f"X_list and S_list must have same length, got {m} and {len(S_list)}")
 
     # Initialize lambdas
     if lambda_init is None:
         lambdas = [1.0] * m
     else:
         if len(lambda_init) != m:
-            raise ValueError(
-                f"lambda_init must have length {m}, got {len(lambda_init)}"
-            )
+            raise ValueError(f"lambda_init must have length {m}, got {len(lambda_init)}")
         lambdas = list(lambda_init)
 
     # Build full design matrix
@@ -389,7 +385,7 @@ def select_multiple_smoothing_parameters_reml(
     p_list = [X.shape[1] for X in X_list]  # Basis sizes per term
 
     converged = False
-    for iteration in range(max_iter):
+    for iteration in range(max_iter):  # noqa: B007
         lambdas_old = lambdas.copy()
 
         # Optimize each lambda in turn
@@ -398,18 +394,15 @@ def select_multiple_smoothing_parameters_reml(
             # S_full = block_diag(λ₁S₁, λ₂S₂, ..., λₘSₘ)
             from scipy.linalg import block_diag
 
-            S_blocks = [
-                lambdas[i] * S_list[i] if i != j else S_list[i] for i in range(m)
-            ]
+            S_blocks = [lambdas[i] * S_list[i] if i != j else S_list[i] for i in range(m)]
             S_full = block_diag(*S_blocks)
 
             # Optimize λⱼ
-            def objective(log_lambda: float) -> float:
+            def objective(log_lambda: float, _j: int = j) -> float:
                 lambda_j = np.exp(log_lambda)
                 # Update jth block
                 S_blocks_temp = [
-                    lambdas[i] * S_list[i] if i != j else lambda_j * S_list[i]
-                    for i in range(m)
+                    lambdas[i] * S_list[i] if i != _j else lambda_j * S_list[i] for i in range(m)
                 ]
                 S_temp = block_diag(*S_blocks_temp)
                 return reml_score(y, X_full, S_temp, 1.0, weights=weights)
@@ -427,8 +420,7 @@ def select_multiple_smoothing_parameters_reml(
 
         # Check convergence
         rel_change = np.max(
-            np.abs(np.array(lambdas) - np.array(lambdas_old))
-            / (np.array(lambdas_old) + 1e-10)
+            np.abs(np.array(lambdas) - np.array(lambdas_old)) / (np.array(lambdas_old) + 1e-10)
         )
         if rel_change < tol:
             converged = True

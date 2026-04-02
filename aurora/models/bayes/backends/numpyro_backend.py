@@ -18,7 +18,8 @@ References
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -35,7 +36,7 @@ def build_numpyro_model(
     y: NDArray,
     family: str,
     link: str | None,
-    priors: "PriorSpec",
+    priors: PriorSpec,
 ) -> Callable:
     """Build a NumPyro model from Aurora GLM specification.
 
@@ -116,9 +117,7 @@ def build_numpyro_model(
             theta = numpyro.sample("theta", shape_prior)
             # NegBin2 parameterization: mean=mu, variance=mu + mu^2/theta
             mu = jnp.maximum(mu, 1e-10)
-            numpyro.sample(
-                "y", dist.NegativeBinomial2(mean=mu, concentration=theta), obs=y
-            )
+            numpyro.sample("y", dist.NegativeBinomial2(mean=mu, concentration=theta), obs=y)
 
         elif family == "beta":
             # Beta regression with logit link

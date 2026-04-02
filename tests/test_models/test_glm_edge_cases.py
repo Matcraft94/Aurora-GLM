@@ -1,11 +1,11 @@
 """Edge case tests for GLM fitting to improve coverage."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from aurora.models.glm import fit_glm
-from aurora.utils.exceptions import ConfigurationError
 
 
 def test_fit_glm_with_invalid_family_raises_error():
