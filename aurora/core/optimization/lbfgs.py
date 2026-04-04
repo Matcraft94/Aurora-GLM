@@ -355,6 +355,7 @@ def lbfgs(
     m: int = 10,
     line_search: str = "strong-wolfe",
     callback: OptimizationCallback | None = None,
+    grad_fn: Callable | None = None,
 ) -> OptimizationResult:
     """Run L-BFGS (Limited-memory BFGS) quasi-Newton optimization.
 
@@ -398,6 +399,12 @@ def lbfgs(
     callback : callable, optional
         Function called after each iteration with signature
         ``(iteration, params, loss_value)``.
+    grad_fn : callable, optional
+        Gradient function with the same signature as ``loss_fn`` that
+        returns the gradient vector.  When provided, this is used
+        directly instead of calling ``backend.grad(loss_fn)``.  This
+        is useful for backends that do not support automatic
+        differentiation (e.g. NumPy).
 
     Returns
     -------
@@ -442,7 +449,8 @@ def lbfgs(
     converted_args = tuple(_convert_to_backend(backend, value) for value in args)
     converted_kwargs = {key: _convert_to_backend(backend, value) for key, value in kwargs.items()}
 
-    grad_fn = backend.grad(loss_fn)
+    if grad_fn is None:
+        grad_fn = backend.grad(loss_fn)
     x = backend.array(init_params)
 
     s_history: list[Any] = []

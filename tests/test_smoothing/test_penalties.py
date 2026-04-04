@@ -145,6 +145,32 @@ def test_weighted_difference_penalty_invalid_knots():
         weighted_difference_penalty(5, knots=np.array([0, 1, 0.5, 2, 3, 4]), order=2)
 
 
+def test_weighted_difference_penalty_invalid_params():
+    """weighted_difference_penalty should validate n_basis and order."""
+    knots = np.linspace(0, 1, 8)
+    with pytest.raises(ValueError, match="positive"):
+        weighted_difference_penalty(0, knots, order=2)
+    with pytest.raises(ValueError, match="positive"):
+        weighted_difference_penalty(5, knots, order=0)
+    # Non-1D knots
+    with pytest.raises(ValueError, match="1-dimensional"):
+        weighted_difference_penalty(3, np.array([[0, 1], [2, 3]]), order=1)
+
+
+def test_ridge_penalty_invalid_n_basis():
+    with pytest.raises(ValueError, match="positive"):
+        ridge_penalty(n_basis=0)
+
+
+def test_null_space_penalty_invalid_params():
+    with pytest.raises(ValueError, match="positive"):
+        null_space_penalty(n_basis=0, null_space_dim=2)
+    with pytest.raises(ValueError, match="positive"):
+        null_space_penalty(n_basis=5, null_space_dim=0)
+    with pytest.raises(ValueError, match="less than"):
+        null_space_penalty(n_basis=3, null_space_dim=3)
+
+
 def test_ridge_penalty_basic():
     """ridge_penalty should create identity-like matrix."""
     S = ridge_penalty(n_basis=5)

@@ -8,14 +8,19 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from aurora.utils.exceptions import ConfigurationError
+from aurora.utils.validation import ensure_non_empty, ensure_positive
 from aurora.utils.validation.decorators import (
     ValidationError,
     validate_array,
+    validate_callable,
     validate_in_range,
     validate_non_negative,
+    validate_not_none,
     validate_one_of,
     validate_positive,
     validate_probability,
+    validate_type,
     validated,
 )
 
@@ -374,3 +379,447 @@ class TestEdgeCases:
         # Should work since x defaults to None and allow_none=True
         result = func(y=5)
         assert result == 5
+
+
+# === NEW: Tests for validate_array advanced features ===
+
+
+class TestValidateArrayAdvanced:
+    def test_ndim_tuple(self):
+        """Test ndim accepts tuple of valid dimensions."""
+
+        @validate_array("x", ndim=(1, 2))
+        def func(x):
+            return x
+
+        assert func(np.ones(5)).shape == (5,)
+        assert func(np.ones((3, 4))).shape == (3, 4)
+        with pytest.raises(ValidationError):
+            func(np.ones((2, 3, 4)))
+
+    def test_ensure_2d_passes_validation(self):
+        """Test ensure_2d allows 1D arrays (reshape is internal only)."""
+
+        @validate_array("x", ensure_2d=True)
+        def func(x):
+            return x
+
+        # The decorator allows 1D through when ensure_2d=True
+        # (reshape happens internally in bound.arguments but func gets original args)
+        result = func(np.array([1, 2, 3]))
+        assert result.shape == (3,)
+
+    def test_check_finite_nan(self):
+        """Test that NaN values are caught."""
+
+        @validate_array("x", check_finite=True)
+        def func(x):
+            return x
+
+        with pytest.raises(ValidationError, match="NaN"):
+            func(np.array([1, float("nan"), 3]))
+
+    def test_check_finite_inf(self):
+        """Test that Inf values are caught."""
+
+        @validate_array("x", check_finite=True)
+        def func(x):
+            return x
+
+        with pytest.raises(ValidationError, match="Inf"):
+            func(np.array([1, float("inf"), 3]))
+
+    def test_dtype_check_float(self):
+        """Test dtype_check='float' accepts floats, rejects ints."""
+
+        @validate_array("x", dtype_check="float")
+        def func(x):
+            return x
+
+        func(np.array([1.0, 2.0]))
+        with pytest.raises(ValidationError, match="float"):
+            func(np.array([1, 2]))
+
+    def test_dtype_check_int(self):
+        """Test dtype_check='int' accepts ints, rejects floats."""
+
+        @validate_array("x", dtype_check="int")
+        def func(x):
+            return x
+
+        func(np.array([1, 2]))
+        with pytest.raises(ValidationError, match="integer"):
+            func(np.array([1.0, 2.0]))
+
+    def test_dtype_check_bool(self):
+        """Test dtype_check='bool'."""
+
+        @validate_array("x", dtype_check="bool")
+        def func(x):
+            return x
+
+        func(np.array([True, False]))
+        with pytest.raises(ValidationError, match="boolean"):
+            func(np.array([1, 2]))
+
+    def test_allow_none_true(self):
+        """Test allow_none=True passes None through."""
+
+        @validate_array("x", allow_none=True)
+        def func(x=None):
+            return x
+
+        assert func(None) is None
+
+    def test_allow_none_false_raises(self):
+        """Test allow_none=False raises on None."""
+
+        @validate_array("x", allow_none=False)
+        def func(x=None):
+            return x
+
+        with pytest.raises(ValidationError, match="None"):
+            func(None)
+
+    def test_min_cols(self):
+        """Test min_cols validation."""
+
+        @validate_array("x", min_cols=3)
+        def func(x):
+            return x
+
+        func(np.ones((5, 4)))
+        with pytest.raises(ValidationError, match="columns"):
+            func(np.ones((5, 2)))
+
+    def test_not_allow_1d(self):
+        """Test allow_1d=False rejects 1D arrays."""
+
+        @validate_array("x", allow_1d=False)
+        def func(x):
+            return x
+
+        func(np.ones((3, 2)))
+        with pytest.raises(ValidationError, match="1D"):
+            func(np.ones(5))
+
+    def test_custom_name(self):
+        """Test custom name in error messages."""
+
+        @validate_array("x", name="design matrix", ndim=2)
+        def func(x):
+            return x
+
+        with pytest.raises(ValidationError, match="design matrix"):
+            func(np.ones(5))
+
+    def test_check_finite_no_check(self):
+        """Test check_finite=False allows NaN."""
+
+        @validate_array("x", check_finite=False)
+        def func(x):
+            return x
+
+        result = func(np.array([1, float("nan"), 3]))
+        assert result.shape == (3,)
+
+
+# === NEW: Tests for validate_callable ===
+
+
+class TestValidateCallable:
+    def test_callable_passes(self):
+
+        @validate_callable("f")
+        def func(f):
+            return f
+
+        assert func(len) == len
+
+    def test_non_callable_fails(self):
+
+        @validate_callable("f")
+        def func(f):
+            return f
+
+        with pytest.raises(ValidationError, match="callable"):
+            func("not_callable")
+
+    def test_allow_none(self):
+
+        @validate_callable("f", allow_none=True)
+        def func(f=None):
+            return f
+
+        assert func(None) is None
+
+    def test_none_without_allow_none(self):
+
+        @validate_callable("f")
+        def func(f=None):
+            return f
+
+        with pytest.raises(ValidationError, match="None"):
+            func(None)
+
+
+# === NEW: Tests for validate_not_none ===
+
+
+class TestValidateNotNone:
+    def test_not_none_passes(self):
+
+        @validate_not_none("x")
+        def func(x):
+            return x
+
+        assert func(42) == 42
+
+    def test_none_raises(self):
+
+        @validate_not_none("x")
+        def func(x=None):
+            return x
+
+        with pytest.raises(ValidationError, match="required"):
+            func(None)
+
+    def test_multiple_params(self):
+
+        @validate_not_none("x", "y")
+        def func(x, y):
+            return x + y
+
+        assert func(1, 2) == 3
+        with pytest.raises(ValidationError):
+            func(None, 2)
+
+    def test_kwargs_support(self):
+
+        @validate_not_none("x")
+        def func(x=5):
+            return x
+
+        assert func(x=10) == 10
+        with pytest.raises(ValidationError):
+            func(x=None)
+
+
+# === NEW: Tests for validate_type ===
+
+
+class TestValidateType:
+    def test_matching_type(self):
+
+        @validate_type("x", int)
+        def func(x):
+            return x
+
+        assert func(42) == 42
+
+    def test_wrong_type(self):
+
+        @validate_type("x", int)
+        def func(x):
+            return x
+
+        with pytest.raises(ValidationError, match="int"):
+            func("string")
+
+    def test_tuple_of_types(self):
+
+        @validate_type("x", (int, float))
+        def func(x):
+            return x
+
+        assert func(42) == 42
+        assert func(3.14) == 3.14
+        with pytest.raises(ValidationError, match="int or float"):
+            func("string")
+
+    def test_allow_none(self):
+
+        @validate_type("x", int, allow_none=True)
+        def func(x=None):
+            return x
+
+        assert func(None) is None
+
+    def test_none_without_allow(self):
+
+        @validate_type("x", int)
+        def func(x=None):
+            return x
+
+        with pytest.raises(ValidationError):
+            func(None)
+
+
+# === NEW: Tests for validated composite ===
+
+
+class TestValidatedCompositeAdvanced:
+    def test_array_validation(self):
+
+        @validated(x={"type": "array", "ndim": 2, "dtype": "numeric"})
+        def func(x):
+            return x
+
+        func(np.ones((3, 4)))
+        with pytest.raises(ValidationError):
+            func(np.ones(5))
+
+    def test_probability_validation(self):
+
+        @validated(p={"type": "probability"})
+        def func(p):
+            return p
+
+        assert func(0.5) == 0.5
+        with pytest.raises(ValidationError):
+            func(1.5)
+
+    def test_range_validation(self):
+
+        @validated(x={"type": "range", "lower": 0, "upper": 10})
+        def func(x):
+            return x
+
+        assert func(5) == 5
+        with pytest.raises(ValidationError):
+            func(15)
+
+    def test_choices_validation(self):
+
+        @validated(method={"choices": ["a", "b", "c"]})
+        def func(method):
+            return method
+
+        assert func("a") == "a"
+        with pytest.raises(ValidationError):
+            func("d")
+
+    def test_non_dict_spec_raises(self):
+        with pytest.raises(ValueError, match="dict"):
+
+            @validated(x="not a dict")
+            def func(x):
+                return x
+
+
+# === NEW: Tests for ensure_positive and ensure_non_empty ===
+
+
+class TestEnsurePositive:
+    def test_positive_value(self):
+        ensure_positive(1.0, name="x")  # should not raise
+
+    def test_zero_raises(self):
+        with pytest.raises(ConfigurationError, match="positive"):
+            ensure_positive(0, name="x")
+
+    def test_negative_raises(self):
+        with pytest.raises(ConfigurationError, match="positive"):
+            ensure_positive(-1.0, name="alpha")
+
+
+class TestEnsureNonEmpty:
+    def test_non_empty_passes(self):
+        ensure_non_empty([1, 2, 3], name="data")  # should not raise
+
+    def test_empty_list_raises(self):
+        with pytest.raises(ConfigurationError, match="empty"):
+            ensure_non_empty([], name="data")
+
+    def test_empty_generator_raises(self):
+        with pytest.raises(ConfigurationError, match="empty"):
+            ensure_non_empty((x for x in []), name="data")
+
+    def test_non_empty_generator_passes(self):
+        ensure_non_empty((x for x in [1]), name="data")
+
+
+# === NEW: Tests for validate_probability edge cases ===
+
+
+class TestValidateProbabilityAdvanced:
+    def test_disallow_zero(self):
+
+        @validate_probability("p", allow_zero=False)
+        def func(p):
+            return p
+
+        func(0.5)
+        with pytest.raises(ValidationError):
+            func(0.0)
+
+    def test_disallow_one(self):
+
+        @validate_probability("p", allow_one=False)
+        def func(p):
+            return p
+
+        func(0.5)
+        with pytest.raises(ValidationError):
+            func(1.0)
+
+    def test_allow_none(self):
+
+        @validate_probability("p", allow_none=True)
+        def func(p=None):
+            return p
+
+        assert func(None) is None
+
+
+# === NEW: Tests for validate_in_range edge cases ===
+
+
+class TestValidateInRangeAdvanced:
+    def test_left_exclusive(self):
+
+        @validate_in_range("x", lower=0, upper=10, inclusive="left")
+        def func(x):
+            return x
+
+        assert func(0) == 0
+        with pytest.raises(ValidationError):
+            func(10)
+
+    def test_right_exclusive(self):
+
+        @validate_in_range("x", lower=0, upper=10, inclusive="right")
+        def func(x):
+            return x
+
+        assert func(10) == 10
+        with pytest.raises(ValidationError):
+            func(0)
+
+    def test_allow_none(self):
+
+        @validate_in_range("x", lower=0, upper=10, allow_none=True)
+        def func(x=None):
+            return x
+
+        assert func(None) is None
+
+    def test_only_lower_bound(self):
+
+        @validate_in_range("x", lower=0)
+        def func(x):
+            return x
+
+        assert func(100) == 100
+        with pytest.raises(ValidationError):
+            func(-1)
+
+    def test_only_upper_bound(self):
+
+        @validate_in_range("x", upper=10)
+        def func(x):
+            return x
+
+        assert func(-100) == -100
+        with pytest.raises(ValidationError):
+            func(11)
