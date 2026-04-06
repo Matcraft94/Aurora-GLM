@@ -944,9 +944,11 @@ def plot_smooth_effect(
     try:
         from aurora.smoothing.splines.bspline import BSplineBasis
 
-        basis = BSplineBasis(n_basis=n_basis, degree=3)
+        n_knots = max(n_basis - 2, 4)  # n_basis = n_knots + degree - 1
+        knots = np.linspace(x_grid.min(), x_grid.max(), n_knots)
+        basis = BSplineBasis(knots=knots, degree=3)
         X_grid = basis.design_matrix(x_grid)
-    except ImportError:
+    except Exception:
         # Fallback: polynomial basis
         X_grid = np.column_stack([x_grid**i for i in range(n_basis)])
 
@@ -991,7 +993,7 @@ def plot_smooth_effect(
     if show_residuals and data is not None:
         # Compute partial residuals at data points
         try:
-            basis_data = BSplineBasis(n_basis=n_basis, degree=3)
+            basis_data = BSplineBasis(knots=knots, degree=3)
             X_data = basis_data.design_matrix(x_data)
         except Exception:
             X_data = np.column_stack([x_data**i for i in range(n_basis)])
