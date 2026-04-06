@@ -16,7 +16,7 @@ copyright = "2025, Lucy Eduardo Arias"
 author = "Lucy Eduardo Arias"
 
 # Read version from package
-__version__ = "0.7.0"
+__version__ = "1.0.0"
 try:
     from aurora import __version__ as _v
 
