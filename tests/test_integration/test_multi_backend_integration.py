@@ -14,6 +14,7 @@ try:
 
     HAS_TORCH = True
 except ImportError:
+    torch = None
     HAS_TORCH = False
 
 try:
@@ -457,8 +458,7 @@ class TestBackendSwitching:
             # JAX arrays may be truncated to float32 without x64 enabled
             assert hasattr(x_jax, "shape")
 
-    @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
-    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+    @pytest.mark.skipif(not HAS_TORCH or not _torch_cuda_available(), reason="CUDA not available")
     def test_device_transfer_torch(self):
         """Test transferring data between CPU and GPU in PyTorch."""
         x_cpu = torch.tensor([1, 2, 3], dtype=torch.float64)
@@ -514,7 +514,7 @@ class TestBackendPerformance:
         result = fit_glm(X_b, y_b, family="binomial", link="logit", max_iter=100)
         assert result.converged_ or result.n_iter_ == 100
 
-    @pytest.mark.skipif(not HAS_TORCH or not torch.cuda.is_available(), reason="CUDA not available")
+    @pytest.mark.skipif(not HAS_TORCH or not _torch_cuda_available(), reason="CUDA not available")
     def test_gpu_memory_management_torch(self):
         """Test GPU memory is properly managed in PyTorch."""
         torch.cuda.empty_cache()
