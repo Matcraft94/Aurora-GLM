@@ -128,7 +128,8 @@ def read_csv(
                 next(reader, None)
 
             # Read header
-            if header is True or header == 0:
+            # Note: bool is subclass of int, so must check `is not False` explicitly
+            if header is True or (header is not False and header == 0):
                 col_names = next(reader)
             else:
                 first_row = next(reader)
@@ -136,7 +137,7 @@ def read_csv(
                 # Re-read the row since we consumed it
                 rows = [first_row]
 
-            if header is True or header == 0:
+            if header is True or (header is not False and header == 0):
                 rows = []
 
             # Read data
