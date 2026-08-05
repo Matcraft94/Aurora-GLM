@@ -157,25 +157,6 @@ def backend(request):
     return backend_name
 
 
-@pytest.fixture(params=["numpy", "torch"])
-def backend_no_jax(request):
-    """Parametrize tests over NumPy and PyTorch only.
-
-    Useful for tests that don't yet support JAX or have JAX-specific issues.
-
-    Yields
-    ------
-    str
-        Backend name: 'numpy' or 'torch'
-    """
-    backend_name = request.param
-
-    if backend_name == "torch" and not HAS_TORCH:
-        pytest.skip("PyTorch not installed")
-
-    return backend_name
-
-
 def _require_pytorch():
     try:
         import torch  # noqa: F401
