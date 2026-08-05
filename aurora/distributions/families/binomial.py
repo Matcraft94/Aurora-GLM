@@ -7,7 +7,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from .._utils import as_namespace_array, clip_probability, namespace
+from .._utils import (
+    as_namespace_array,
+    clip_probability,
+    log_factorial,
+    log_gamma,
+    namespace,
+)
 from ..base import Family, LinkFunction
 from ..links import LogitLink
 
@@ -108,7 +114,10 @@ class BinomialFamily(Family):
         probability = clip_probability(mu_arr / n_arr, xp)
         term1 = y_arr * _safe_log(probability, xp)
         term2 = (n_arr - y_arr) * _safe_log(1.0 - probability, xp)
-        return (term1 + term2).sum()
+        log_binom_coef = log_gamma(n_arr + 1.0, xp) - log_factorial(y_arr, xp) - log_gamma(
+            n_arr - y_arr + 1.0, xp
+        )
+        return (term1 + term2 + log_binom_coef).sum()
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         """Compute binomial deviance with consistent epsilon handling.

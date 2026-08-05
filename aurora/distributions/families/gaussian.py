@@ -5,9 +5,13 @@
 
 from __future__ import annotations
 
+import math
+
 from .._utils import as_namespace_array, namespace, ones_like
 from ..base import Family, LinkFunction
 from ..links import IdentityLink
+
+_LOG_2PI = math.log(2.0 * math.pi)
 
 try:  # pragma: no cover - optional dependency
     import torch
@@ -65,10 +69,17 @@ class GaussianFamily(Family):
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
         mu_arr = as_namespace_array(mu, xp, like=y_arr)
-        variance = params.get("variance", self._variance)
-        var_arr = as_namespace_array(variance, xp, like=mu_arr)
         resid = y_arr - mu_arr
-        return (-0.5 * (resid**2) / var_arr).sum()
+        n = y_arr.shape[0] if hasattr(y_arr, "shape") and y_arr.shape else len(y_arr)
+        if "variance" in params:
+            var_arr = as_namespace_array(params["variance"], xp, like=mu_arr)
+        elif self._variance != 1.0:
+            var_arr = as_namespace_array(self._variance, xp, like=mu_arr)
+        else:
+            rss = float(xp.sum(resid**2)) if hasattr(resid, "sum") else float(sum(resid**2))
+            var_arr = as_namespace_array(rss / max(n, 1), xp, like=mu_arr)
+        log_var = xp.log(var_arr)
+        return (-0.5 * (resid**2) / var_arr).sum() - 0.5 * n * (_LOG_2PI + log_var)
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)

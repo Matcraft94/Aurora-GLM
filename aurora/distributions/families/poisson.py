@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .._utils import as_namespace_array, ensure_positive, namespace
+from .._utils import as_namespace_array, ensure_positive, log_factorial, namespace
 from ..base import Family, LinkFunction
 from ..links import LogLink
 
@@ -67,7 +67,8 @@ class PoissonFamily(Family):
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
         mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
-        return (y_arr * xp.log(mu_arr) - mu_arr).sum()
+        log_y_fact = log_factorial(y_arr, xp)
+        return (y_arr * xp.log(mu_arr) - mu_arr - log_y_fact).sum()
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)

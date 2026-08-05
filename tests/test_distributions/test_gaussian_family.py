@@ -104,12 +104,12 @@ def test_gaussian_variance_is_constant(xp):
 
 @pytest.mark.parametrize("xp", AVAILABLE_BACKENDS)
 def test_gaussian_log_likelihood_is_normal_pdf(xp):
-    """Test Gaussian log-likelihood matches normal distribution formula.
+    """Test Gaussian log-likelihood matches the full normal distribution formula.
 
-    The Gaussian log-likelihood (ignoring constant terms) is:
-    -0.5 * sum((y - mu)^2 / variance)
+    The Gaussian log-likelihood (with normalizing constants, matching R/statsmodels) is:
+        -0.5 * sum((y - mu)^2 / variance) - 0.5 * n * (log(2*pi) + log(variance))
 
-    This is proportional to the log of the normal probability density.
+    This equals the log of the normal probability density, including constants.
     """
     variance = 1.0
     family = GaussianFamily(variance=variance)
@@ -117,13 +117,16 @@ def test_gaussian_log_likelihood_is_normal_pdf(xp):
     y = _as_array(xp, [0.0, 1.0, 2.0, 3.0])
     mu = _as_array(xp, [0.1, 0.9, 2.1, 2.9])
 
-    ll = family.log_likelihood(y, mu)
+    ll = family.log_likelihood(y, mu, variance=variance)
     ll_scalar = _to_scalar(ll, xp)
 
-    # Reference calculation (without constant terms)
+    # Reference calculation (full log-likelihood with normalizing constant)
     y_np = np.array([0.0, 1.0, 2.0, 3.0])
     mu_np = np.array([0.1, 0.9, 2.1, 2.9])
-    expected = float(np.sum(-0.5 * (y_np - mu_np) ** 2 / variance))
+    n = len(y_np)
+    quadratic = float(np.sum(-0.5 * (y_np - mu_np) ** 2 / variance))
+    normalizing = -0.5 * n * (np.log(2.0 * np.pi) + np.log(variance))
+    expected = quadratic + normalizing
 
     # JAX uses float32 by default, so allow more tolerance
     tol = 1e-5 if (jnp is not None and xp is jnp) else 1e-10

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import scipy.special
 
 from aurora.distributions.families.poisson import PoissonFamily
 
@@ -35,9 +36,11 @@ def test_poisson_log_likelihood_matches_reference(xp):
     y = _as_array(xp, [0.0, 1.0, 3.0])
     mu = _as_array(xp, [0.6, 1.2, 2.8])
     result = family.log_likelihood(y, mu)
-    expected = float(
-        np.sum(np.asarray([0.0, 1.0, 3.0]) * np.log([0.6, 1.2, 2.8]) - np.asarray([0.6, 1.2, 2.8]))
-    )
+    # Full Poisson log-likelihood: y*log(mu) - mu - log(y!) matching R dpois(..., log=TRUE)
+    y_np = np.asarray([0.0, 1.0, 3.0])
+    mu_np = np.asarray([0.6, 1.2, 2.8])
+    log_y_fact = scipy.special.gammaln(y_np + 1.0)
+    expected = float(np.sum(y_np * np.log(mu_np) - mu_np - log_y_fact))
     assert pytest.approx(expected) == _to_scalar(result, xp)
 
 

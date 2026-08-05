@@ -368,9 +368,9 @@ def fit_glm(
     else:
         null_deviance = deviance_value
 
-    aic = deviance_value + 2.0 * n_params
-    bic = deviance_value + math.log(max(n_obs, 1)) * n_params
-    log_likelihood = -deviance_value / 2.0
+    log_likelihood = _to_python_float(family_obj.log_likelihood(y_arr, mu))
+    aic = -2.0 * log_likelihood + 2.0 * n_params
+    bic = -2.0 * log_likelihood + math.log(max(n_obs, 1)) * n_params
 
     result = GLMResult(
         coef_=coef,
