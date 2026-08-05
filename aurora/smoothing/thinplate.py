@@ -299,7 +299,8 @@ def select_knots(
         Method for selecting knots:
         - 'uniform': Every n/k-th point
         - 'random': Random subset
-        - 'kmeans': K-means clustering (not yet implemented)
+        - 'kmeans': K-means clustering via scipy.cluster.vq.kmeans2; knots
+          are cluster centroids, giving density-aware coverage of X.
 
     Returns
     -------
@@ -333,7 +334,21 @@ def select_knots(
         indices = np.random.choice(n, size=n_knots, replace=False)
         knots = X[indices]
     elif method == "kmeans":
-        raise NotImplementedError("kmeans knot selection not yet implemented")
+        # K-means clustering - uses scipy.cluster.vq.kmeans2 (Lloyd's algorithm).
+        # Cluster centroids serve as knot locations, giving representative
+        # coverage of the data distribution. Seeded from random data points
+        # for reproducibility via the fixed seed.
+        from scipy.cluster.vq import kmeans2
+
+        n_clusters = min(n_knots, n)
+        centroids, _ = kmeans2(
+            X.astype(np.float64, copy=False),
+            k=n_clusters,
+            minit="points",
+            seed=42,
+            missing="warn",
+        )
+        knots = centroids[:n_knots] if n_clusters >= n_knots else centroids
     else:
         raise ValueError(f"Unknown method: {method}")
 

@@ -320,12 +320,21 @@ def test_select_knots_invalid_method():
         select_knots(X, n_knots=20, method="invalid")
 
 
-def test_select_knots_kmeans_not_implemented():
-    """select_knots should raise error for kmeans (not implemented)."""
-    X = np.random.randn(100, 2)
+def test_select_knots_kmeans_returns_centroids():
+    """select_knots(method='kmeans') should return cluster centroids of X."""
+    rng = np.random.default_rng(42)
+    # Two well-separated clusters
+    cluster_a = rng.normal(loc=[0, 0], scale=0.2, size=(60, 2))
+    cluster_b = rng.normal(loc=[5, 5], scale=0.2, size=(60, 2))
+    X = np.vstack([cluster_a, cluster_b])
 
-    with pytest.raises(NotImplementedError, match="kmeans"):
-        select_knots(X, n_knots=20, method="kmeans")
+    knots = select_knots(X, n_knots=2, method="kmeans")
+    assert knots.shape == (2, 2)
+    # Centroids should be near the true cluster centers (0,0) and (5,5)
+    # Sort by first coordinate to make assertion order-independent
+    sorted_knots = knots[np.argsort(knots[:, 0])]
+    np.testing.assert_allclose(sorted_knots[0], [0, 0], atol=0.15)
+    np.testing.assert_allclose(sorted_knots[1], [5, 5], atol=0.15)
 
 
 def test_tps_interpolation_exact():
