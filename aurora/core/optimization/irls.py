@@ -751,13 +751,17 @@ def irls(
         if callback is not None:
             callback(iteration, backend.as_numpy(beta), float(backend.as_numpy(loss_value)))
 
-        if step_norm < tol:
+        # Relative convergence test (matches scipy.optimize / R glm convention):
+        # ||delta|| / (||beta|| + eps) < tol. The +eps guards against
+        # division by zero when beta collapses to 0 (e.g., intercept-only).
+        beta_norm = float(backend.as_numpy((beta * beta).sum() ** 0.5))
+        if step_norm / (beta_norm + 1e-12) < tol:
             return OptimizationResult(
                 x=backend.as_numpy(beta),
                 fun=float(backend.as_numpy(loss_value)),
                 grad=None,
                 success=True,
-                message="Converged: parameter change below tolerance",
+                message="Converged: relative parameter change below tolerance",
                 nit=iteration + 1,
                 nfev=nfev,
                 njev=0,
