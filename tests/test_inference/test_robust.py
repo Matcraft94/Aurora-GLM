@@ -66,18 +66,27 @@ class TestRobustCovariance:
         x = np.random.randn(n)
         y = 2 * x + 1 + np.random.randn(n) * 0.5
 
+        # Reference: same estimator on the outlier-free data. (The model-based
+        # Gaussian SE now estimates the dispersion from data, so it already
+        # absorbs the outlier's noise; comparing robust SEs against it encodes
+        # the old φ = 1 bug. The meaningful check is inflation of the robust
+        # SE itself when the outlier is added.)
+        clean_result = fit_glm(x.reshape(-1, 1), y, family="gaussian")
+        robust_clean = robust_covariance(clean_result, hc_type="HC3")
+
         # Add extreme outlier
         y[0] = 50
 
         result = fit_glm(x.reshape(-1, 1), y, family="gaussian")
         robust_result = robust_covariance(result, hc_type="HC3")
 
-        # Robust SEs should be much larger than standard SEs
-        assert robust_result.intercept_std_error > result.intercept_std_error_
-        assert robust_result.std_errors[0] > result.std_errors_[0]
+        # Robust SEs should inflate when the outlier is added
+        assert robust_result.intercept_std_error > robust_clean.intercept_std_error
+        assert robust_result.std_errors[0] > robust_clean.std_errors[0]
 
         # Should be at least 2x larger with such an extreme outlier
-        assert robust_result.intercept_std_error > 2 * result.intercept_std_error_
+        assert robust_result.intercept_std_error > 2 * robust_clean.intercept_std_error
+        assert robust_result.std_errors[0] > 2 * robust_clean.std_errors[0]
 
     def test_invalid_hc_type(self):
         """Test error handling for invalid HC type."""
@@ -197,6 +206,14 @@ class TestBootstrapInference:
         n = 50
         x = np.random.randn(n)
         y = 2 * x + 1 + np.random.randn(n) * 0.5
+
+        # Reference: bootstrap of the outlier-free fit. (The model-based
+        # Gaussian SE now estimates the dispersion from data, so it already
+        # absorbs the outlier's noise; comparing bootstrap SEs against it
+        # encodes the old φ = 1 bug.)
+        clean_result = fit_glm(x.reshape(-1, 1), y, family="gaussian")
+        boot_clean = bootstrap_inference(clean_result, n_bootstrap=100, seed=42)
+
         y[0] = 20  # Outlier
 
         result = fit_glm(x.reshape(-1, 1), y, family="gaussian")
@@ -207,4 +224,5 @@ class TestBootstrapInference:
         assert boot_result["intercept_std_error"] > 0
 
         # SEs should be larger than without outlier
-        assert boot_result["std_errors"][0] > result.std_errors_[0]
+        assert boot_result["std_errors"][0] > boot_clean["std_errors"][0]
+        assert boot_result["intercept_std_error"] > boot_clean["intercept_std_error"]

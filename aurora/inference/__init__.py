@@ -52,19 +52,10 @@ Confidence Intervals
 
 where z_{α/2} is the (1 - α/2) quantile of N(0,1).
 
-**Profile likelihood intervals** (more accurate):
-
-Based on the likelihood ratio:
-
-    {β: 2[ℓ(β̂) - ℓ(β)] ≤ χ²_{1,α}}
-
-Profile intervals are invariant to reparameterization.
-
-**Bootstrap intervals** (non-parametric):
-
-    - Percentile method: [β̂*_{α/2}, β̂*_{1-α/2}]
-    - BCa (bias-corrected accelerated): adjusts for bias and skewness
-    - Studentized: uses bootstrap t-statistics
+Only Wald-type intervals are currently supported. Profile likelihood
+intervals and bootstrap BCa/studentized intervals are NOT implemented;
+``bootstrap_inference`` provides non-parametric **percentile** intervals
+only.
 
 Standard Errors
 ---------------

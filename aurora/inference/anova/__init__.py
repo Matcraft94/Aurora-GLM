@@ -1,35 +1,64 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 Lucy Eduardo Arias
 
-"""Analysis of variance for GLM and GAM models.
+"""Analysis of variance (analysis of deviance) for GLM and GAM models.
 
 This module provides ANOVA functionality for analyzing model effects
 and comparing nested models.
 
-Types of ANOVA
---------------
-- Type I: Sequential sum of squares (order-dependent)
-- Type II: Partial SS adjusted for other effects (not for highest-order)
-- Type III: Partial SS for each effect adjusted for all others
+Single-model table
+------------------
+For a single fitted GLM, ``anova_glm`` reports partial (Type III-style)
+Wald tests per coefficient:
+
+    W_j = β̂_j² / Var(β̂_j)
+
+where Var(β̂_j) is the diagonal of the model covariance matrix (already
+scaled by the dispersion estimate φ̂). For Gaussian models with
+``test='F'`` the reference distribution is F(1, df_resid) (equivalent to
+the squared t-statistic, matching ``statsmodels.stats.anova_lm`` with
+``typ=3``); otherwise W_j ~ χ²₁ asymptotically.
+
+Model comparison
+----------------
+For several nested models, ``anova_glm`` reports sequential deviance
+differences (analysis of deviance, R ``anova.glm`` convention):
+
+- ``test='Chisq'`` / ``'LRT'``: ΔD ~ χ²_Δdf — valid for nested GLMs of
+  the same family with known dispersion (Poisson, Binomial), where the
+  deviance difference equals the likelihood-ratio statistic.
+- ``test='F'``: F = (ΔD/Δdf) / φ̂ with φ̂ taken from the largest model —
+  the convention for Gaussian models with estimated dispersion. For
+  non-Gaussian families ``test='F'`` falls back to the χ² test with a
+  warning.
 
 Examples
 --------
->>> from aurora.inference.anova import anova_glm, anova_table
+>>> from aurora.inference.anova import anova_glm, likelihood_ratio_test
+>>>
+>>> # Single-model Wald table (Type III-style)
+>>> anova_glm(result, type=3)
 >>>
 >>> # Compare nested models
->>> anova_glm(reduced_model, full_model)
->>>
->>> # Type III ANOVA table
->>> anova_table(result, type=3)
+>>> anova_glm(reduced_model, full_model, test="Chisq")
+>>> likelihood_ratio_test(reduced_model, full_model)
 
 References
 ----------
 .. [1] Fox, J. (2015). Applied Regression Analysis and GLMs.
 .. [2] Venables, W.N. & Ripley, B.D. (2002). Modern Applied Statistics with S.
+.. [3] Self, S.G. & Liang, K.-Y. (1987). Asymptotic properties of maximum
+       likelihood estimators and likelihood ratio test when some parameters
+       are on the boundary of the parameter space. JASA 82, 605-610.
+.. [4] Stram, D.O. & Lee, J.W. (1994). Variance components testing in the
+       longitudinal mixed effects model. Biometrics 50, 1171-1177.
+.. [5] Pinheiro, J.C. & Bates, D.M. (2000). Mixed-Effects Models in S and
+       S-PLUS. Springer. §2.4 (PQL likelihood is conditional).
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -46,17 +75,26 @@ class ANOVAResult:
     df : ndarray
         Degrees of freedom for each source.
     ss : ndarray
-        Sum of squares for each source.
+        Sum of squares for each source. For single-model Wald tables this
+        holds the per-coefficient Wald statistics (χ² scale); for model
+        comparisons it holds the (non-negative) deviance differences.
     ms : ndarray
         Mean squares (SS / df).
     f_statistic : ndarray
-        F-statistics for each test.
+        Test statistics: F values when ``test='F'``, χ² values otherwise.
     p_value : ndarray
         P-values for each test.
     source : list of str
         Names of sources of variation.
     anova_type : int
         Type of ANOVA performed (1, 2, or 3).
+    residual_df : int
+        Residual degrees of freedom of the (largest) model.
+    residual_ss : float
+        Residual deviance (Gaussian: residual sum of squares) of the
+        (largest) model.
+    test : str
+        Reference distribution used for the p-values ('F' or 'Chisq').
     """
 
     df: np.ndarray
@@ -68,6 +106,7 @@ class ANOVAResult:
     anova_type: int
     residual_df: int
     residual_ss: float
+    test: str = "F"
 
     def __repr__(self) -> str:
         return f"ANOVAResult(type={self.anova_type}, sources={self.source})"
@@ -80,11 +119,15 @@ class ANOVAResult:
         lines = []
         sep = "=" * 75
 
+        stat_label = "F" if self.test == "F" else "Chi2"
+        p_label = "Pr(>F)" if self.test == "F" else "Pr(>Chi)"
+
         lines.append(sep)
         lines.append(f"{'ANOVA Table (Type ' + str(self.anova_type) + ')':^75}")
         lines.append(sep)
         lines.append(
-            f"{'Source':>15} {'Df':>8} {'Sum Sq':>12} {'Mean Sq':>12} {'F':>10} {'Pr(>F)':>12}"
+            f"{'Source':>15} {'Df':>8} {'Sum Sq':>12} {'Mean Sq':>12} "
+            f"{stat_label:>10} {p_label:>12}"
         )
         lines.append("-" * 75)
 
@@ -131,6 +174,7 @@ class ANOVAResult:
             "type": self.anova_type,
             "residual_df": self.residual_df,
             "residual_ss": self.residual_ss,
+            "test": self.test,
         }
 
 
@@ -203,13 +247,27 @@ def anova_glm(
     Parameters
     ----------
     *models : ModelResult
-        One or more fitted model results. If one model is provided,
-        performs an ANOVA table. If multiple models, performs sequential
-        model comparison.
+        One or more fitted model results. With one model, produces a table
+        of partial Wald tests per coefficient. With multiple models,
+        performs a sequential analysis of deviance (models are sorted by
+        number of parameters).
     type : {1, 2, 3}, default=3
-        Type of sum of squares to compute.
+        Type of sum of squares. Only ``type=3`` (partial tests) is
+        supported for a single model: it requires no refits and is
+        order-independent. For multiple models the comparison is always
+        sequential (Type I style).
     test : {'F', 'Chisq', 'LRT'}, default='F'
-        Test statistic to use.
+        Test statistic / reference distribution:
+
+        - ``'F'``: F test. For a single Gaussian model this is the squared
+          t-statistic with F(1, df_resid) reference. For model comparison
+          of Gaussian models, F = (ΔD/Δdf)/φ̂ with φ̂ from the largest
+          model (R ``anova.glm`` convention). For non-Gaussian families it
+          falls back to the χ² test with a warning.
+        - ``'Chisq'`` / ``'LRT'``: χ² test on the Wald statistics (single
+          model) or on the deviance differences (model comparison). The
+          deviance difference equals the likelihood-ratio statistic for
+          families with unit dispersion (Poisson, Binomial).
 
     Returns
     -------
@@ -227,14 +285,14 @@ def anova_glm(
     >>> # Compare nested models
     >>> m1 = fit_glm(X[:, :2], y)
     >>> m2 = fit_glm(X, y)
-    >>> anova_glm(m1, m2)
+    >>> anova_glm(m1, m2, test="Chisq")
 
     Notes
     -----
-    Type I SS: Sequential sum of squares. The order of terms matters.
-    Type II SS: Partial SS, each term adjusted for all other terms except
-                those that contain it (for main effects only).
-    Type III SS: Partial SS, each term adjusted for all other terms.
+    Type III (partial) tests: each coefficient is tested adjusted for all
+    other terms via its Wald statistic. Sequential (Type I) tests for a
+    single model would require refitting sub-models and are not currently
+    implemented.
     """
     if len(models) == 0:
         raise ValueError("At least one model is required.")
@@ -252,57 +310,112 @@ def _anova_single(
     type: int,
     test: str,
 ) -> ANOVAResult:
-    """Perform ANOVA on a single model."""
-    # Extract model components
+    """Partial (Type III-style) Wald tests per coefficient of one model.
+
+    The Wald statistic for coefficient j is
+
+        W_j = β̂_j² / Var(β̂_j)
+
+    with Var(β̂_j) taken from the model covariance matrix, which already
+    incorporates the dispersion estimate φ̂. For Gaussian models with
+    ``test='F'`` the reference distribution is F(1, df_resid) (the squared
+    t-statistic); otherwise W_j ~ χ²₁.
+    """
+    if type != 3:
+        raise NotImplementedError(
+            f"Single-model ANOVA supports type=3 only (partial Wald tests, "
+            f"no refits); got type={type}. Use multiple nested models for "
+            "sequential (Type I) comparisons."
+        )
+
+    # Extract coefficients (including intercept when present)
     if hasattr(model, "coef_"):
-        coef = model.coef_
+        coef = np.atleast_1d(np.asarray(model.coef_, dtype=float))
         intercept = getattr(model, "intercept_", None)
     elif hasattr(model, "fixed_effects_"):
-        coef = model.fixed_effects_
+        coef = np.atleast_1d(np.asarray(model.fixed_effects_, dtype=float))
         intercept = None
     else:
         raise ValueError("Cannot extract coefficients from model.")
 
-    n_obs = getattr(model, "n_obs_", None) or getattr(model, "n_observations", 100)
-
-    # Get residual SS
-    if hasattr(model, "residual_variance_"):
-        residual_ss = model.residual_variance_ * (n_obs - len(coef) - (1 if intercept else 0))
-    elif hasattr(model, "residuals"):
-        residual_ss = np.sum(model.residuals**2)
+    if intercept is not None:
+        coef_full = np.concatenate(([float(intercept)], coef))
+        sources = ["intercept"] + [f"X{i}" for i in range(len(coef))]
     else:
-        residual_ss = 1.0  # Fallback
+        coef_full = coef
+        sources = [f"X{i}" for i in range(len(coef))]
 
-    n_params = len(coef)
-    residual_df = n_obs - n_params - (1 if intercept is not None else 0)
-    residual_ms = residual_ss / residual_df if residual_df > 0 else np.nan
+    n_params = len(coef_full)
 
-    # For Type III, compute SS for each coefficient
-    # Using Wald test approximation: SS = (coef^2) / var(coef)
-    sources = [f"X{i}" for i in range(n_params)]
+    # Covariance matrix of the full parameter vector (includes dispersion).
+    cov = _get_coef_covariance(model, n_params)
+    var = np.clip(np.diag(cov), 1e-300, None)
+
+    # Wald statistics: β̂_j² / Var(β̂_j)
+    wald = coef_full**2 / var
+
+    n_obs = _get_n_obs(model)
+    rank = getattr(model, "rank_", None) or n_params
+    residual_df = max(int(n_obs - rank), 0)
+
+    # Residual deviance (Gaussian: residual sum of squares)
+    residual_dev = _get_deviance(model)
+    if residual_dev is None:
+        residual_dev = np.nan
+
+    gaussian = _is_gaussian_family(model)
+
     df = np.ones(n_params, dtype=int)
 
-    # Approximate SS from coefficients
-    # In a proper implementation, we'd refit models dropping each term
-    ss = coef**2  # Simplified approximation
+    if test == "F":
+        if gaussian and residual_df > 0:
+            # Squared t-statistics with F(1, df_resid) reference.
+            f_stat = wald
+            p_values = stats.f.sf(f_stat, 1, residual_df)
+            dispersion = _get_dispersion(model, residual_dev, residual_df)
+            ss = wald * dispersion
+            test_used = "F"
+        else:
+            if gaussian:
+                warnings.warn(
+                    "F test requested but residual degrees of freedom are "
+                    "zero; falling back to the chi-squared test.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            else:
+                warnings.warn(
+                    "F test is only appropriate for Gaussian family with "
+                    "estimated dispersion; using the chi-squared test "
+                    "(R anova.glm convention).",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            f_stat = wald
+            p_values = stats.chi2.sf(wald, 1)
+            ss = wald.copy()
+            test_used = "Chisq"
+    elif test in ("Chisq", "LRT"):
+        f_stat = wald
+        p_values = stats.chi2.sf(wald, 1)
+        ss = wald.copy()
+        test_used = "Chisq"
+    else:
+        raise ValueError(f"Unknown test: {test!r}. Valid options: 'F', 'Chisq', 'LRT'.")
 
-    # Compute F and p-values
     ms = ss / df
-    f_stat = ms / residual_ms if residual_ms > 0 else np.full(n_params, np.nan)
-    p_values = np.array(
-        [1 - stats.f.cdf(f, 1, residual_df) if not np.isnan(f) else np.nan for f in f_stat]
-    )
 
     return ANOVAResult(
         df=df,
-        ss=ss,
-        ms=ms,
-        f_statistic=f_stat,
-        p_value=p_values,
+        ss=np.asarray(ss, dtype=float),
+        ms=np.asarray(ms, dtype=float),
+        f_statistic=np.asarray(f_stat, dtype=float),
+        p_value=np.asarray(p_values, dtype=float),
         source=sources,
         anova_type=type,
         residual_df=residual_df,
-        residual_ss=residual_ss,
+        residual_ss=float(residual_dev),
+        test=test_used,
     )
 
 
@@ -310,63 +423,102 @@ def _anova_compare(
     models: tuple[Any, ...],
     test: str,
 ) -> ANOVAResult:
-    """Compare multiple nested models."""
-    # Sort by number of parameters
+    """Sequential analysis of deviance for nested models.
+
+    Models are sorted by number of parameters and compared pairwise. The
+    table reports deviance differences ΔD = D_reduced − D_full (truncated
+    at zero with a warning when negative beyond numerical noise).
+
+    - ``test='Chisq'``/``'LRT'``: ΔD ~ χ²_Δdf. Valid for nested GLMs of
+      the same family with unit dispersion (Poisson, Binomial), where ΔD
+      equals the likelihood-ratio statistic.
+    - ``test='F'``: F = (ΔD/Δdf)/φ̂ ~ F(Δdf, df_resid) with φ̂ from the
+      largest model — appropriate for Gaussian models with estimated
+      dispersion (R ``anova.glm`` convention). Non-Gaussian families fall
+      back to the χ² test with a warning.
+    """
+    if test not in ("F", "Chisq", "LRT"):
+        raise ValueError(f"Unknown test: {test!r}. Valid options: 'F', 'Chisq', 'LRT'.")
+
+    # Sort models by number of parameters
     model_info = []
     for i, m in enumerate(models):
-        if hasattr(m, "df_model"):
-            n_params = m.df_model + 1
-        elif hasattr(m, "coef_"):
-            n_params = len(m.coef_) + (1 if getattr(m, "intercept_", None) else 0)
-        else:
-            n_params = i + 1
+        n_params = _get_n_params(m)
+        dev = _get_deviance(m)
+        model_info.append((n_params, dev, m, f"Model {i + 1}"))
 
-        if hasattr(m, "residuals"):
-            rss = np.sum(m.residuals**2)
-        elif hasattr(m, "residual_variance_"):
-            n_obs = getattr(m, "n_obs_", 100)
-            rss = m.residual_variance_ * (n_obs - n_params)
-        else:
-            rss = 1.0
-
-        model_info.append((n_params, rss, m, f"Model {i + 1}"))
-
-    # Sort by complexity
     model_info.sort(key=lambda x: x[0])
 
-    # Compute sequential F-tests
+    largest_params, largest_dev, largest_model, _ = model_info[-1]
+
+    n_obs = _get_n_obs(largest_model)
+    residual_df = max(int(n_obs - largest_params), 0)
+
+    if largest_dev is None:
+        # Fall back to a pure log-likelihood-ratio comparison
+        return _anova_compare_loglik(model_info, residual_df=residual_df)
+
+    gaussian = _is_gaussian_family(largest_model)
+    use_f = test == "F" and gaussian and residual_df > 0
+    if test == "F" and not use_f:
+        warnings.warn(
+            "F test is only appropriate for Gaussian family with estimated "
+            "dispersion; using the chi-squared test on deviance differences "
+            "(R anova.glm convention).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    dispersion = _get_dispersion(largest_model, largest_dev, residual_df)
+
     sources = []
-    df_list = []
-    ss_list = []
+    df_list: list[int] = []
+    ddev_list: list[float] = []
 
     for i in range(1, len(model_info)):
-        prev_params, prev_rss, _, prev_name = model_info[i - 1]
-        curr_params, curr_rss, _, curr_name = model_info[i]
+        prev_params, prev_dev, _, prev_name = model_info[i - 1]
+        curr_params, curr_dev, _, curr_name = model_info[i]
 
-        df_diff = curr_params - prev_params
-        ss_diff = prev_rss - curr_rss
+        df_diff = int(curr_params - prev_params)
+        ddev = float(prev_dev - curr_dev)
+
+        tol = 1e-8 * max(1.0, abs(float(prev_dev)), abs(float(curr_dev)))
+        if ddev < -tol:
+            warnings.warn(
+                f"Deviance of the larger model exceeds that of the smaller "
+                f"model by {-ddev:.4g} ({curr_name} vs {prev_name}); models "
+                "may not be nested. Truncating the statistic at zero.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        ddev = max(0.0, ddev)
 
         sources.append(f"{curr_name} vs {prev_name}")
         df_list.append(df_diff)
-        ss_list.append(max(0, ss_diff))  # SS should be non-negative
+        ddev_list.append(ddev)
 
-    df = np.array(df_list)
-    ss = np.array(ss_list)
+    df = np.array(df_list, dtype=int)
+    ss = np.array(ddev_list, dtype=float)
     ms = ss / np.maximum(df, 1)
 
-    # Final model residuals
-    final_params, final_rss, final_model, _ = model_info[-1]
-    n_obs = getattr(final_model, "n_obs_", 100)
-    residual_df = n_obs - final_params
-    residual_ms = final_rss / residual_df if residual_df > 0 else np.nan
-
-    f_stat = ms / residual_ms if residual_ms > 0 else np.full(len(ms), np.nan)
-    p_values = np.array(
-        [
-            1 - stats.f.cdf(f, d, residual_df) if not np.isnan(f) and d > 0 else np.nan
-            for f, d in zip(f_stat, df, strict=False)
-        ]
-    )
+    if use_f:
+        f_stat = np.where(df > 0, ms / dispersion, np.nan)
+        p_values = np.array(
+            [
+                stats.f.sf(f, d, residual_df) if not np.isnan(f) and d > 0 else np.nan
+                for f, d in zip(f_stat, df, strict=False)
+            ]
+        )
+        test_used = "F"
+    else:
+        f_stat = np.where(df > 0, ss, np.nan)
+        p_values = np.array(
+            [
+                stats.chi2.sf(s, d) if not np.isnan(s) and d > 0 else np.nan
+                for s, d in zip(ss, df, strict=False)
+            ]
+        )
+        test_used = "Chisq"
 
     return ANOVAResult(
         df=df,
@@ -377,7 +529,78 @@ def _anova_compare(
         source=sources,
         anova_type=1,  # Sequential
         residual_df=residual_df,
-        residual_ss=final_rss,
+        residual_ss=float(largest_dev),
+        test=test_used,
+    )
+
+
+def _anova_compare_loglik(
+    model_info: list[tuple[int, Any, Any, str]],
+    residual_df: int,
+) -> ANOVAResult:
+    """Sequential comparison based on log-likelihoods (χ² test).
+
+    Used when the models do not expose a deviance; the statistic is the
+    likelihood-ratio statistic 2·(ℓ_full − ℓ_reduced).
+    """
+    ll_info = []
+    for n_params, _, m, name in model_info:
+        ll = _get_loglik(m)
+        if np.isnan(ll):
+            raise ValueError(
+                "Cannot compare models: neither deviance nor log-likelihood "
+                f"is available for {name}."
+            )
+        ll_info.append((n_params, ll, name))
+
+    sources = []
+    df_list = []
+    stat_list = []
+
+    for i in range(1, len(ll_info)):
+        prev_params, prev_ll, prev_name = ll_info[i - 1]
+        curr_params, curr_ll, curr_name = ll_info[i]
+
+        df_diff = int(curr_params - prev_params)
+        stat = 2.0 * (curr_ll - prev_ll)
+
+        tol = 1e-8 * max(1.0, abs(prev_ll), abs(curr_ll))
+        if stat < -tol:
+            warnings.warn(
+                f"Log-likelihood of the larger model is smaller "
+                f"({curr_name} vs {prev_name}); models may not be nested. "
+                "Truncating the statistic at zero.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        stat = max(0.0, stat)
+
+        sources.append(f"{curr_name} vs {prev_name}")
+        df_list.append(df_diff)
+        stat_list.append(stat)
+
+    df = np.array(df_list, dtype=int)
+    ss = np.array(stat_list, dtype=float)
+    ms = ss / np.maximum(df, 1)
+    f_stat = np.where(df > 0, ss, np.nan)
+    p_values = np.array(
+        [
+            stats.chi2.sf(s, d) if not np.isnan(s) and d > 0 else np.nan
+            for s, d in zip(ss, df, strict=False)
+        ]
+    )
+
+    return ANOVAResult(
+        df=df,
+        ss=ss,
+        ms=ms,
+        f_statistic=f_stat,
+        p_value=p_values,
+        source=sources,
+        anova_type=1,
+        residual_df=residual_df,
+        residual_ss=np.nan,
+        test="Chisq",
     )
 
 
@@ -418,7 +641,28 @@ def likelihood_ratio_test(
         \\chi^2 = 2 (\\ell_{full} - \\ell_{reduced})
 
     This follows a chi-squared distribution with df equal to the
-    difference in the number of parameters.
+    difference in the number of parameters. The statistic is truncated at
+    zero; a warning is issued when the raw difference is negative beyond
+    numerical noise (the models are then likely not nested).
+
+    **Boundary correction.** When a variance component is detected at (or
+    numerically near) the boundary of the parameter space (e.g. σ² ≈ 0),
+    the null distribution is a 50:50 mixture of χ²_df and χ²_{df-1}
+    (Self & Liang 1987, case 5; Stram & Lee 1994). For df = 1 the second
+    component is χ²₀, a point mass at zero, whose survival function is 0
+    for any positive statistic, giving p = 0.5·P(χ²₁ > t). The correction
+    is applied whenever *any* variance parameter of *either* model is at
+    the boundary; this is conservative when the boundary parameter is not
+    the one being tested.
+
+    **GAMM caveats.** Two warnings apply to ``GAMMResult`` inputs:
+
+    - Non-Gaussian GAMMs are fitted by PQL, whose log-likelihood is a
+      *conditional* (quasi-)likelihood given the variance components, not
+      a marginal likelihood. Likelihood-ratio tests on it are not valid
+      for comparing fixed effects (Pinheiro & Bates 2000, §2.4).
+    - Gaussian GAMMs report the REML log-likelihood, which is not
+      comparable between models with different fixed-effects structures.
     """
     # Get log-likelihoods
     ll_reduced = _get_loglik(model_reduced)
@@ -434,6 +678,9 @@ def likelihood_ratio_test(
     df = df_full - df_reduced
     if df < 0:
         raise ValueError("Full model must have at least as many parameters as reduced model.")
+
+    _warn_likelihood_caveats(model_reduced, model_full, df)
+
     if df == 0:
         # Same model — null result
         model_names = names or ("Reduced", "Full")
@@ -447,24 +694,41 @@ def likelihood_ratio_test(
             boundary_correction_applied=False,
         )
 
-    # Compute test statistic
+    # Compute test statistic (truncated at zero; warn if truly negative)
     statistic = 2 * (ll_full - ll_reduced)
+    tol = 1e-8 * max(1.0, abs(ll_full), abs(ll_reduced))
+    if statistic < -tol:
+        warnings.warn(
+            f"Full model has a smaller log-likelihood (Δ = {statistic / 2:.4g}); "
+            "the models are likely not nested or the likelihoods are not "
+            "comparable. Truncating the LRT statistic at zero.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    statistic = max(0.0, statistic)
 
-    # Check for boundary conditions (Self & Liang, 1987)
+    # Check for boundary conditions (Self & Liang, 1987). Conservative:
+    # the correction is applied if any variance parameter of either model
+    # is at the boundary, not only the parameter being tested.
     boundary_full = _detect_boundary_conditions(model_full)
     boundary_reduced = _detect_boundary_conditions(model_reduced)
     boundary_params = boundary_full + boundary_reduced
 
     if boundary_params:
-        # Self & Liang (1987) correction: mixture of chi2 distributions
-        # P-value = 0.5 * P(χ²_df <= statistic) + 0.5 * P(χ²_{df-1} <= statistic)
-        p_df = 1 - stats.chi2.cdf(statistic, df)
-        p_df_minus_1 = 1 - stats.chi2.cdf(statistic, df - 1) if df > 1 else 1.0
+        # Self & Liang (1987, case 5) / Stram & Lee (1994): the null
+        # distribution is a 50:50 mixture of χ²_df and χ²_{df-1}.
+        p_df = stats.chi2.sf(statistic, df)
+        if df > 1:
+            p_df_minus_1 = stats.chi2.sf(statistic, df - 1)
+        else:
+            # χ²₀ is a point mass at 0: its survival function is 1 at
+            # statistic == 0 and 0 for any statistic > 0.
+            p_df_minus_1 = 1.0 if statistic <= 0 else 0.0
         p_value = 0.5 * p_df + 0.5 * p_df_minus_1
         boundary_correction_applied = True
     else:
         # Standard chi-squared test
-        p_value = 1 - stats.chi2.cdf(statistic, df)
+        p_value = stats.chi2.sf(statistic, df)
         boundary_correction_applied = False
 
     # Model names
@@ -483,8 +747,46 @@ def likelihood_ratio_test(
     )
 
 
+def _warn_likelihood_caveats(model_reduced: Any, model_full: Any, df: int) -> None:
+    """Warn about PQL/REML likelihood caveats for GAMM LRTs."""
+    try:
+        from ...models.gamm.fitting import GAMMResult
+    except ImportError:  # pragma: no cover - defensive
+        return
+
+    models = [m for m in (model_reduced, model_full) if isinstance(m, GAMMResult)]
+    if not models:
+        return
+
+    families = {str(m.family).lower() for m in models}
+    non_gaussian = any(f not in ("gaussian", "normal") for f in families)
+
+    if non_gaussian:
+        warnings.warn(
+            "Likelihood ratio test uses a PQL (conditional, quasi-) "
+            "log-likelihood from a non-Gaussian GAMM. PQL likelihoods are "
+            "not marginal likelihoods: LRTs on them are not valid for "
+            "comparing fixed effects (Pinheiro & Bates 2000, §2.4).",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    elif df > 0:
+        warnings.warn(
+            "Likelihood ratio test uses REML log-likelihoods from Gaussian "
+            "GAMMs with different fixed-effects structures. REML likelihoods "
+            "are not comparable across different fixed effects; refit with "
+            "ML or interpret the p-value with caution.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+
 def _detect_boundary_conditions(model: Any, threshold: float = 1e-10) -> list[str]:
     """Detect variance components at or near the boundary (e.g., σ² ≈ 0).
+
+    Supports both the ``variance_components_``/``residual_variance_``
+    naming and the ``GAMMResult`` naming (``variance_components``,
+    ``residual_variance``, without trailing underscore).
 
     Parameters
     ----------
@@ -500,25 +802,38 @@ def _detect_boundary_conditions(model: Any, threshold: float = 1e-10) -> list[st
     """
     boundary_params = []
 
-    if hasattr(model, "variance_components_") and model.variance_components_:
-        if isinstance(model.variance_components_, dict):
-            for name, value in model.variance_components_.items():
-                if abs(value) < threshold:
+    variance_components = getattr(model, "variance_components_", None)
+    if variance_components is None:
+        variance_components = getattr(model, "variance_components", None)
+
+    if variance_components:
+        if isinstance(variance_components, dict):
+            for name, value in variance_components.items():
+                value_arr = np.asarray(value, dtype=float)
+                diag = np.diag(value_arr) if value_arr.ndim == 2 else value_arr.ravel()
+                if np.any(np.abs(diag) < threshold):
                     boundary_params.append(name)
-        elif isinstance(model.variance_components_, (list, np.ndarray)):
-            for i, val in enumerate(model.variance_components_):
-                val_arr = np.asarray(val)
-                if np.any(np.abs(val_arr) < threshold):
+        elif isinstance(variance_components, (list, tuple, np.ndarray)):
+            for i, val in enumerate(variance_components):
+                val_arr = np.asarray(val, dtype=float)
+                diag = np.diag(val_arr) if val_arr.ndim == 2 else val_arr.ravel()
+                if np.any(np.abs(diag) < threshold):
                     boundary_params.append(f"variance_component_{i}")
 
-    if hasattr(model, "residual_variance_"):
-        if abs(model.residual_variance_) < threshold:
-            boundary_params.append("residual_variance")
+    residual_variance = getattr(model, "residual_variance_", None)
+    if residual_variance is None:
+        residual_variance = getattr(model, "residual_variance", None)
+    if residual_variance is not None and abs(residual_variance) < threshold:
+        boundary_params.append("residual_variance")
 
-    if hasattr(model, "random_effects_variance_"):
-        for i, var in enumerate(model.random_effects_variance_):
-            var_arr = np.asarray(var)
-            if np.any(np.abs(var_arr) < threshold):
+    re_variance = getattr(model, "random_effects_variance_", None)
+    if re_variance is None:
+        re_variance = getattr(model, "random_effects_variance", None)
+    if re_variance is not None:
+        for i, var in enumerate(re_variance):
+            var_arr = np.asarray(var, dtype=float)
+            diag = np.diag(var_arr) if var_arr.ndim == 2 else var_arr.ravel()
+            if np.any(np.abs(diag) < threshold):
                 boundary_params.append(f"re_{i}")
 
     if hasattr(model, "psi"):
@@ -533,6 +848,8 @@ def _get_loglik(model: Any) -> float:
     """Extract log-likelihood from model."""
     if hasattr(model, "log_likelihood_"):
         return model.log_likelihood_
+    if hasattr(model, "log_likelihood"):
+        return model.log_likelihood
     if hasattr(model, "loglik"):
         return model.loglik
     if hasattr(model, "llf"):
@@ -541,19 +858,100 @@ def _get_loglik(model: Any) -> float:
 
 
 def _get_n_params(model: Any) -> int:
-    """Get number of parameters from model."""
+    """Get number of (fixed-effects) parameters from model."""
     if hasattr(model, "df_model"):
         return model.df_model + 1
     if hasattr(model, "coef_"):
-        n = len(model.coef_)
+        n = len(np.atleast_1d(model.coef_))
         if getattr(model, "intercept_", None) is not None:
             n += 1
         return n
     if hasattr(model, "fixed_effects_"):
-        return len(model.fixed_effects_)
+        return len(np.atleast_1d(model.fixed_effects_))
+    if hasattr(model, "beta_parametric"):
+        return len(np.atleast_1d(model.beta_parametric))
     if hasattr(model, "coefficients"):
-        return len(model.coefficients)
+        return len(np.atleast_1d(model.coefficients))
     return 0
+
+
+def _get_n_obs(model: Any) -> int:
+    """Get number of observations from model."""
+    for attr in ("n_obs_", "n_obs", "n_observations", "nobs"):
+        value = getattr(model, attr, None)
+        if value is not None:
+            return int(value)
+    for attr in ("mu_", "_y", "residuals", "fitted_values"):
+        value = getattr(model, attr, None)
+        if value is not None:
+            return int(np.asarray(value, dtype=float).shape[0])
+    raise ValueError("Cannot determine the number of observations from the model result.")
+
+
+def _get_deviance(model: Any) -> float | None:
+    """Extract the residual deviance (Gaussian: RSS) from a model."""
+    deviance = getattr(model, "deviance_", None)
+    if deviance is not None:
+        return float(deviance)
+    deviance = getattr(model, "deviance", None)
+    if deviance is not None and np.isscalar(deviance):
+        return float(deviance)
+    residuals = getattr(model, "residuals", None)
+    if residuals is not None:
+        # Response residuals; their sum of squares is the Gaussian deviance.
+        return float(np.sum(np.asarray(residuals, dtype=float) ** 2))
+    return None
+
+
+def _get_dispersion(model: Any, deviance: float | None, residual_df: int) -> float:
+    """Dispersion estimate φ̂: model attribute, else deviance / df_resid."""
+    dispersion = getattr(model, "dispersion_", None)
+    if dispersion is not None:
+        return float(dispersion)
+    if deviance is not None and residual_df > 0:
+        return float(deviance) / residual_df
+    return 1.0
+
+
+def _get_coef_covariance(model: Any, n_params: int) -> np.ndarray:
+    """Extract the covariance matrix of the full parameter vector."""
+    cov = getattr(model, "coef_cov_", None)
+    if cov is not None:
+        cov = np.asarray(cov, dtype=float)
+        if cov.shape == (n_params, n_params):
+            return cov
+        raise ValueError(
+            f"Coefficient covariance has shape {cov.shape}, expected ({n_params}, {n_params})."
+        )
+
+    # Fall back to diagonal covariance from standard errors
+    se = getattr(model, "std_errors_", None)
+    if se is not None:
+        se = np.atleast_1d(np.asarray(se, dtype=float))
+        intercept_se = getattr(model, "intercept_std_error_", None)
+        if intercept_se is not None:
+            se = np.concatenate(([float(intercept_se)], se))
+        if len(se) == n_params:
+            return np.diag(np.clip(se, 1e-150, None) ** 2)
+
+    raise ValueError(
+        "Cannot extract a coefficient covariance matrix from the model "
+        "(need `coef_cov_` or `std_errors_`)."
+    )
+
+
+def _is_gaussian_family(model: Any) -> bool:
+    """Detect a Gaussian/Normal family from the model result."""
+    family = getattr(model, "family", None)
+    if family is None:
+        # Without family information, assume Gaussian when only residuals
+        # are available (least-squares style results).
+        return not hasattr(model, "deviance_")
+    if isinstance(family, str):
+        name = family.lower()
+    else:
+        name = type(family).__name__.lower()
+    return "gaussian" in name or "normal" in name
 
 
 # Alias for convenience

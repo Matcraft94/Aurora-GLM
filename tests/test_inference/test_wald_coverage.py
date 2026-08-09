@@ -181,9 +181,7 @@ class TestWaldTestMultiConstraint:
         y = 0.5 + X @ [1.0, -0.5, 0.3] + rng.normal(scale=0.3, size=300)
         result = fit_glm(X, y, family="gaussian", max_iter=50)
 
-        contrast = np.array(
-            [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
-        )
+        contrast = np.array([[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
         test = wald_test(result, contrast, value=[1.0, -0.5])
         assert test["df"] == pytest.approx(2.0)
         assert test["p_value"] >= 0.0

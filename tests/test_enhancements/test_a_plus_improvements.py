@@ -6,7 +6,7 @@
 Tests four enhancements:
 1. IRLS step-halving (backtracking line search)
 2. LRT boundary condition handling (Self & Liang 1987)
-3. GAMM bias correction (Breslow & Lin 1995)
+3. GAMM PQL estimation (uncorrected; Breslow & Clayton 1993)
 4. Condition number monitoring
 """
 
@@ -33,12 +33,7 @@ from aurora.inference.anova import (
     _detect_boundary_conditions,
     likelihood_ratio_test,
 )
-from aurora.models.gamm.pql import (
-    _apply_fixed_effect_correction,
-    _apply_random_effect_correction,
-    _compute_group_sizes,
-    fit_pql,
-)
+from aurora.models.gamm.pql import fit_pql
 
 # =============================================================================
 # Mock helpers
@@ -279,9 +274,11 @@ class TestLRTBoundaryCorrection:
         assert result.boundary_conditions is not None
         assert len(result.boundary_conditions) > 0
 
-        # df = (2+1) - (1+1) = 1; mixture: 0.5*chi2(1) + 0.5*1.0
+        # df = (2+1) - (1+1) = 1; mixture: 0.5*chi2(1) + 0.5*chi2(0).
+        # χ²₀ is a point mass at 0, so its survival at statistic > 0 is 0
+        # (Self & Liang 1987, case 5; Stram & Lee 1994).
         statistic = 2 * (-97.5 - (-100.0))  # = 5.0
-        expected_p = 0.5 * (1 - stats.chi2.cdf(statistic, 1)) + 0.5
+        expected_p = 0.5 * (1 - stats.chi2.cdf(statistic, 1))
         assert_allclose(result.p_value, expected_p, rtol=1e-10)
 
     def test_lrt_without_boundary_model(self):
@@ -322,91 +319,43 @@ class TestLRTBoundaryCorrection:
 
 
 # =============================================================================
-# Test 3: GAMM Bias Correction
+# Test 3: GAMM PQL (uncorrected estimates)
 # =============================================================================
 
 
-class TestGAMMBiasCorrection:
-    """Tests for Breslow & Lin (1995) bias correction in PQL."""
+class TestGAMMPQLNoCorrection:
+    """Tests that PQL reports uncorrected Breslow & Clayton (1993) estimates.
 
-    def test_compute_group_sizes(self):
-        """Test group size computation from Z matrix."""
-        n_groups, n_per_group = 4, 5
-        n_groups * n_per_group
+    The pseudo "bias corrections" previously applied (scaling β by
+    1/(1 - Σ 1/(2mᵢ)) and BLUPs by m/(m-1)) had no theoretical basis and
+    could flip the sign of β for many-group designs; they were removed.
+    PQL estimates are now uncorrected (documented limitation, cf.
+    Breslow & Lin 1995).
+    """
+
+    def test_pql_recovers_true_fixed_effects_many_groups(self):
+        """Poisson GLMM with many groups: β and √Ψ must match truth."""
+        rng = np.random.default_rng(7)
+        n_groups, n_per_group = 60, 50
+        n = n_groups * n_per_group
         groups = np.repeat(np.arange(n_groups), n_per_group)
+        x = rng.standard_normal(n)
+        X = np.column_stack([np.ones(n), x])
         Z = np.eye(n_groups)[groups]
-        n_effects = 1
 
-        group_sizes = _compute_group_sizes(Z, n_effects)
+        b_true = rng.standard_normal(n_groups) * 0.3
+        eta = 1.0 + 0.4 * x + b_true[groups]
+        y = rng.poisson(np.exp(eta))
 
-        assert len(group_sizes) == n_groups
-        assert_allclose(group_sizes, n_per_group)
+        result = fit_pql(X, Z, y, family="poisson")
 
-    def test_compute_group_sizes_unbalanced(self):
-        """Test group sizes with unbalanced design."""
-        # 3 groups with different sizes
-        groups = np.array([0, 0, 0, 1, 1, 2, 2, 2, 2])
-        Z = np.eye(3)[groups]
-        n_effects = 1
+        assert result.converged is True
+        # Uncorrected PQL must recover the data-generating parameters
+        assert_allclose(result.beta, [1.0, 0.4], atol=0.1)
+        assert_allclose(np.sqrt(result.psi[0, 0]), 0.3, atol=0.1)
 
-        group_sizes = _compute_group_sizes(Z, n_effects)
-
-        assert group_sizes[0] == 3
-        assert group_sizes[1] == 2
-        assert group_sizes[2] == 4
-
-    def test_fixed_effect_correction_small_groups(self):
-        """Test fixed effect bias correction with small groups."""
-        beta = np.array([1.0, 2.0])
-        group_sizes = np.array([2, 3, 4])  # Small groups
-
-        corrected = _apply_fixed_effect_correction(beta, group_sizes)
-
-        # Correction factor: 1 / (1 - sum(1/(2*m_i)))
-        correction = 1.0 / (1.0 - np.sum(1.0 / (2.0 * group_sizes)))
-        expected = beta * correction
-        assert_allclose(corrected, expected, rtol=1e-10)
-
-        # Correction should inflate estimates for small groups
-        assert np.all(np.abs(corrected) > np.abs(beta))
-
-    def test_fixed_effect_correction_large_groups(self):
-        """Test correction diminishes with large groups."""
-        beta = np.array([1.0, 2.0])
-        large_groups = np.array([100, 200, 300])
-
-        corrected = _apply_fixed_effect_correction(beta, large_groups)
-
-        # With large groups, correction factor ≈ 1
-        assert_allclose(corrected, beta, rtol=0.02)
-
-    def test_random_effect_correction(self):
-        """Test random effect bias correction."""
-        _n_groups, _n_effects = 3, 2
-        b_matrix = np.array([[0.5, -0.3], [0.2, 0.1], [-0.4, 0.6]])
-        group_sizes = np.array([2, 5, 10])
-
-        corrected = _apply_random_effect_correction(b_matrix, group_sizes)
-
-        # Group 0 (m=2): inflation = 2/1 = 2.0
-        assert_allclose(corrected[0], b_matrix[0] * 2.0)
-        # Group 1 (m=5): inflation = 5/4 = 1.25
-        assert_allclose(corrected[1], b_matrix[1] * 1.25)
-        # Group 2 (m=10): inflation = 10/9 ≈ 1.111
-        assert_allclose(corrected[2], b_matrix[2] * (10.0 / 9.0))
-
-    def test_random_effect_correction_large_groups_no_change(self):
-        """Test random effect correction is minimal for large groups."""
-        b_matrix = np.array([[0.5, -0.3], [0.2, 0.1]])
-        group_sizes = np.array([100, 200])
-
-        corrected = _apply_random_effect_correction(b_matrix, group_sizes)
-
-        # For large groups, inflation ≈ 1 (e.g. 100/99 ≈ 1.01)
-        assert_allclose(corrected, b_matrix, rtol=0.02)
-
-    def test_pql_runs_with_bias_correction(self):
-        """Test that PQL fitting runs with bias correction enabled."""
+    def test_pql_no_inflation_of_estimates(self):
+        """PQL must not inflate β beyond the (uncorrected) fixed point."""
         np.random.seed(42)
         n_groups, n_per_group = 5, 10
         n = n_groups * n_per_group
@@ -422,10 +371,41 @@ class TestGAMMBiasCorrection:
         assert isinstance(result.beta, np.ndarray)
         assert len(result.beta) == 2
         assert np.all(np.isfinite(result.beta))
+        assert result.converged is True
+        assert result.n_iter_outer > 0
+
+        # Intercept near the true value; the removed "correction" inflated
+        # it to ~2.5 for designs with many groups.
+        assert abs(result.beta[0] - 1.0) < 0.3
+
+    def test_pql_fixed_psi_converges(self):
+        """With update_psi=False the fit must still report convergence."""
+        np.random.seed(42)
+        n_groups, n_per_group = 8, 20
+        n = n_groups * n_per_group
+        groups = np.repeat(np.arange(n_groups), n_per_group)
+        X = np.column_stack([np.ones(n), np.random.randn(n)])
+        Z = np.eye(n_groups)[groups]
+
+        eta = X @ [1.0, 0.4] + np.random.randn(n_groups)[groups] * 0.3
+        y = np.random.poisson(np.exp(eta))
+
+        result = fit_pql(X, Z, y, family="poisson", psi_init=np.array([[0.09]]), update_psi=False)
 
         assert result.converged is True
 
-        assert result.n_iter_outer > 0
+    def test_pql_binomial_separation_not_converged(self):
+        """Complete separation must warn and report converged=False."""
+        n = 60
+        x = np.concatenate([np.zeros(30), np.ones(30)])
+        y = x.copy()  # perfectly separated
+        X = np.column_stack([np.ones(n), x])
+        Z = np.eye(2)[np.repeat(np.arange(2), 30)]
+
+        with pytest.warns(RuntimeWarning, match="separation"):
+            result = fit_pql(X, Z, y, family="binomial")
+
+        assert result.converged is False
 
 
 # =============================================================================
