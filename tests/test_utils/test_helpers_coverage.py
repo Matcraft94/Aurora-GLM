@@ -28,7 +28,6 @@ from aurora.helpers import (
 )
 from aurora.models.base.base_result import LinearModelResult
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -38,18 +37,18 @@ def _make_result(**overrides):
     """Create a minimal LinearModelResult with sensible defaults."""
     np.random.seed(42)
     n = 50
-    defaults = dict(
-        coef=np.array([2.0, -1.0]),
-        intercept=1.0,
-        fitted_values=np.random.randn(n),
-        residuals=np.random.randn(n) * 0.3,
-        residual_variance=0.09,
-        converged=True,
-        n_iter=5,
-        n_obs=n,
-        X=np.random.randn(n, 2),
-        y=np.random.randn(n),
-    )
+    defaults = {
+        "coef": np.array([2.0, -1.0]),
+        "intercept": 1.0,
+        "fitted_values": np.random.randn(n),
+        "residuals": np.random.randn(n) * 0.3,
+        "residual_variance": 0.09,
+        "converged": True,
+        "n_iter": 5,
+        "n_obs": n,
+        "X": np.random.randn(n, 2),
+        "y": np.random.randn(n),
+    }
     defaults.update(overrides)
     return LinearModelResult(**defaults)
 
@@ -275,9 +274,7 @@ class TestFormatComparisonTableLoglik:
     def test_missing_primary_criterion(self):
         """When primary criterion is missing from metrics, default ranking."""
         metrics = {"n_obs": [100, 200]}
-        table = _format_comparison_table(
-            ["A", "B"], metrics, "aic"
-        )
+        table = _format_comparison_table(["A", "B"], metrics, "aic")
         assert "Model" in table or "A" in table
 
 
@@ -411,6 +408,7 @@ class TestDetailedSummaryEdgeCases:
 
         text = _detailed_summary(MockResult())
         assert "Adjusted R-squared" not in text
+
 
 class TestSummaryEdgeCases:
     """Additional summary() edge cases."""

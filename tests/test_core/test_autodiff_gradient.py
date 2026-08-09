@@ -91,9 +91,6 @@ class TestGradientTorchNonTensorReturn:
     """Cover the else branch where loss is not a torch.Tensor."""
 
     def test_scalar_return_uses_autograd_grad(self):
-        call_count = [0]
-        original_grad = torch.autograd.grad
-
         def fake_f(x):
             # Return a float, not a Tensor — triggers else branch
             return float(torch.sum(x**2).item())

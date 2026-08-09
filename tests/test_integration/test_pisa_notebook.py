@@ -1,149 +1,140 @@
-"""Quick test of PISA UK multilevel analysis"""
+"""Integration test: PISA UK multilevel analysis (null, student, full models)."""
 
 from pathlib import Path
 
-import pandas as pd
+import pytest
 
-from aurora.models.gamm import fit_gamm
-from aurora.models.gamm.diagnostics import (
-    compute_r2_conditional_marginal,
+DATA_PATH = (
+    Path(__file__).resolve().parents[2] / "examples" / "06_case_studies" / "data" / "pisaUK.csv"
 )
 
-# Load data
-data_path = Path("examples/06_case_studies/data/pisaUK.csv")
-df = pd.read_csv(data_path)
+pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
-print(f"Dataset: {len(df)} students in {df['schoolid'].nunique()} schools")
 
-# Center predictors
-df["age_c"] = df["age"] - df["age"].mean()
-df["wealth_c"] = df["wealth"] - df["wealth"].mean()
-df["cultposs_c"] = df["cultposs"] - df["cultposs"].mean()
-df["hedres_c"] = df["hedres"] - df["hedres"].mean()
-df["lmins_c"] = (df["lmins"] - df["lmins"].mean()) / 60
+@pytest.fixture(scope="module")
+def pisa_df():
+    """Load PISA UK data and center student-level predictors."""
+    if not DATA_PATH.exists():
+        pytest.skip(f"PISA data not found at {DATA_PATH}")
 
-# Model 1: Null model
-print("\n" + "=" * 70)
-print("Model 1: Null Model (Variance Decomposition)")
-print("=" * 70)
+    pd = pytest.importorskip("pandas")
 
-result_null = fit_gamm(
-    formula="zread ~ 1 + (1 | schoolid)", data=df, family="gaussian", covariance="identity"
-)
+    df = pd.read_csv(DATA_PATH)
+    df["age_c"] = df["age"] - df["age"].mean()
+    df["wealth_c"] = df["wealth"] - df["wealth"].mean()
+    df["cultposs_c"] = df["cultposs"] - df["cultposs"].mean()
+    df["hedres_c"] = df["hedres"] - df["hedres"].mean()
+    df["lmins_c"] = (df["lmins"] - df["lmins"].mean()) / 60
+    return df
 
-print(f"Converged: {result_null.converged} (iterations: {result_null.n_iterations})")
-print(f"Grand Mean: {result_null.beta_parametric[0]:.4f}")
 
-tau_squared = result_null.variance_components[0][0, 0]
-sigma_squared = result_null.residual_variance
-total_variance = tau_squared + sigma_squared
-icc = tau_squared / total_variance
+@pytest.fixture(scope="module")
+def result_null(pisa_df):
+    """Model 1: Null model (variance decomposition)."""
+    from aurora.models.gamm import fit_gamm
 
-print("\nVariance Components:")
-print(f"  Between schools (tau^2): {tau_squared:.4f}")
-print(f"  Within schools (sigma^2): {sigma_squared:.4f}")
-print(f"  ICC: {icc:.4f} ({icc * 100:.2f}% between schools)")
+    return fit_gamm(
+        formula="zread ~ 1 + (1 | schoolid)",
+        data=pisa_df,
+        family="gaussian",
+        covariance="identity",
+    )
 
-# Model 2: Student-level predictors
-print("\n" + "=" * 70)
-print("Model 2: Student-Level Predictors")
-print("=" * 70)
 
-result_student = fit_gamm(
-    formula="zread ~ age_c + female + immig + hisced + wealth_c + cultposs_c + hedres_c + lmins_c + (1 | schoolid)",
-    data=df,
-    family="gaussian",
-    covariance="identity",
-)
+@pytest.fixture(scope="module")
+def result_student(pisa_df):
+    """Model 2: Student-level predictors."""
+    from aurora.models.gamm import fit_gamm
 
-print(f"Converged: {result_student.converged} (iterations: {result_student.n_iterations})")
+    return fit_gamm(
+        formula=(
+            "zread ~ age_c + female + immig + hisced + wealth_c + cultposs_c"
+            " + hedres_c + lmins_c + (1 | schoolid)"
+        ),
+        data=pisa_df,
+        family="gaussian",
+        covariance="identity",
+    )
 
-predictors = [
-    "Intercept",
-    "Age",
-    "Female",
-    "Immigration",
-    "Parent Ed.",
-    "Wealth",
-    "Cultural",
-    "Home Res.",
-    "Learning",
-]
-print("\nFixed Effects:")
-for name, coef in zip(predictors, result_student.beta_parametric, strict=False):
-    print(f"  {name:12s}: {coef:7.4f}")
 
-tau_squared_2 = result_student.variance_components[0][0, 0]
-sigma_squared_2 = result_student.residual_variance
+@pytest.fixture(scope="module")
+def result_full(pisa_df):
+    """Model 3: Full model with school-level predictors."""
+    from aurora.models.gamm import fit_gamm
 
-var_explained_between = 1 - (tau_squared_2 / tau_squared)
-var_explained_within = 1 - (sigma_squared_2 / sigma_squared)
+    df = pisa_df.copy()
+    df["stratio_c"] = df["stratio"] - df["stratio"].mean()
+    df["schsize_c"] = (df["schsize"] - df["schsize"].mean()) / 100
+    df["private"] = (df["schltype"] == 1).astype(int)
+    df["public"] = (df["schltype"] == 2).astype(int)
 
-print("\nVariance Explained:")
-print(f"  Between-school: {var_explained_between * 100:.2f}%")
-print(f"  Within-school: {var_explained_within * 100:.2f}%")
+    return fit_gamm(
+        formula=(
+            "zread ~ age_c + female + immig + hisced + wealth_c + cultposs_c"
+            " + hedres_c + lmins_c + private + public + stratio_c + schsize_c"
+            " + (1 | schoolid)"
+        ),
+        data=df,
+        family="gaussian",
+        covariance="identity",
+    )
 
-r2_m, r2_c = compute_r2_conditional_marginal(result_student)
-print("\nR²:")
-print(f"  Marginal: {r2_m:.4f}")
-print(f"  Conditional: {r2_c:.4f}")
 
-# Model 3: Add school-level predictors
-print("\n" + "=" * 70)
-print("Model 3: Full Model with School Predictors")
-print("=" * 70)
+def test_null_model_variance_decomposition(result_null):
+    """Null model converges and yields a sensible ICC."""
+    assert result_null.converged, "Null model should converge"
 
-df["stratio_c"] = df["stratio"] - df["stratio"].mean()
-df["schsize_c"] = (df["schsize"] - df["schsize"].mean()) / 100
-df["private"] = (df["schltype"] == 1).astype(int)
-df["public"] = (df["schltype"] == 2).astype(int)
+    tau_squared = result_null.variance_components[0][0, 0]
+    sigma_squared = result_null.residual_variance
+    icc = tau_squared / (tau_squared + sigma_squared)
 
-result_full = fit_gamm(
-    formula="zread ~ age_c + female + immig + hisced + wealth_c + cultposs_c + hedres_c + lmins_c + private + public + stratio_c + schsize_c + (1 | schoolid)",
-    data=df,
-    family="gaussian",
-    covariance="identity",
-)
+    assert tau_squared > 0, "Between-school variance should be positive"
+    assert sigma_squared > 0, "Residual variance should be positive"
+    assert 0 < icc < 1, f"ICC should be between 0 and 1, got {icc}"
 
-print(f"Converged: {result_full.converged} (iterations: {result_full.n_iterations})")
 
-predictors_full = [
-    "Intercept",
-    "Age",
-    "Female",
-    "Immigration",
-    "Parent Ed.",
-    "Wealth",
-    "Cultural",
-    "Home Res.",
-    "Learning",
-    "Private",
-    "Public",
-    "Stu-Teach Ratio",
-    "School Size",
-]
-print("\nFixed Effects:")
-for name, coef in zip(predictors_full, result_full.beta_parametric, strict=False):
-    print(f"  {name:16s}: {coef:7.4f}")
+def test_student_model_reduces_variance(result_null, result_student):
+    """Student predictors converge and explain variance at both levels."""
+    assert result_student.converged, "Student model should converge"
+    assert len(result_student.beta_parametric) == 9
 
-tau_squared_3 = result_full.variance_components[0][0, 0]
-sigma_squared_3 = result_full.residual_variance
+    tau_null = result_null.variance_components[0][0, 0]
+    sigma_null = result_null.residual_variance
+    tau_student = result_student.variance_components[0][0, 0]
+    sigma_student = result_student.residual_variance
 
-var_explained_between_3 = 1 - (tau_squared_3 / tau_squared_2)
+    assert tau_student < tau_null, "Student predictors should reduce between-school variance"
+    assert sigma_student < sigma_null, "Student predictors should reduce within-school variance"
 
-print(f"\nAdditional Between-School Variance Explained: {var_explained_between_3 * 100:.2f}%")
 
-r2_m_full, r2_c_full = compute_r2_conditional_marginal(result_full)
-print("\nR²:")
-print(f"  Marginal: {r2_m_full:.4f}")
-print(f"  Conditional: {r2_c_full:.4f}")
+def test_student_model_r2(result_student):
+    """Conditional R² exceeds marginal R² for the student model."""
+    from aurora.models.gamm.diagnostics import compute_r2_conditional_marginal
 
-print("\n" + "=" * 70)
-print("SUCCESS: All models converged and produced reasonable results!")
-print("=" * 70)
-print("\nKey Findings:")
-print(f"  • {icc * 100:.1f}% of variance is between schools")
-print(f"  • Girls outperform boys by {result_student.beta_parametric[2]:.3f} SDs")
-print("  • Family SES has substantial effect on reading achievement")
-print(f"  • Student composition explains {var_explained_between * 100:.1f}% of school differences")
-print(f"  • Full model explains {r2_c_full * 100:.1f}% of total variance")
+    r2_m, r2_c = compute_r2_conditional_marginal(result_student)
+
+    assert 0 <= r2_m <= 1, f"Marginal R² should be in [0, 1], got {r2_m}"
+    assert 0 <= r2_c <= 1, f"Conditional R² should be in [0, 1], got {r2_c}"
+    assert r2_c >= r2_m, "Conditional R² should be >= marginal R²"
+
+
+def test_full_model_reduces_between_variance(result_student, result_full):
+    """School predictors further reduce between-school variance."""
+    assert result_full.converged, "Full model should converge"
+    assert len(result_full.beta_parametric) == 13
+
+    tau_student = result_student.variance_components[0][0, 0]
+    tau_full = result_full.variance_components[0][0, 0]
+
+    assert tau_full < tau_student, "School predictors should reduce between-school variance"
+
+
+def test_full_model_r2(result_full):
+    """Full model R² values are valid and conditional >= marginal."""
+    from aurora.models.gamm.diagnostics import compute_r2_conditional_marginal
+
+    r2_m, r2_c = compute_r2_conditional_marginal(result_full)
+
+    assert 0 <= r2_m <= 1, f"Marginal R² should be in [0, 1], got {r2_m}"
+    assert 0 <= r2_c <= 1, f"Conditional R² should be in [0, 1], got {r2_c}"
+    assert r2_c >= r2_m, "Conditional R² should be >= marginal R²"

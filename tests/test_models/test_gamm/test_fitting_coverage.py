@@ -22,17 +22,26 @@ from aurora.models.gamm.fitting import (
 try:
     import torch
 
-    _torch_available = lambda: True
+    def _torch_available() -> bool:
+        return True
+
 except ImportError:
     torch = None
-    _torch_available = lambda: False
+
+    def _torch_available() -> bool:
+        return False
+
 
 try:
     import jax  # noqa: F401
 
-    _jax_available = lambda: True
+    def _jax_available() -> bool:
+        return True
+
 except ImportError:
-    _jax_available = lambda: False
+
+    def _jax_available() -> bool:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -42,29 +51,29 @@ except ImportError:
 
 def _make_simple_result(**overrides) -> GAMMResult:
     """Build a minimal GAMMResult with sensible defaults for unit-testing."""
-    defaults = dict(
-        coefficients=np.array([2.0, 0.5]),
-        beta_parametric=np.array([2.0, 0.5]),
-        beta_smooth={},
-        random_effects={"subject": {i: np.array([0.1 * i]) for i in range(3)}},
-        variance_components=[np.array([[1.2]])],
-        covariance_params=None,
-        residual_variance=0.6,
-        smoothing_parameters=None,
-        edf_total=4.5,
-        edf_parametric=2.0,
-        edf_smooth={},
-        fitted_values=np.random.randn(30),
-        residuals=np.random.randn(30),
-        log_likelihood=-45.3,
-        aic=94.6,
-        bic=102.1,
-        converged=True,
-        n_iterations=12,
-        n_obs=30,
-        n_groups=3,
-        family="gaussian",
-    )
+    defaults = {
+        "coefficients": np.array([2.0, 0.5]),
+        "beta_parametric": np.array([2.0, 0.5]),
+        "beta_smooth": {},
+        "random_effects": {"subject": {i: np.array([0.1 * i]) for i in range(3)}},
+        "variance_components": [np.array([[1.2]])],
+        "covariance_params": None,
+        "residual_variance": 0.6,
+        "smoothing_parameters": None,
+        "edf_total": 4.5,
+        "edf_parametric": 2.0,
+        "edf_smooth": {},
+        "fitted_values": np.random.randn(30),
+        "residuals": np.random.randn(30),
+        "log_likelihood": -45.3,
+        "aic": 94.6,
+        "bic": 102.1,
+        "converged": True,
+        "n_iterations": 12,
+        "n_obs": 30,
+        "n_groups": 3,
+        "family": "gaussian",
+    }
     defaults.update(overrides)
     return GAMMResult(**defaults)
 
@@ -326,40 +335,30 @@ class TestFitGAMMGaussianBackend:
         result = _fit_simple_model(backend="unknown_backend")
         assert result.converged
 
-    @pytest.mark.skipif(
-        not _torch_available(), reason="PyTorch not installed"
-    )
+    @pytest.mark.skipif(not _torch_available(), reason="PyTorch not installed")
     def test_torch_backend_converts_and_fits(self):
-        import torch
 
         result = _fit_simple_model(backend="torch")
         assert result.converged
         # Internal arrays should still be numpy (converted back)
         assert isinstance(result.beta_parametric, np.ndarray)
 
-    @pytest.mark.skipif(
-        not _torch_available(), reason="PyTorch not installed"
-    )
+    @pytest.mark.skipif(not _torch_available(), reason="PyTorch not installed")
     def test_torch_backend_with_device_cpu(self):
         result = _fit_simple_model(backend="torch", device="cpu")
         assert result.converged
 
-    @pytest.mark.skipif(
-        not _torch_available(), reason="PyTorch not installed"
-    )
+    @pytest.mark.skipif(not _torch_available(), reason="PyTorch not installed")
     def test_pytorch_alias(self):
         """'pytorch' should be treated the same as 'torch'."""
         result = _fit_simple_model(backend="pytorch")
         assert result.converged
 
-    @pytest.mark.skipif(
-        not _jax_available(), reason="JAX not installed"
-    )
+    @pytest.mark.skipif(not _jax_available(), reason="JAX not installed")
     def test_jax_backend_converts_and_fits(self):
         result = _fit_simple_model(backend="jax")
         assert result.converged
         assert isinstance(result.beta_parametric, np.ndarray)
-
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +394,12 @@ class TestPredictGammEdgeCases:
         groups = np.repeat(np.arange(n_groups), n_per_group)
         Z = np.zeros((n, n_groups))
         Z[np.arange(n), groups] = 1
-        y = 2.0 + np.sin(x_smooth) + Z @ (np.random.randn(n_groups) * 0.3) + np.random.randn(n) * 0.3
+        y = (
+            2.0
+            + np.sin(x_smooth)
+            + Z @ (np.random.randn(n_groups) * 0.3)
+            + np.random.randn(n) * 0.3
+        )
 
         Z_info = [
             {

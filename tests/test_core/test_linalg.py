@@ -12,8 +12,8 @@ import pytest
 from aurora.core.linalg import (
     log_determinant,
     lstsq,
-    quadratic_form,
     qr_decomposition,
+    quadratic_form,
     safe_cholesky,
     safe_inverse,
     solve_cholesky,
@@ -21,7 +21,6 @@ from aurora.core.linalg import (
     solve_triangular,
     woodbury_inverse,
 )
-
 
 # ---------------------------------------------------------------------------
 # qr_decomposition
@@ -132,9 +131,9 @@ class TestSolveTriangular:
         np.testing.assert_allclose(L @ x, b, atol=1e-10)
 
     def test_identity(self):
-        I = np.eye(3)
+        identity = np.eye(3)
         b = np.array([1.0, 2.0, 3.0])
-        x = solve_triangular(I, b, lower=False)
+        x = solve_triangular(identity, b, lower=False)
         np.testing.assert_allclose(x, b, atol=1e-10)
 
 

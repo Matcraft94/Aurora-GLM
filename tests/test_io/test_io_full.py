@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 
 import numpy as np
 import pytest
@@ -16,7 +14,6 @@ from aurora.io.writers import (
     load_result,
     save_result,
 )
-
 
 # ---------------------------------------------------------------------------
 # read_csv
@@ -273,9 +270,11 @@ class TestSaveLoadResult:
 
     def test_save_with_to_dict(self, tmp_path):
         """Result with to_dict method uses it."""
+
         class DictResult:
             def to_dict(self):
                 return {"custom": "data", "value": np.array([1.0, 2.0])}
+
         result = DictResult()
         filepath = tmp_path / "model.json"
         save_result(result, filepath)
@@ -322,11 +321,11 @@ class TestSaveLoadResult:
     def test_numpy_to_json_types(self, tmp_path):
         """_numpy_to_json handles numpy integer, bool, and list types."""
         from aurora.io.writers import _numpy_to_json
+
         assert _numpy_to_json(np.int64(5)) == 5
         assert _numpy_to_json(np.bool_(True)) is True
         assert _numpy_to_json([np.float64(1.0), np.int32(2)]) == [1.0, 2]
         assert _numpy_to_json({"a": np.array([1, 2])}) == {"a": [1, 2]}
-
 
 
 # ---------------------------------------------------------------------------
@@ -348,8 +347,10 @@ class TestExportCoefficients:
 
     def test_fixed_effects(self, tmp_path):
         """Export from result with fixed_effects_."""
+
         class FxResult:
             fixed_effects_ = np.array([1.0, 2.0])
+
         result = FxResult()
         filepath = tmp_path / "coef.csv"
         export_coefficients(result, filepath)
@@ -357,8 +358,10 @@ class TestExportCoefficients:
 
     def test_coefficients_attr(self, tmp_path):
         """Export from result with coefficients attr."""
+
         class CoefResult:
             coefficients = np.array([1.0, 2.0])
+
         result = CoefResult()
         filepath = tmp_path / "coef.csv"
         export_coefficients(result, filepath)
@@ -379,9 +382,11 @@ class TestExportCoefficients:
 class TestExportPredictions:
     def test_basic_export(self, tmp_path):
         """Export predictions to CSV."""
+
         class PredResult:
             def predict(self, X):
                 return np.array([1.0, 2.0, 3.0])
+
         result = PredResult()
         X = np.array([[1, 2], [3, 4], [5, 6]])
         filepath = tmp_path / "pred.csv"

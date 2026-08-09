@@ -57,25 +57,29 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--coef-tol",
         type=float,
-        default=1e-4,
+        default=1e-6,
         help="Absolute tolerance for coefficient differences",
     )
     parser.add_argument(
         "--deviance-tol",
         type=float,
-        default=0.02,
+        default=1e-6,
         help="Absolute tolerance for deviance differences",
     )
     parser.add_argument(
         "--aic-tol",
         type=float,
-        default=500.0,
-        help="Absolute tolerance for AIC differences (R uses different constant terms)",
+        default=1e-6,
+        help=(
+            "Absolute tolerance for AIC differences after accounting for the "
+            "dispersion-parameter convention (R counts it for Gaussian-like "
+            "families, Aurora follows the statsmodels convention and does not)"
+        ),
     )
     parser.add_argument(
         "--fitted-tol",
         type=float,
-        default=2e-4,
+        default=1e-6,
         help="Tolerance on mean absolute difference of fitted values",
     )
     return parser.parse_args(argv)
@@ -228,14 +232,23 @@ def _compare_single(
     coef_max_abs = float(np.max(coef_diff)) if coef_diff.size > 0 else 0.0
 
     deviance_diff = abs(aurora_deviance - r_deviance)
-    aic_diff = abs(aurora_aic - r_aic)
+
+    # R's AIC() counts the estimated dispersion parameter for Gaussian-like
+    # families (Gaussian, Gamma, InverseGaussian), adding 2 to the AIC.
+    # Aurora follows the statsmodels convention (mean parameters only), see
+    # aurora/models/glm/fitting.py. Adjust by the known +2 offset so the
+    # comparison tests the actual likelihood agreement, not the convention.
+    dispersion_families = {"gaussian", "gamma", "inversegaussian"}
+    aic_offset = 2.0 if family.lower() in dispersion_families else 0.0
+    aic_diff = abs(aurora_aic + aic_offset - r_aic)
 
     fitted_diff = np.abs(aurora_fitted - r_fitted)
     mean_fitted_diff = float(np.mean(fitted_diff))
 
     # Check success criteria
     success = (
-        coef_max_abs <= coef_tol
+        (intercept_diff is None or intercept_diff <= coef_tol)
+        and coef_max_abs <= coef_tol
         and deviance_diff <= deviance_tol
         and aic_diff <= aic_tol
         and mean_fitted_diff <= fitted_tol

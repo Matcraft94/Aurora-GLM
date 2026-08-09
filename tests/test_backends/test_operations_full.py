@@ -30,7 +30,6 @@ from aurora.core.backends.operations import (
     log,
     lstsq,
     matmul,
-    max as ops_max,
     mean,
     ones,
     qr,
@@ -38,12 +37,17 @@ from aurora.core.backends.operations import (
     solve,
     sqrt,
     stack,
-    sum as ops_sum,
     to_backend_array,
     to_numpy,
     trace,
     transpose,
     zeros,
+)
+from aurora.core.backends.operations import (
+    max as ops_max,
+)
+from aurora.core.backends.operations import (
+    sum as ops_sum,
 )
 
 # ---------------------------------------------------------------------------
@@ -240,7 +244,7 @@ class TestLinalgJAX:
         A = jnp.array([[1.0, 2.0], [3.0, 4.0]])
         A_inv = inv(A, jnp)
         np.testing.assert_allclose(
-            np.asarray(A_inv) @ np.asarray(A), np.eye(2), rtol=1e-4
+            np.asarray(A_inv) @ np.asarray(A), np.eye(2), rtol=1e-4, atol=1e-10
         )
 
     def test_det(self):
@@ -283,12 +287,12 @@ class TestLinalgJAX:
 @pytest.mark.skipif(not HAS_JAX, reason="JAX not available")
 class TestArrayCreationJAX:
     def test_eye(self):
-        I = eye(3, jnp)
-        assert_allclose(np.asarray(I), np.eye(3), rtol=1e-10)
+        identity = eye(3, jnp)
+        assert_allclose(np.asarray(identity), np.eye(3), rtol=1e-10)
 
     def test_eye_dtype(self):
-        I = eye(2, jnp, dtype=jnp.float32)
-        assert I.dtype == jnp.float32
+        identity = eye(2, jnp, dtype=jnp.float32)
+        assert identity.dtype == jnp.float32
 
     def test_zeros(self):
         z = zeros((2, 3), jnp)
@@ -306,13 +310,13 @@ class TestArrayCreationJAX:
 @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
 class TestArrayCreationTorchExtra:
     def test_eye_with_device(self):
-        I = eye(3, torch, device=torch.device("cpu"))
-        assert I.shape == (3, 3)
-        assert_allclose(I.numpy(), np.eye(3), atol=1e-12)
+        identity = eye(3, torch, device=torch.device("cpu"))
+        assert identity.shape == (3, 3)
+        assert_allclose(identity.numpy(), np.eye(3), atol=1e-12)
 
     def test_eye_dtype(self):
-        I = eye(2, torch, dtype=torch.float32)
-        assert I.dtype == torch.float32
+        identity = eye(2, torch, dtype=torch.float32)
+        assert identity.dtype == torch.float32
 
     def test_zeros_with_device(self):
         z = zeros((2, 3), torch, device=torch.device("cpu"))
@@ -509,7 +513,7 @@ class TestElementwiseJAX:
         assert_allclose(np.asarray(r), [1.0, np.e], rtol=1e-5)
 
     def test_log(self):
-        a = jnp.array([1.0, np.e, np.e ** 2])
+        a = jnp.array([1.0, np.e, np.e**2])
         r = log(a, jnp)
         assert_allclose(np.asarray(r), [0.0, 1.0, 2.0], rtol=1e-5)
 
@@ -580,8 +584,8 @@ class TestFallbackPaths:
         assert_allclose(x, x_true, rtol=1e-5)
 
     def test_eye_fallback(self):
-        I = eye(3, self.FakeXp())
-        assert_allclose(I, np.eye(3))
+        identity = eye(3, self.FakeXp())
+        assert_allclose(identity, np.eye(3))
 
     def test_zeros_fallback(self):
         z = zeros((2, 3), self.FakeXp())
@@ -691,7 +695,7 @@ class TestPyTorchBackendClass:
 
     def test_grad(self, backend):
         def f(x):
-            return (x ** 2).sum()
+            return (x**2).sum()
 
         grad_fn = backend.grad(f)
         x = torch.tensor([3.0, -2.0], dtype=torch.float64)
@@ -965,16 +969,16 @@ class TestArrayCreationNumPyPaths:
     """Cover the xp is np branches for eye, zeros, ones with dtype."""
 
     def test_eye_default(self):
-        I = eye(4, np)
-        assert_allclose(I, np.eye(4))
+        identity = eye(4, np)
+        assert_allclose(identity, np.eye(4))
 
     def test_eye_dtype(self):
-        I = eye(3, np, dtype=np.float32)
-        assert I.dtype == np.float32
+        identity = eye(3, np, dtype=np.float32)
+        assert identity.dtype == np.float32
 
     def test_eye_int(self):
-        I = eye(2, np, dtype=np.int32)
-        assert I.dtype == np.int32
+        identity = eye(2, np, dtype=np.int32)
+        assert identity.dtype == np.int32
 
     def test_zeros_default(self):
         z = zeros((3, 4), np)
@@ -1142,7 +1146,7 @@ class TestElementwiseNumPyPaths:
         assert_allclose(exp(a, np), [1.0, np.e], rtol=1e-10)
 
     def test_log(self):
-        a = np.array([1.0, np.e, np.e ** 2])
+        a = np.array([1.0, np.e, np.e**2])
         assert_allclose(log(a, np), [0.0, 1.0, 2.0], rtol=1e-5)
 
     def test_abs(self):

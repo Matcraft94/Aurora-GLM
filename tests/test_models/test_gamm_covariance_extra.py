@@ -27,7 +27,6 @@ from aurora.models.gamm.covariance import (
     get_covariance_structure,
 )
 
-
 # =============================================================================
 # UnstructuredCovariance
 # =============================================================================

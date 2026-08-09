@@ -15,7 +15,6 @@ from aurora.models.zero_inflated.diagnostics import (
     vuong_test,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -350,7 +349,9 @@ class TestRootogram:
         fitted = np.full(200, 3.0)
         result = rootogram(y, fitted, family="poisson")
         expected_bincount = np.bincount(y, minlength=y.max() + 1)
-        np.testing.assert_array_equal(result["observed"][: len(expected_bincount)], expected_bincount)
+        np.testing.assert_array_equal(
+            result["observed"][: len(expected_bincount)], expected_bincount
+        )
 
     def test_poisson_expected_positive(self, rng):
         """Expected frequencies should be non-negative."""

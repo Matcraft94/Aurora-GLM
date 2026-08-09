@@ -5,17 +5,13 @@
 
 from __future__ import annotations
 
-import tempfile
-
 import numpy as np
 import pytest
 
 from aurora.models.distributed.chunked import (
     ArrayChunker,
     ChunkedDataLoader,
-    data_iterator_from_arrays,
 )
-
 
 # ---------------------------------------------------------------------------
 # ArrayChunker
@@ -158,5 +154,3 @@ class TestChunkedDataLoader:
         chunks = list(loader)
         assert len(chunks) == 1
         assert not np.array_equal(chunks[0][1], y)
-
-

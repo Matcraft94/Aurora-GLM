@@ -23,11 +23,11 @@ from aurora.core.backends.operations import (
     mean,
     ones,
     qr,
-    solve,
     slogdet,
+    solve,
+    sqrt,
     stack,
     sum,
-    sqrt,
     to_backend_array,
     to_numpy,
     trace,
@@ -234,13 +234,13 @@ class TestLstsq:
 
 class TestEye:
     def test_shape_and_values(self):
-        I = eye(4, np)
-        assert I.shape == (4, 4)
-        np.testing.assert_array_equal(I, np.eye(4))
+        identity = eye(4, np)
+        assert identity.shape == (4, 4)
+        np.testing.assert_array_equal(identity, np.eye(4))
 
     def test_dtype(self):
-        I = eye(3, np, dtype=np.float32)
-        assert I.dtype == np.float32
+        identity = eye(3, np, dtype=np.float32)
+        assert identity.dtype == np.float32
 
 
 class TestZeros:
@@ -400,7 +400,7 @@ class TestExp:
 
 class TestLog:
     def test_exp_inverse(self):
-        a = np.array([1.0, np.e, np.e ** 2])
+        a = np.array([1.0, np.e, np.e**2])
         result = log(a, np)
         np.testing.assert_allclose(result, [0.0, 1.0, 2.0], rtol=1e-5, atol=1e-8)
 
@@ -456,6 +456,7 @@ class TestTorchBackend:
 
     def test_solve(self):
         import torch
+
         A = torch.tensor([[2.0, 1.0], [1.0, 3.0]], dtype=torch.float64)
         b = torch.tensor([5.0, 7.0], dtype=torch.float64)
         x = solve(A, b, torch)
@@ -463,12 +464,14 @@ class TestTorchBackend:
 
     def test_eye(self):
         import torch
-        I = eye(3, torch)
-        assert I.shape == (3, 3)
-        np.testing.assert_allclose(I.numpy(), np.eye(3), atol=1e-12)
+
+        identity = eye(3, torch)
+        assert identity.shape == (3, 3)
+        np.testing.assert_allclose(identity.numpy(), np.eye(3), atol=1e-12)
 
     def test_zeros_and_ones(self):
         import torch
+
         z = zeros((2, 3), torch)
         assert z.shape == (2, 3)
         assert torch.all(z == 0)
@@ -477,30 +480,41 @@ class TestTorchBackend:
 
     def test_elementwise(self):
         import torch
+
         a = torch.tensor([1.0, 4.0, 9.0], dtype=torch.float64)
         np.testing.assert_allclose(sqrt(a, torch).numpy(), [1.0, 2.0, 3.0], rtol=1e-5)
-        np.testing.assert_allclose(exp(torch.zeros(3, dtype=torch.float64), torch).numpy(), [1.0, 1.0, 1.0], rtol=1e-5)
-        np.testing.assert_allclose(log(torch.tensor([1.0, np.e], dtype=torch.float64), torch).numpy(), [0.0, 1.0], rtol=1e-5)
+        np.testing.assert_allclose(
+            exp(torch.zeros(3, dtype=torch.float64), torch).numpy(), [1.0, 1.0, 1.0], rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            log(torch.tensor([1.0, np.e], dtype=torch.float64), torch).numpy(),
+            [0.0, 1.0],
+            rtol=1e-5,
+        )
 
     def test_sum_mean(self):
         import torch
+
         a = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64)
         np.testing.assert_allclose(sum(a, xp=torch).numpy(), 6.0, rtol=1e-5)
         np.testing.assert_allclose(mean(a, xp=torch).numpy(), 2.0, rtol=1e-5)
 
     def test_det(self):
         import torch
+
         A = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64)
         np.testing.assert_allclose(det(A, torch).numpy(), -2.0, rtol=1e-5)
 
     def test_clip(self):
         import torch
+
         a = torch.tensor([-5.0, 0.5, 10.0], dtype=torch.float64)
         result = clip(a, -1.0, 5.0, torch)
         np.testing.assert_allclose(result.numpy(), [-1.0, 0.5, 5.0])
 
     def test_concatenate(self):
         import torch
+
         a = torch.tensor([1.0, 2.0], dtype=torch.float64)
         b = torch.tensor([3.0, 4.0], dtype=torch.float64)
         result = concatenate([a, b], xp=torch)
@@ -508,6 +522,7 @@ class TestTorchBackend:
 
     def test_stack(self):
         import torch
+
         a = torch.tensor([1.0, 2.0], dtype=torch.float64)
         b = torch.tensor([3.0, 4.0], dtype=torch.float64)
         result = stack([a, b], xp=torch)
@@ -515,23 +530,27 @@ class TestTorchBackend:
 
     def test_to_numpy_from_torch(self):
         import torch
+
         t = torch.tensor([1.0, 2.0], dtype=torch.float64)
         result = to_numpy(t)
         assert isinstance(result, np.ndarray)
 
     def test_to_backend_array_torch(self):
         import torch
+
         result = to_backend_array([1.0, 2.0], torch)
         assert isinstance(result, torch.Tensor)
         np.testing.assert_allclose(result.numpy(), [1.0, 2.0], rtol=1e-5)
 
     def test_get_namespace_torch(self):
         import torch
+
         xp, device = get_namespace("torch")
         assert xp is torch
 
     def test_cholesky(self):
         import torch
+
         np.random.seed(42)
         A = np.random.randn(3, 3)
         A = A @ A.T + np.eye(3)
@@ -541,12 +560,14 @@ class TestTorchBackend:
 
     def test_inv(self):
         import torch
+
         A = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64)
         A_inv = inv(A, torch)
         np.testing.assert_allclose(A_inv.numpy() @ A.numpy(), np.eye(2), rtol=1e-5, atol=1e-8)
 
     def test_eigh(self):
         import torch
+
         A = torch.tensor([[2.0, 1.0], [1.0, 3.0]], dtype=torch.float64)
         eigenvalues, eigenvectors = eigh(A, torch)
         reconstructed = eigenvectors.numpy() @ np.diag(eigenvalues.numpy()) @ eigenvectors.numpy().T
@@ -554,6 +575,7 @@ class TestTorchBackend:
 
     def test_qr(self):
         import torch
+
         np.random.seed(42)
         A = np.random.randn(4, 3)
         A_t = torch.tensor(A, dtype=torch.float64)
@@ -562,6 +584,7 @@ class TestTorchBackend:
 
     def test_lstsq(self):
         import torch
+
         np.random.seed(42)
         A = np.random.randn(10, 3)
         x_true = np.array([1.0, 2.0, 3.0])
@@ -573,6 +596,7 @@ class TestTorchBackend:
 
     def test_transpose(self):
         import torch
+
         A = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=torch.float64)
         result = transpose(A, torch)
         assert result.shape == (2, 3)
@@ -580,6 +604,7 @@ class TestTorchBackend:
 
     def test_matmul(self):
         import torch
+
         A = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64)
         B = torch.tensor([[5.0, 6.0], [7.0, 8.0]], dtype=torch.float64)
         result = matmul(A, B, torch)
@@ -588,28 +613,33 @@ class TestTorchBackend:
 
     def test_slogdet(self):
         import torch
+
         A = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64)
         sign, logdet = slogdet(A, torch)
         assert sign.item() < 0  # det = -2
 
     def test_diag(self):
         import torch
+
         v = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64)
         result = diag(v, torch)
         np.testing.assert_allclose(result.numpy(), np.diag([1.0, 2.0, 3.0]))
 
     def test_trace(self):
         import torch
+
         A = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64)
         assert np.isclose(trace(A, torch).item(), 5.0)
 
     def test_abs(self):
         import torch
+
         a = torch.tensor([-3.0, 0.0, 4.0], dtype=torch.float64)
         result = abs(a, torch)
         np.testing.assert_allclose(result.numpy(), [3.0, 0.0, 4.0])
 
     def test_max(self):
         import torch
+
         a = torch.tensor([1.0, 5.0, 3.0], dtype=torch.float64)
         assert np.isclose(max(a, xp=torch).item(), 5.0)

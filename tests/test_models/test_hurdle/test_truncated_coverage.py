@@ -16,7 +16,6 @@ from aurora.models.hurdle.truncated import (
     TruncatedPoissonFamily,
 )
 
-
 # ===========================================================================
 # TruncatedPoissonFamily — uncovered branches
 # ===========================================================================

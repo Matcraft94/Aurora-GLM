@@ -10,7 +10,6 @@ import pytest
 
 from aurora.io.readers import read_csv, read_design_matrix, read_excel, read_stata
 
-
 # ---------------------------------------------------------------------------
 # CSV fallback path (lines 119-164 of readers/__init__.py)
 # ---------------------------------------------------------------------------

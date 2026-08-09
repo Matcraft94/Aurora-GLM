@@ -89,8 +89,11 @@ def test_generalized_deviance_and_information_criteria():
     n_params = result.coef_.shape[0] + (1 if result.intercept_ is not None else 0)
     n_samples = y.shape[0]
 
-    assert aic(dev, n_params) == pytest.approx(result.aic_)
-    assert bic(dev, n_params, n_samples) == pytest.approx(result.bic_)
+    # aic/bic accept the deviance "or -2 * log-likelihood up to a constant"
+    # (see their docstrings); fit_glm computes them from -2 * log-likelihood.
+    minus_2_loglik = -2.0 * result.log_likelihood_
+    assert aic(minus_2_loglik, n_params) == pytest.approx(result.aic_)
+    assert bic(minus_2_loglik, n_params, n_samples) == pytest.approx(result.bic_)
 
     with pytest.raises(ValueError):
         bic(dev, n_params, 0)

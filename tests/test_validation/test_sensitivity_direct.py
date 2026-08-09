@@ -27,7 +27,6 @@ from aurora.validation.sensitivity import (
     studentized_residuals,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -480,9 +479,7 @@ class TestInfluenceMeasures:
         inf = influence_measures(result)
 
         np.testing.assert_allclose(inf.leverage, leverage(result), rtol=1e-14)
-        np.testing.assert_allclose(
-            inf.cooks_distance, cooks_distance(result), rtol=1e-14
-        )
+        np.testing.assert_allclose(inf.cooks_distance, cooks_distance(result), rtol=1e-14)
         np.testing.assert_allclose(
             inf.studentized_residuals,
             studentized_residuals(result, external=True),
@@ -538,9 +535,8 @@ class TestInfluenceResult:
     def test_high_leverage_property(self):
         """high_leverage returns indices where h > 2p/n."""
         n, p = 10, 2
-        threshold = 2 * p / n  # 0.4
         lev = np.ones(n) * 0.1
-        lev[0] = 0.8  # above threshold
+        lev[0] = 0.8  # above threshold (2p/n = 0.4)
         lev[5] = 0.5  # above threshold
         inf = InfluenceResult(
             cooks_distance=np.zeros(n),

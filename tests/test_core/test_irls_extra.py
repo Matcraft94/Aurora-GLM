@@ -26,7 +26,6 @@ from aurora.core.optimization.irls import (
     irls,
 )
 
-
 # ---------------------------------------------------------------------------
 # Mock link / variance helpers
 # ---------------------------------------------------------------------------
@@ -331,6 +330,7 @@ class TestIRLSSparsePoisson:
             tol=1e-6,
             callback=cb,
         )
+        assert result.x.shape == (p,)
         assert len(calls) > 0
         # Callback receives iteration number and loss
         assert calls[0][0] == 0
@@ -386,7 +386,7 @@ class TestIRLSDenseGaussian:
     @staticmethod
     def _loss(beta, X_dense, y):
         r = y - X_dense @ beta
-        return float(0.5 * np.sum(r ** 2))
+        return float(0.5 * np.sum(r**2))
 
     def test_convergence(self):
         np.random.seed(42)
@@ -484,7 +484,7 @@ class TestIRLSEdgeCases:
     @staticmethod
     def _loss(beta, X_dense, y):
         r = y - X_dense @ beta
-        return float(0.5 * np.sum(r ** 2))
+        return float(0.5 * np.sum(r**2))
 
     def test_missing_design_matrix_raises(self):
         with pytest.raises(ValueError, match="design_matrix"):
@@ -553,7 +553,9 @@ class TestIRLSEdgeCases:
         link = MockIdentityLink()
 
         call_count = [0]
-        original_loss = lambda b: self._loss(b, X_dense, y)
+
+        def original_loss(b):
+            return self._loss(b, X_dense, y)
 
         def counting_loss(beta):
             call_count[0] += 1
@@ -583,7 +585,7 @@ class TestIRLSEdgeCases:
 
         def loss(beta, X=None, y=None):
             r = y - X @ beta
-            return float(0.5 * np.sum(r ** 2))
+            return float(0.5 * np.sum(r**2))
 
         result = irls(
             loss,

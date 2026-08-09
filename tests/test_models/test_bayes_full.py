@@ -34,7 +34,6 @@ from aurora.models.bayes.priors import (
 )
 from aurora.models.bayes.result import BayesianGAMResult, BayesianGLMResult
 
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -53,7 +52,6 @@ def _make_result(
     """Build a BayesianGLMResult with synthetic posterior samples."""
     np.random.seed(42)
 
-    total = n_chains * n_samples
     beta = np.random.randn(n_chains, n_samples, n_features)
     samples = {"beta": beta}
 
@@ -185,7 +183,16 @@ class TestBayesianGLMResultSummary:
         """Summary should contain expected top-level keys."""
         result = _make_result()
         s = result.summary()
-        for key in ["coef", "n_obs", "n_features", "n_samples", "n_chains", "family", "link", "backend"]:
+        for key in [
+            "coef",
+            "n_obs",
+            "n_features",
+            "n_samples",
+            "n_chains",
+            "family",
+            "link",
+            "backend",
+        ]:
             assert key in s
 
     def test_summary_coef_keys(self):
@@ -506,7 +513,9 @@ class TestBayesianGLMResultFactoryMethods:
         mock_posterior = MagicMock()
         mock_posterior.data_vars = ["beta", "sigma"]
         mock_posterior.__getitem__ = lambda self_dict, key: MagicMock(
-            values=np.random.randn(4, 500, p) if key == "beta" else np.abs(np.random.randn(4, 500)) + 0.1
+            values=np.random.randn(4, 500, p)
+            if key == "beta"
+            else np.abs(np.random.randn(4, 500)) + 0.1
         )
         mock_trace.posterior = mock_posterior
 
@@ -1174,17 +1183,17 @@ class TestBayesPriorsExtraCoverage:
         assert p1 != p2
 
 
-
-
-
-
-
-
 class TestBayesBackendModule:
     """Cover aurora.models.bayes.backends module."""
 
     def test_available_backends_empty(self):
-        from aurora.models.bayes.backends import available_backends, get_default_backend, HAS_NUMPYRO, HAS_PYMC
+        from aurora.models.bayes.backends import (
+            HAS_NUMPYRO,
+            HAS_PYMC,
+            available_backends,
+            get_default_backend,
+        )
+
         backends = available_backends()
         assert isinstance(backends, list)
         if not HAS_NUMPYRO and not HAS_PYMC:
@@ -1194,6 +1203,7 @@ class TestBayesBackendModule:
     def test_available_backends_mocked(self):
         """Cover HAS_NUMPYRO=True and HAS_PYMC=True branches."""
         import aurora.models.bayes.backends as mod
+
         orig_np, orig_pmc = mod.HAS_NUMPYRO, mod.HAS_PYMC
         try:
             mod.HAS_NUMPYRO = True
@@ -1206,6 +1216,7 @@ class TestBayesBackendModule:
 
     def test_module_dunder_all(self):
         from aurora.models.bayes.backends import __all__
+
         assert "HAS_NUMPYRO" in __all__
         assert "HAS_PYMC" in __all__
         assert "available_backends" in __all__

@@ -15,7 +15,6 @@ from aurora.validation.metrics.regression import (
     root_mean_squared_error,
 )
 
-
 # ---------------------------------------------------------------------------
 # mean_squared_error
 # ---------------------------------------------------------------------------
@@ -43,7 +42,9 @@ class TestMSE:
         y_pred = np.array([1.0, 2.0, 4.0])
         weights = np.array([0.0, 0.0, 1.0])
         # Only weight on last element: error = 1
-        np.testing.assert_allclose(mean_squared_error(y_true, y_pred, sample_weight=weights), 1.0, atol=1e-10)
+        np.testing.assert_allclose(
+            mean_squared_error(y_true, y_pred, sample_weight=weights), 1.0, atol=1e-10
+        )
 
     def test_list_input(self):
         """Should accept Python lists."""
@@ -78,7 +79,9 @@ class TestMAE:
         y_pred = np.array([2.0, 3.0, 4.0])
         weights = np.array([1.0, 0.0, 0.0])
         # only first error matters: |1| = 1
-        np.testing.assert_allclose(mean_absolute_error(y_true, y_pred, sample_weight=weights), 1.0, atol=1e-10)
+        np.testing.assert_allclose(
+            mean_absolute_error(y_true, y_pred, sample_weight=weights), 1.0, atol=1e-10
+        )
 
 
 # ---------------------------------------------------------------------------

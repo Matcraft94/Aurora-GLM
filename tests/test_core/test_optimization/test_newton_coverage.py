@@ -23,7 +23,6 @@ from aurora.core.optimization.newton import (
 )
 from aurora.core.optimization.result import OptimizationResult
 
-
 # ---------------------------------------------------------------------------
 # Minimal backend with numerical gradient (no autodiff)
 # ---------------------------------------------------------------------------
@@ -123,9 +122,7 @@ class TestComputeHessianFiniteDiff:
         def loss(x, a, b=0.0):
             return 0.5 * np.sum((x - a - b) ** 2)
 
-        hess, evals = _compute_hessian(
-            loss, np.array([1.0]), backend, (2.0,), {"b": 1.0}
-        )
+        hess, evals = _compute_hessian(loss, np.array([1.0]), backend, (2.0,), {"b": 1.0})
         assert_allclose(hess, [[1.0]], atol=1e-3)
 
 
@@ -149,6 +146,7 @@ class TestNewtonCallback:
             tol=1e-10,
             callback=cb,
         )
+        assert result.success
         assert len(cb_records) >= 1
         # First callback should record iteration 0
         assert cb_records[0][0] == 0

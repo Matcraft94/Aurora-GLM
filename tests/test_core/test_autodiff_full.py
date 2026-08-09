@@ -79,7 +79,7 @@ np.random.seed(42)
 
 def _quadratic(x):
     """f(x) = 0.5 * sum(x^2).  grad = x, hess = I."""
-    return 0.5 * np.sum(x ** 2)
+    return 0.5 * np.sum(x**2)
 
 
 def _quadratic_matrix(x, A):
@@ -165,7 +165,7 @@ class TestGradientNumericalDirect:
         x = np.array([[1.0, 2.0], [3.0, 4.0]])
 
         def f(x):
-            return float(np.sum(x ** 2))
+            return float(np.sum(x**2))
 
         g = _gradient_numerical(f, 0, x)
         assert g.shape == x.shape
@@ -203,7 +203,7 @@ class TestGradientHighLevel:
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
     def test_torch_backend_kwarg(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         grad_fn = gradient(f, backend="torch")
         x = torch.tensor([1.0, 2.0, 3.0])
@@ -213,7 +213,7 @@ class TestGradientHighLevel:
     @pytest.mark.skipif(not HAS_JAX, reason="JAX not available")
     def test_jax_backend_kwarg(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         grad_fn = gradient(f, backend="jax")
         x = jnp.array([1.0, 2.0, 3.0])
@@ -227,7 +227,7 @@ class TestGradientTorchDirect:
 
     def test_quadratic(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         x = torch.tensor([1.0, 2.0, 3.0], dtype=torch.float64)
         g = _gradient_torch(f, 0, x)
@@ -247,7 +247,7 @@ class TestGradientTorchDirect:
         """Test gradient through kwargs dispatch."""
 
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         grad_fn = gradient(f, backend="torch")
         x = torch.tensor([3.0, -2.0], dtype=torch.float64)
@@ -261,7 +261,7 @@ class TestGradientJAXDirect:
 
     def test_quadratic(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         x = jnp.array([1.0, 2.0, 3.0])
         g = _gradient_jax(f, 0, x)
@@ -325,7 +325,7 @@ class TestHessianHighLevel:
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
     def test_torch_backend(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         hess_fn = hessian(f, backend="torch")
         x = torch.tensor([1.0, 2.0], dtype=torch.float64)
@@ -339,7 +339,7 @@ class TestHessianTorchDirect:
 
     def test_quadratic(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         x = torch.tensor([1.0, 2.0], dtype=torch.float64)
         H = _hessian_torch(f, 0, x)
@@ -362,7 +362,7 @@ class TestHessianJAXDirect:
 
     def test_quadratic(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         x = jnp.array([1.0, 2.0])
         H = _hessian_jax(f, 0, x)
@@ -380,7 +380,7 @@ class TestHessianJAXDirect:
 
     def test_highlevel_dispatch(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         hess_fn = hessian(f, backend="jax")
         x = jnp.array([3.0, -1.0])
@@ -509,7 +509,7 @@ class TestHVPHighLevel:
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
     def test_torch_dispatch(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         x = torch.tensor([1.0, 2.0], dtype=torch.float64)
         v = torch.tensor([0.5, -0.5], dtype=torch.float64)
@@ -523,7 +523,7 @@ class TestHVPTorchDirect:
 
     def test_quadratic(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         x = torch.tensor([1.0, 2.0], dtype=torch.float64)
         v = torch.tensor([0.5, -0.5], dtype=torch.float64)
@@ -549,7 +549,7 @@ class TestHVPJAXDirect:
 
     def test_quadratic(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         x = jnp.array([1.0, 2.0])
         v = jnp.array([0.5, -0.5])
@@ -569,7 +569,7 @@ class TestHVPJAXDirect:
 
     def test_highlevel_dispatch(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         x = jnp.array([1.0, 2.0])
         v = jnp.array([0.5, -0.5])
@@ -593,7 +593,7 @@ class TestJVPNumPy:
         """JVP on a scalar-valued function returns a scalar tangent."""
 
         def f(x):
-            return np.array([np.sum(x ** 2)])
+            return np.array([np.sum(x**2)])
 
         x = np.array([1.0, 2.0])
         v = np.array([1.0, 0.0])
@@ -718,7 +718,7 @@ class TestCheckGradientUtil:
     @pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not available")
     def test_torch_backend_check(self):
         def f(x):
-            return 0.5 * torch.sum(x ** 2)
+            return 0.5 * torch.sum(x**2)
 
         x = torch.tensor([1.0, 2.0], dtype=torch.float64)
         result = check_gradient(f, x)
@@ -727,7 +727,7 @@ class TestCheckGradientUtil:
     @pytest.mark.skipif(not HAS_JAX, reason="JAX not available")
     def test_jax_backend_check(self):
         def f(x):
-            return 0.5 * jnp.sum(x ** 2)
+            return 0.5 * jnp.sum(x**2)
 
         x = jnp.array([1.0, 2.0])
         result = check_gradient(f, x)
@@ -768,7 +768,7 @@ class TestEdgeCases:
         x = np.array([[1.0, 2.0], [3.0, 4.0]])
 
         def f(x):
-            return float(np.sum(x ** 2))
+            return float(np.sum(x**2))
 
         grad_fn = gradient(f, backend="numpy")
         g = grad_fn(x)
@@ -810,15 +810,15 @@ class TestGradientNumericalTrig:
 
     def test_negative_values(self):
         def f(x):
-            return float(np.sum(x ** 3))
+            return float(np.sum(x**3))
 
         x = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
         g = _gradient_numerical(f, 0, x)
-        assert_allclose(g, 3 * x ** 2, rtol=1e-4)
+        assert_allclose(g, 3 * x**2, rtol=1e-4)
 
     def test_gradient_with_kwargs(self):
         def f(x, scale=1.0):
-            return float(np.sum(x ** 2) * scale)
+            return float(np.sum(x**2) * scale)
 
         x = np.array([1.0, 2.0])
         g = _gradient_numerical(f, 0, x, scale=2.0)
@@ -828,7 +828,7 @@ class TestGradientNumericalTrig:
         """Test gradient with argnums=1 (differentiate w.r.t. second arg)."""
 
         def f(dummy, x):
-            return float(np.sum(x ** 2))
+            return float(np.sum(x**2))
 
         x = np.array([3.0, 4.0])
         g = _gradient_numerical(f, 1, np.zeros(2), x)
@@ -858,7 +858,7 @@ class TestHessianNumericalAdditional:
 
     def test_hessian_with_kwargs(self):
         def f(x, scale=1.0):
-            return float(0.5 * scale * np.sum(x ** 2))
+            return float(0.5 * scale * np.sum(x**2))
 
         x = np.array([1.0, 2.0])
         H = _hessian_numerical(f, 0, x, scale=3.0)
@@ -939,7 +939,7 @@ class TestJVPNumericalAdditional:
 
     def test_quadratic_function(self):
         def f(x):
-            return np.array([np.sum(x ** 2)])
+            return np.array([np.sum(x**2)])
 
         x = np.array([1.0, 2.0])
         v = np.array([1.0, 0.0])
@@ -1013,7 +1013,7 @@ class TestCheckGradientAdditional:
 
     def test_with_kwargs(self):
         def f(x, scale=1.0):
-            return float(np.sum(x ** 2) * scale)
+            return float(np.sum(x**2) * scale)
 
         x = np.array([1.0, 2.0])
         result = check_gradient(f, x, scale=2.0)

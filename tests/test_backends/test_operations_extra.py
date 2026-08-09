@@ -17,18 +17,17 @@ This complements ``test_operations_full.py`` which tests the real backends
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose
 
 import aurora.core.backends.operations as _ops
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_xp(name: str = "mock_xp"):
     """Build a MagicMock that mimics a numerical namespace (torch / jnp)."""
@@ -153,7 +152,7 @@ class TestToBackendArrayMocked:
         mock_torch.float32 = np.float32
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.to_backend_array([1, 2], mock_torch, dtype=np.float32)
+            _ops.to_backend_array([1, 2], mock_torch, dtype=np.float32)
             call_kwargs = mock_torch.tensor.call_args
             # The function sets dtype=mock_torch.float32
             assert call_kwargs is not None
@@ -165,7 +164,7 @@ class TestToBackendArrayMocked:
         mock_jnp.array.return_value = expected
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.to_backend_array([1.0, 2.0], mock_jnp)
+            _ops.to_backend_array([1.0, 2.0], mock_jnp)
             mock_jnp.array.assert_called_once()
 
     def test_jax_output_with_dtype(self):
@@ -174,11 +173,12 @@ class TestToBackendArrayMocked:
         mock_jnp.array.return_value = expected
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.to_backend_array([1, 2], mock_jnp, dtype=np.float32)
+            _ops.to_backend_array([1, 2], mock_jnp, dtype=np.float32)
             mock_jnp.array.assert_called_once()
 
     def test_jax_input_converted_via_device_buffer(self):
         """When input has .device_buffer (jax array), it is converted to numpy."""
+
         class FakeJaxArray:
             device_buffer = True
 
@@ -222,7 +222,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.solve.return_value = np.linalg.solve(A, b)
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.solve(A, b, mock_torch)
+            _ops.solve(A, b, mock_torch)
             mock_torch.linalg.solve.assert_called_once_with(A, b)
 
     def test_cholesky_calls_torch_linalg(self, mock_torch):
@@ -230,7 +230,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.cholesky.return_value = np.linalg.cholesky(A)
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.cholesky(A, mock_torch)
+            _ops.cholesky(A, mock_torch)
             mock_torch.linalg.cholesky.assert_called_once_with(A)
 
     def test_inv_calls_torch_linalg(self, mock_torch):
@@ -238,7 +238,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.inv.return_value = np.linalg.inv(A)
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.inv(A, mock_torch)
+            _ops.inv(A, mock_torch)
             mock_torch.linalg.inv.assert_called_once_with(A)
 
     def test_det_calls_torch_linalg(self, mock_torch):
@@ -246,7 +246,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.det.return_value = -2.0
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.det(A, mock_torch)
+            _ops.det(A, mock_torch)
             mock_torch.linalg.det.assert_called_once_with(A)
 
     def test_slogdet_calls_torch_linalg(self, mock_torch):
@@ -255,7 +255,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.slogdet.return_value = expected
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.slogdet(A, mock_torch)
+            _ops.slogdet(A, mock_torch)
             mock_torch.linalg.slogdet.assert_called_once_with(A)
 
     def test_eigh_calls_torch_linalg(self, mock_torch):
@@ -264,7 +264,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.eigh.return_value = expected
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.eigh(A, mock_torch)
+            _ops.eigh(A, mock_torch)
             mock_torch.linalg.eigh.assert_called_once_with(A)
 
     def test_qr_calls_torch_linalg(self, mock_torch):
@@ -273,7 +273,7 @@ class TestLinalgTorchMocked:
         mock_torch.linalg.qr.return_value = expected
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.qr(A, mock_torch)
+            _ops.qr(A, mock_torch)
             mock_torch.linalg.qr.assert_called_once_with(A)
 
     def test_lstsq_calls_torch_linalg(self, mock_torch):
@@ -308,7 +308,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.solve.return_value = np.linalg.solve(A, b)
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.solve(A, b, mock_jnp)
+            _ops.solve(A, b, mock_jnp)
             mock_jnp.linalg.solve.assert_called_once_with(A, b)
 
     def test_cholesky_calls_jnp_linalg(self, mock_jnp):
@@ -316,7 +316,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.cholesky.return_value = np.linalg.cholesky(A)
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.cholesky(A, mock_jnp)
+            _ops.cholesky(A, mock_jnp)
             mock_jnp.linalg.cholesky.assert_called_once_with(A)
 
     def test_inv_calls_jnp_linalg(self, mock_jnp):
@@ -324,7 +324,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.inv.return_value = np.linalg.inv(A)
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.inv(A, mock_jnp)
+            _ops.inv(A, mock_jnp)
             mock_jnp.linalg.inv.assert_called_once_with(A)
 
     def test_det_calls_jnp_linalg(self, mock_jnp):
@@ -332,7 +332,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.det.return_value = -2.0
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.det(A, mock_jnp)
+            _ops.det(A, mock_jnp)
             mock_jnp.linalg.det.assert_called_once_with(A)
 
     def test_slogdet_calls_jnp_linalg(self, mock_jnp):
@@ -341,7 +341,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.slogdet.return_value = expected
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.slogdet(A, mock_jnp)
+            _ops.slogdet(A, mock_jnp)
             mock_jnp.linalg.slogdet.assert_called_once_with(A)
 
     def test_eigh_calls_jnp_linalg(self, mock_jnp):
@@ -350,7 +350,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.eigh.return_value = expected
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.eigh(A, mock_jnp)
+            _ops.eigh(A, mock_jnp)
             mock_jnp.linalg.eigh.assert_called_once_with(A)
 
     def test_qr_calls_jnp_linalg(self, mock_jnp):
@@ -359,7 +359,7 @@ class TestLinalgJaxMocked:
         mock_jnp.linalg.qr.return_value = expected
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.qr(A, mock_jnp)
+            _ops.qr(A, mock_jnp)
             mock_jnp.linalg.qr.assert_called_once_with(A)
 
     def test_lstsq_calls_jnp_linalg(self, mock_jnp):
@@ -389,7 +389,7 @@ class TestArrayCreationTorchMocked:
         mock_torch.eye.return_value = np.eye(3)
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.eye(3, mock_torch)
+            _ops.eye(3, mock_torch)
             # torch branch sets dtype=mock_torch.float64 if none given
             mock_torch.eye.assert_called_once_with(3, dtype=mock_torch.float64, device=None)
 
@@ -397,35 +397,35 @@ class TestArrayCreationTorchMocked:
         mock_torch.eye.return_value = np.eye(2)
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.eye(2, mock_torch, dtype=np.float32, device="cpu")
+            _ops.eye(2, mock_torch, dtype=np.float32, device="cpu")
             mock_torch.eye.assert_called_once_with(2, dtype=np.float32, device="cpu")
 
     def test_zeros_default_dtype(self, mock_torch):
         mock_torch.zeros.return_value = np.zeros((2, 3))
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.zeros((2, 3), mock_torch)
+            _ops.zeros((2, 3), mock_torch)
             mock_torch.zeros.assert_called_once_with((2, 3), dtype=mock_torch.float64, device=None)
 
     def test_zeros_explicit_dtype(self, mock_torch):
         mock_torch.zeros.return_value = np.zeros((2,))
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.zeros((2,), mock_torch, dtype=np.float32, device="cpu")
+            _ops.zeros((2,), mock_torch, dtype=np.float32, device="cpu")
             mock_torch.zeros.assert_called_once_with((2,), dtype=np.float32, device="cpu")
 
     def test_ones_default_dtype(self, mock_torch):
         mock_torch.ones.return_value = np.ones((3, 2))
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.ones((3, 2), mock_torch)
+            _ops.ones((3, 2), mock_torch)
             mock_torch.ones.assert_called_once_with((3, 2), dtype=mock_torch.float64, device=None)
 
     def test_ones_explicit_dtype(self, mock_torch):
         mock_torch.ones.return_value = np.ones((2,))
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.ones((2,), mock_torch, dtype=np.float32, device="cpu")
+            _ops.ones((2,), mock_torch, dtype=np.float32, device="cpu")
             mock_torch.ones.assert_called_once_with((2,), dtype=np.float32, device="cpu")
 
 
@@ -443,42 +443,42 @@ class TestArrayCreationJaxMocked:
         mock_jnp.eye.return_value = np.eye(3)
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.eye(3, mock_jnp)
+            _ops.eye(3, mock_jnp)
             mock_jnp.eye.assert_called_once_with(3, dtype=mock_jnp.float64)
 
     def test_eye_explicit_dtype(self, mock_jnp):
         mock_jnp.eye.return_value = np.eye(2)
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.eye(2, mock_jnp, dtype=np.float32)
+            _ops.eye(2, mock_jnp, dtype=np.float32)
             mock_jnp.eye.assert_called_once_with(2, dtype=np.float32)
 
     def test_zeros_default_dtype(self, mock_jnp):
         mock_jnp.zeros.return_value = np.zeros((2, 3))
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.zeros((2, 3), mock_jnp)
+            _ops.zeros((2, 3), mock_jnp)
             mock_jnp.zeros.assert_called_once_with((2, 3), dtype=mock_jnp.float64)
 
     def test_zeros_explicit_dtype(self, mock_jnp):
         mock_jnp.zeros.return_value = np.zeros((2,))
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.zeros((2,), mock_jnp, dtype=np.int32)
+            _ops.zeros((2,), mock_jnp, dtype=np.int32)
             mock_jnp.zeros.assert_called_once_with((2,), dtype=np.int32)
 
     def test_ones_default_dtype(self, mock_jnp):
         mock_jnp.ones.return_value = np.ones((3, 2))
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.ones((3, 2), mock_jnp)
+            _ops.ones((3, 2), mock_jnp)
             mock_jnp.ones.assert_called_once_with((3, 2), dtype=mock_jnp.float64)
 
     def test_ones_explicit_dtype(self, mock_jnp):
         mock_jnp.ones.return_value = np.ones((2,))
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.ones((2,), mock_jnp, dtype=np.float32)
+            _ops.ones((2,), mock_jnp, dtype=np.float32)
             mock_jnp.ones.assert_called_once_with((2,), dtype=np.float32)
 
 
@@ -497,7 +497,7 @@ class TestConcatenateStackTorchMocked:
         mock_torch.cat.return_value = np.array([1.0, 2.0])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.concatenate(arrays, axis=0, xp=mock_torch)
+            _ops.concatenate(arrays, axis=0, xp=mock_torch)
             mock_torch.cat.assert_called_once_with(arrays, dim=0)
 
     def test_concatenate_axis1(self, mock_torch):
@@ -505,7 +505,7 @@ class TestConcatenateStackTorchMocked:
         mock_torch.cat.return_value = np.array([[1.0, 2.0]])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.concatenate(arrays, axis=1, xp=mock_torch)
+            _ops.concatenate(arrays, axis=1, xp=mock_torch)
             mock_torch.cat.assert_called_once_with(arrays, dim=1)
 
     def test_stack_uses_torch_stack(self, mock_torch):
@@ -513,7 +513,7 @@ class TestConcatenateStackTorchMocked:
         mock_torch.stack.return_value = np.array([[1.0], [2.0]])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.stack(arrays, axis=0, xp=mock_torch)
+            _ops.stack(arrays, axis=0, xp=mock_torch)
             mock_torch.stack.assert_called_once_with(arrays, dim=0)
 
     def test_stack_axis1(self, mock_torch):
@@ -521,7 +521,7 @@ class TestConcatenateStackTorchMocked:
         mock_torch.stack.return_value = np.array([[1.0, 2.0]])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.stack(arrays, axis=1, xp=mock_torch)
+            _ops.stack(arrays, axis=1, xp=mock_torch)
             mock_torch.stack.assert_called_once_with(arrays, dim=1)
 
 
@@ -540,7 +540,7 @@ class TestConcatenateStackJaxMocked:
         mock_jnp.concatenate.return_value = np.array([1.0, 2.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.concatenate(arrays, axis=0, xp=mock_jnp)
+            _ops.concatenate(arrays, axis=0, xp=mock_jnp)
             mock_jnp.concatenate.assert_called_once_with(arrays, axis=0)
 
     def test_stack_uses_jnp_stack(self, mock_jnp):
@@ -548,7 +548,7 @@ class TestConcatenateStackJaxMocked:
         mock_jnp.stack.return_value = np.array([[1.0], [2.0]])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.stack(arrays, axis=0, xp=mock_jnp)
+            _ops.stack(arrays, axis=0, xp=mock_jnp)
             mock_jnp.stack.assert_called_once_with(arrays, axis=0)
 
 
@@ -569,7 +569,7 @@ class TestConcatenateStackInferenceMocked:
         mock_torch.cat.return_value = np.array([3.0, 4.0])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.concatenate([fake_t, fake_t])
+            _ops.concatenate([fake_t, fake_t])
             mock_torch.cat.assert_called_once()
 
     def test_concatenate_infers_jnp(self):
@@ -584,7 +584,7 @@ class TestConcatenateStackInferenceMocked:
         # jnp must be not-None for the inference check
         with patch.object(_ops, "jnp", mock_jnp):
             with patch.object(_ops, "torch", None):
-                result = _ops.concatenate([fake_arr, fake_arr])
+                _ops.concatenate([fake_arr, fake_arr])
                 mock_jnp.concatenate.assert_called_once()
 
     def test_stack_infers_torch(self):
@@ -598,7 +598,7 @@ class TestConcatenateStackInferenceMocked:
         mock_torch.stack.return_value = np.array([[1.0], [1.0]])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.stack([fake_t, fake_t])
+            _ops.stack([fake_t, fake_t])
             mock_torch.stack.assert_called_once()
 
     def test_stack_infers_jnp(self):
@@ -612,7 +612,7 @@ class TestConcatenateStackInferenceMocked:
 
         with patch.object(_ops, "jnp", mock_jnp):
             with patch.object(_ops, "torch", None):
-                result = _ops.stack([fake_arr, fake_arr])
+                _ops.stack([fake_arr, fake_arr])
                 mock_jnp.stack.assert_called_once()
 
 
@@ -631,7 +631,7 @@ class TestMatrixOpsTorchMocked:
         mock_torch.diag.return_value = np.diag(v)
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.diag(v, mock_torch)
+            _ops.diag(v, mock_torch)
             mock_torch.diag.assert_called_once_with(v)
 
     def test_trace_uses_torch_trace(self, mock_torch):
@@ -639,7 +639,7 @@ class TestMatrixOpsTorchMocked:
         mock_torch.trace.return_value = 5.0
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.trace(A, mock_torch)
+            _ops.trace(A, mock_torch)
             mock_torch.trace.assert_called_once_with(A)
 
     def test_matmul_uses_torch_matmul(self, mock_torch):
@@ -648,7 +648,7 @@ class TestMatrixOpsTorchMocked:
         mock_torch.matmul.return_value = A @ B
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.matmul(A, B, mock_torch)
+            _ops.matmul(A, B, mock_torch)
             mock_torch.matmul.assert_called_once_with(A, B)
 
     def test_transpose_uses_t_attribute(self, mock_torch):
@@ -675,7 +675,7 @@ class TestMatrixOpsJaxMocked:
         mock_jnp.diag.return_value = np.diag(v)
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.diag(v, mock_jnp)
+            _ops.diag(v, mock_jnp)
             mock_jnp.diag.assert_called_once_with(v)
 
     def test_trace_uses_jnp_trace(self, mock_jnp):
@@ -683,7 +683,7 @@ class TestMatrixOpsJaxMocked:
         mock_jnp.trace.return_value = 5.0
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.trace(A, mock_jnp)
+            _ops.trace(A, mock_jnp)
             mock_jnp.trace.assert_called_once_with(A)
 
     def test_matmul_uses_jnp_matmul(self, mock_jnp):
@@ -692,7 +692,7 @@ class TestMatrixOpsJaxMocked:
         mock_jnp.matmul.return_value = A @ B
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.matmul(A, B, mock_jnp)
+            _ops.matmul(A, B, mock_jnp)
             mock_jnp.matmul.assert_called_once_with(A, B)
 
     def test_transpose_uses_t_attribute(self, mock_jnp):
@@ -727,14 +727,14 @@ class TestReductionsTorchMocked:
         mock_torch.sum.return_value = 6.0
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.sum(a, xp=mock_torch)
+            _ops.sum(a, xp=mock_torch)
             mock_torch.sum.assert_called_once_with(a)
 
     def test_sum_with_axis(self, mock_torch):
         a = np.array([[1.0, 2.0], [3.0, 4.0]])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.sum(a, axis=0, xp=mock_torch)
+            _ops.sum(a, axis=0, xp=mock_torch)
             mock_torch.sum.assert_called_once_with(a, dim=0)
 
     def test_mean_no_axis(self, mock_torch):
@@ -742,14 +742,14 @@ class TestReductionsTorchMocked:
         mock_torch.mean.return_value = 4.0
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.mean(a, xp=mock_torch)
+            _ops.mean(a, xp=mock_torch)
             mock_torch.mean.assert_called_once_with(a)
 
     def test_mean_with_axis(self, mock_torch):
         a = np.array([[1.0, 3.0], [5.0, 7.0]])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.mean(a, axis=1, xp=mock_torch)
+            _ops.mean(a, axis=1, xp=mock_torch)
             mock_torch.mean.assert_called_once_with(a, dim=1)
 
     def test_max_no_axis(self, mock_torch):
@@ -759,7 +759,7 @@ class TestReductionsTorchMocked:
         mock_torch.max.return_value = _flat_max
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.max(a, xp=mock_torch)
+            _ops.max(a, xp=mock_torch)
             mock_torch.max.assert_called_once_with(a)
 
     def test_max_with_axis(self, mock_torch):
@@ -769,7 +769,7 @@ class TestReductionsTorchMocked:
         mock_torch.max.return_value = _axis_max
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.max(a, axis=0, xp=mock_torch)
+            _ops.max(a, axis=0, xp=mock_torch)
             mock_torch.max.assert_called_once_with(a, dim=0)
 
 
@@ -792,7 +792,7 @@ class TestReductionsJaxMocked:
         mock_jnp.sum.return_value = np.array([4.0, 6.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.sum(a, axis=0, xp=mock_jnp)
+            _ops.sum(a, axis=0, xp=mock_jnp)
             mock_jnp.sum.assert_called_once_with(a, axis=0)
 
     def test_sum_no_axis(self, mock_jnp):
@@ -800,7 +800,7 @@ class TestReductionsJaxMocked:
         mock_jnp.sum.return_value = 6.0
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.sum(a, xp=mock_jnp)
+            _ops.sum(a, xp=mock_jnp)
             mock_jnp.sum.assert_called_once_with(a, axis=None)
 
     def test_mean_with_axis(self, mock_jnp):
@@ -808,7 +808,7 @@ class TestReductionsJaxMocked:
         mock_jnp.mean.return_value = np.array([2.0, 6.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.mean(a, axis=1, xp=mock_jnp)
+            _ops.mean(a, axis=1, xp=mock_jnp)
             mock_jnp.mean.assert_called_once_with(a, axis=1)
 
     def test_mean_no_axis(self, mock_jnp):
@@ -816,7 +816,7 @@ class TestReductionsJaxMocked:
         mock_jnp.mean.return_value = 4.0
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.mean(a, xp=mock_jnp)
+            _ops.mean(a, xp=mock_jnp)
             mock_jnp.mean.assert_called_once_with(a, axis=None)
 
     def test_max_with_axis(self, mock_jnp):
@@ -824,7 +824,7 @@ class TestReductionsJaxMocked:
         mock_jnp.max.return_value = np.array([3.0, 5.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.max(a, axis=0, xp=mock_jnp)
+            _ops.max(a, axis=0, xp=mock_jnp)
             mock_jnp.max.assert_called_once_with(a, axis=0)
 
     def test_max_no_axis(self, mock_jnp):
@@ -832,7 +832,7 @@ class TestReductionsJaxMocked:
         mock_jnp.max.return_value = 5.0
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.max(a, xp=mock_jnp)
+            _ops.max(a, xp=mock_jnp)
             mock_jnp.max.assert_called_once_with(a, axis=None)
 
 
@@ -853,7 +853,7 @@ class TestReductionInferenceMocked:
         mock_torch.sum.return_value = 42.0
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.sum(fake_a)
+            _ops.sum(fake_a)
             mock_torch.sum.assert_called_once()
 
     def test_sum_infers_jnp(self):
@@ -867,7 +867,7 @@ class TestReductionInferenceMocked:
 
         with patch.object(_ops, "jnp", mock_jnp):
             with patch.object(_ops, "torch", None):
-                result = _ops.sum(fake_a)
+                _ops.sum(fake_a)
                 mock_jnp.sum.assert_called_once()
 
     def test_mean_infers_torch(self):
@@ -881,7 +881,7 @@ class TestReductionInferenceMocked:
         mock_torch.mean.return_value = 21.0
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.mean(fake_a)
+            _ops.mean(fake_a)
             mock_torch.mean.assert_called_once()
 
     def test_mean_infers_jnp(self):
@@ -895,7 +895,7 @@ class TestReductionInferenceMocked:
 
         with patch.object(_ops, "jnp", mock_jnp):
             with patch.object(_ops, "torch", None):
-                result = _ops.mean(fake_a)
+                _ops.mean(fake_a)
                 mock_jnp.mean.assert_called_once()
 
     def test_max_infers_torch(self):
@@ -911,7 +911,7 @@ class TestReductionInferenceMocked:
         mock_torch.max.return_value = _flat_max
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.max(fake_a)
+            _ops.max(fake_a)
             mock_torch.max.assert_called_once()
 
     def test_max_infers_jnp(self):
@@ -925,7 +925,7 @@ class TestReductionInferenceMocked:
 
         with patch.object(_ops, "jnp", mock_jnp):
             with patch.object(_ops, "torch", None):
-                result = _ops.max(fake_a)
+                _ops.max(fake_a)
                 mock_jnp.max.assert_called_once()
 
 
@@ -944,7 +944,7 @@ class TestElementwiseTorchMocked:
         mock_torch.sqrt.return_value = np.array([1.0, 2.0, 3.0])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.sqrt(a, mock_torch)
+            _ops.sqrt(a, mock_torch)
             mock_torch.sqrt.assert_called_once_with(a)
 
     def test_exp_uses_torch_exp(self, mock_torch):
@@ -952,7 +952,7 @@ class TestElementwiseTorchMocked:
         mock_torch.exp.return_value = np.array([1.0, np.e])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.exp(a, mock_torch)
+            _ops.exp(a, mock_torch)
             mock_torch.exp.assert_called_once_with(a)
 
     def test_log_uses_torch_log(self, mock_torch):
@@ -960,7 +960,7 @@ class TestElementwiseTorchMocked:
         mock_torch.log.return_value = np.array([0.0, 1.0])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.log(a, mock_torch)
+            _ops.log(a, mock_torch)
             mock_torch.log.assert_called_once_with(a)
 
     def test_abs_uses_torch_abs(self, mock_torch):
@@ -968,7 +968,7 @@ class TestElementwiseTorchMocked:
         mock_torch.abs.return_value = np.array([3.0, 0.0, 4.0])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.abs(a, mock_torch)
+            _ops.abs(a, mock_torch)
             mock_torch.abs.assert_called_once_with(a)
 
     def test_clip_uses_torch_clamp(self, mock_torch):
@@ -976,7 +976,7 @@ class TestElementwiseTorchMocked:
         mock_torch.clamp.return_value = np.array([-1.0, 0.5, 5.0])
 
         with patch.object(_ops, "torch", mock_torch):
-            result = _ops.clip(a, -1.0, 5.0, mock_torch)
+            _ops.clip(a, -1.0, 5.0, mock_torch)
             mock_torch.clamp.assert_called_once_with(a, -1.0, 5.0)
 
 
@@ -995,7 +995,7 @@ class TestElementwiseJaxMocked:
         mock_jnp.sqrt.return_value = np.array([1.0, 2.0, 3.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.sqrt(a, mock_jnp)
+            _ops.sqrt(a, mock_jnp)
             mock_jnp.sqrt.assert_called_once_with(a)
 
     def test_exp_uses_jnp_exp(self, mock_jnp):
@@ -1003,7 +1003,7 @@ class TestElementwiseJaxMocked:
         mock_jnp.exp.return_value = np.array([1.0, np.e])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.exp(a, mock_jnp)
+            _ops.exp(a, mock_jnp)
             mock_jnp.exp.assert_called_once_with(a)
 
     def test_log_uses_jnp_log(self, mock_jnp):
@@ -1011,7 +1011,7 @@ class TestElementwiseJaxMocked:
         mock_jnp.log.return_value = np.array([0.0, 1.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.log(a, mock_jnp)
+            _ops.log(a, mock_jnp)
             mock_jnp.log.assert_called_once_with(a)
 
     def test_abs_uses_jnp_abs(self, mock_jnp):
@@ -1019,7 +1019,7 @@ class TestElementwiseJaxMocked:
         mock_jnp.abs.return_value = np.array([3.0, 0.0, 4.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.abs(a, mock_jnp)
+            _ops.abs(a, mock_jnp)
             mock_jnp.abs.assert_called_once_with(a)
 
     def test_clip_uses_jnp_clip(self, mock_jnp):
@@ -1027,7 +1027,7 @@ class TestElementwiseJaxMocked:
         mock_jnp.clip.return_value = np.array([-1.0, 0.5, 5.0])
 
         with patch.object(_ops, "jnp", mock_jnp):
-            result = _ops.clip(a, -1.0, 5.0, mock_jnp)
+            _ops.clip(a, -1.0, 5.0, mock_jnp)
             mock_jnp.clip.assert_called_once_with(a, -1.0, 5.0)
 
 

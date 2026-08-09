@@ -80,7 +80,9 @@ class TestLogLoss:
         p = np.clip(y_prob, eps, 1.0 - eps)
         losses = -(y_true * np.log(p) + (1.0 - y_true) * np.log(1.0 - p))
         expected = np.average(losses, weights=weights)
-        np.testing.assert_allclose(log_loss(y_true, y_prob, sample_weight=weights), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            log_loss(y_true, y_prob, sample_weight=weights), expected, rtol=1e-5
+        )
 
     def test_multiclass(self):
         y_true = np.array([0, 2, 1])
@@ -93,7 +95,9 @@ class TestLogLoss:
         y_prob = np.array([[0.7, 0.2, 0.1], [0.1, 0.3, 0.6], [0.2, 0.5, 0.3]])
         weights = np.array([1.0, 2.0, 3.0])
         expected = np.average([-np.log(0.7), -np.log(0.6), -np.log(0.5)], weights=weights)
-        np.testing.assert_allclose(log_loss(y_true, y_prob, sample_weight=weights), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            log_loss(y_true, y_prob, sample_weight=weights), expected, rtol=1e-5
+        )
 
     def test_non_binary_labels_with_1d_prob_raises(self):
         with pytest.raises(ValueError, match="not binary"):
@@ -134,7 +138,9 @@ class TestBrierScoreLoss:
         y_prob = np.array([0.9, 0.2, 0.8, 0.7])
         weights = np.array([1.0, 2.0, 3.0, 4.0])
         expected = np.average((y_true - y_prob) ** 2, weights=weights)
-        np.testing.assert_allclose(brier_score_loss(y_true, y_prob, sample_weight=weights), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            brier_score_loss(y_true, y_prob, sample_weight=weights), expected, rtol=1e-5
+        )
 
     def test_non_binary_labels_raises(self):
         with pytest.raises(ValueError, match="binary labels"):
@@ -177,14 +183,20 @@ class TestPrecision:
         assert precision(np.array([0, 1, 1, 0]), np.array([0, 0, 0, 0])) == 0.0
 
     def test_mixed(self):
-        np.testing.assert_allclose(precision(np.array([0, 0, 1, 1, 1, 0]), np.array([0, 1, 1, 0, 1, 0])), 2.0 / 3, rtol=1e-5)
+        np.testing.assert_allclose(
+            precision(np.array([0, 0, 1, 1, 1, 0]), np.array([0, 1, 1, 0, 1, 0])),
+            2.0 / 3,
+            rtol=1e-5,
+        )
 
     def test_weighted(self):
         y_true = np.array([0, 0, 1, 1])
         y_pred = np.array([0, 1, 1, 0])
         weights = np.array([1.0, 2.0, 3.0, 4.0])
         expected = 3.0 / (3.0 + 2.0)
-        np.testing.assert_allclose(precision(y_true, y_pred, sample_weight=weights), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            precision(y_true, y_pred, sample_weight=weights), expected, rtol=1e-5
+        )
 
 
 class TestRecall:
@@ -195,14 +207,18 @@ class TestRecall:
         assert recall(np.array([0, 0, 0, 0]), np.array([1, 1, 1, 1])) == 0.0
 
     def test_mixed(self):
-        np.testing.assert_allclose(recall(np.array([0, 0, 1, 1, 1, 0]), np.array([0, 1, 1, 0, 1, 0])), 2.0 / 3, rtol=1e-5)
+        np.testing.assert_allclose(
+            recall(np.array([0, 0, 1, 1, 1, 0]), np.array([0, 1, 1, 0, 1, 0])), 2.0 / 3, rtol=1e-5
+        )
 
     def test_weighted(self):
         y_true = np.array([0, 0, 1, 1])
         y_pred = np.array([0, 1, 1, 0])
         weights = np.array([1.0, 2.0, 3.0, 4.0])
         expected = 3.0 / (3.0 + 4.0)
-        np.testing.assert_allclose(recall(y_true, y_pred, sample_weight=weights), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            recall(y_true, y_pred, sample_weight=weights), expected, rtol=1e-5
+        )
 
 
 class TestF1Score:
@@ -215,7 +231,11 @@ class TestF1Score:
     def test_mixed(self):
         p, r = 2.0 / 3, 2.0 / 3
         expected = 2 * p * r / (p + r)
-        np.testing.assert_allclose(f1_score(np.array([0, 0, 1, 1, 1, 0]), np.array([0, 1, 1, 0, 1, 0])), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            f1_score(np.array([0, 0, 1, 1, 1, 0]), np.array([0, 1, 1, 0, 1, 0])),
+            expected,
+            rtol=1e-5,
+        )
 
     def test_weighted(self):
         y_true = np.array([0, 0, 1, 1])
@@ -224,18 +244,24 @@ class TestF1Score:
         prec = precision(y_true, y_pred, sample_weight=weights)
         rec = recall(y_true, y_pred, sample_weight=weights)
         expected = 2 * prec * rec / (prec + rec)
-        np.testing.assert_allclose(f1_score(y_true, y_pred, sample_weight=weights), expected, rtol=1e-5)
+        np.testing.assert_allclose(
+            f1_score(y_true, y_pred, sample_weight=weights), expected, rtol=1e-5
+        )
 
 
 class TestConcordanceIndex:
     def test_perfect(self):
-        np.testing.assert_allclose(concordance_index(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2])), 1.0)
+        np.testing.assert_allclose(
+            concordance_index(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2])), 1.0
+        )
 
     def test_random_scores(self):
         np.testing.assert_allclose(concordance_index(np.array([0, 1, 1, 0]), np.full(4, 0.5)), 0.5)
 
     def test_partial(self):
-        np.testing.assert_allclose(concordance_index(np.array([0, 1, 0, 1]), np.array([0.1, 0.8, 0.6, 0.4])), 0.75)
+        np.testing.assert_allclose(
+            concordance_index(np.array([0, 1, 0, 1]), np.array([0.1, 0.8, 0.6, 0.4])), 0.75
+        )
 
     def test_weighted_uniform_same_as_unweighted(self):
         y_true = np.array([0, 1, 1, 0, 1, 0])
@@ -262,28 +288,51 @@ class TestConcordanceIndex:
 
     def test_wrong_weight_length_raises(self):
         with pytest.raises(ValueError, match="same length"):
-            concordance_index(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2]), sample_weight=np.array([1.0, 2.0]))
+            concordance_index(
+                np.array([0, 1, 1, 0]),
+                np.array([0.1, 0.9, 0.8, 0.2]),
+                sample_weight=np.array([1.0, 2.0]),
+            )
 
     def test_negative_weight_raises(self):
         with pytest.raises(ValueError, match="non-negative"):
-            concordance_index(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2]), sample_weight=np.array([1.0, -1.0, 1.0, 1.0]))
+            concordance_index(
+                np.array([0, 1, 1, 0]),
+                np.array([0.1, 0.9, 0.8, 0.2]),
+                sample_weight=np.array([1.0, -1.0, 1.0, 1.0]),
+            )
 
     def test_non_finite_weight_raises(self):
         with pytest.raises(ValueError, match="finite"):
-            concordance_index(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2]), sample_weight=np.array([1.0, np.nan, 1.0, 1.0]))
+            concordance_index(
+                np.array([0, 1, 1, 0]),
+                np.array([0.1, 0.9, 0.8, 0.2]),
+                sample_weight=np.array([1.0, np.nan, 1.0, 1.0]),
+            )
 
     def test_alternative_binary_encoding(self):
-        np.testing.assert_allclose(concordance_index(np.array([-1, 1, 1, -1]), np.array([0.1, 0.9, 0.8, 0.2])), 1.0)
+        np.testing.assert_allclose(
+            concordance_index(np.array([-1, 1, 1, -1]), np.array([0.1, 0.9, 0.8, 0.2])), 1.0
+        )
 
 
 class TestRocAuc:
     def test_perfect(self):
-        np.testing.assert_allclose(roc_auc(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2])), 1.0)
+        np.testing.assert_allclose(
+            roc_auc(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2])), 1.0
+        )
 
     def test_equals_concordance_index(self):
         y_true = np.array([0, 1, 0, 1, 0, 1])
         y_score = np.array([0.2, 0.7, 0.4, 0.6, 0.1, 0.9])
-        np.testing.assert_allclose(roc_auc(y_true, y_score), concordance_index(y_true, y_score), rtol=1e-10)
+        np.testing.assert_allclose(
+            roc_auc(y_true, y_score), concordance_index(y_true, y_score), rtol=1e-10
+        )
 
     def test_weighted(self):
-        np.testing.assert_allclose(roc_auc(np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2]), sample_weight=np.ones(4)), 1.0)
+        np.testing.assert_allclose(
+            roc_auc(
+                np.array([0, 1, 1, 0]), np.array([0.1, 0.9, 0.8, 0.2]), sample_weight=np.ones(4)
+            ),
+            1.0,
+        )

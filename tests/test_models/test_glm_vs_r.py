@@ -54,15 +54,17 @@ def test_glm_coefficients_match_r(tmp_path):
     3. Compares coefficients, deviance, AIC, fitted values
 
     Tolerances match those defined in the comparison script:
-    - coef-tol: 1e-4
-    - deviance-tol: 0.02
-    - fitted-tol: 2e-4
-    - aic-tol: 500 (kept loose for backward compat; after Phase 1.1 fix the
-      Aurora AIC should match R much more closely for non-Gaussian families)
+    - coef-tol: 1e-6 (also applied to the intercept)
+    - deviance-tol: 1e-6
+    - fitted-tol: 1e-6
+    - aic-tol: 1e-6, after adjusting R's AIC by the known +2 offset for
+      Gaussian-like families (R's ``AIC()`` counts the estimated dispersion
+      parameter; Aurora follows the statsmodels convention of counting only
+      mean parameters — see ``aurora/models/glm/fitting.py``)
 
     Failure modes:
     - Non-zero exit from subprocess -> R or Python error in comparison
-    - 'success: False' in JSON -> coefficient/deviance/fitted mismatch
+    - 'success: False' in JSON -> coefficient/deviance/fitted/AIC mismatch
     """
     output_json = tmp_path / "comparison_results.json"
 
@@ -88,18 +90,17 @@ def test_glm_coefficients_match_r(tmp_path):
         )
 
     if not output_json.is_file():
-        pytest.fail(
-            f"Comparison script did not produce {output_json}.\n"
-            f"stdout:\n{result.stdout}"
-        )
+        pytest.fail(f"Comparison script did not produce {output_json}.\nstdout:\n{result.stdout}")
 
     data = json.loads(output_json.read_text())
-    failed = [r for r in data.get("results", []) if not r.get("success", False)]
+    failed = [r for r in data.get("comparisons", []) if not r.get("success", False)]
     if failed:
         summary = "\n".join(
             f"  - {r.get('family')}/{r.get('link')} rep={r.get('replicate')}: "
+            f"intercept_diff={r.get('intercept_abs_diff')}, "
             f"coef_max_diff={r.get('coef_max_abs_diff')}, "
             f"deviance_diff={r.get('deviance_abs_diff')}, "
+            f"aic_diff={r.get('aic_abs_diff')}, "
             f"fitted_diff={r.get('mean_fitted_abs_diff')}"
             for r in failed[:5]
         )

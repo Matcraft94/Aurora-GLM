@@ -8,9 +8,6 @@ Covers: irls.py, lbfgs.py, newton.py, sparse_solvers.py, result.py, base.py
 
 from __future__ import annotations
 
-import warnings
-from collections.abc import Callable
-
 import numpy as np
 import pytest
 from scipy import sparse
@@ -124,9 +121,7 @@ class TestOptimizationResult:
         assert "successfully" in r.message
 
     def test_failure_result(self):
-        r = OptimizationResult(
-            x=np.zeros(3), fun=1.0, success=False, message="Failed", nit=50
-        )
+        r = OptimizationResult(x=np.zeros(3), fun=1.0, success=False, message="Failed", nit=50)
         assert r.success is False
         assert r.message == "Failed"
         assert r.nit == 50
@@ -187,7 +182,9 @@ class TestOptimizerBase:
 
     def test_concrete_subclass(self):
         class Concrete(Optimizer):
-            def minimize(self, loss_fn, init_params, *, callback=None, max_iter=100, tol=1e-6, **kwargs):
+            def minimize(
+                self, loss_fn, init_params, *, callback=None, max_iter=100, tol=1e-6, **kwargs
+            ):
                 return OptimizationResult(x=init_params, fun=0.0)
 
         opt = Concrete()
@@ -614,9 +611,7 @@ class TestLineSearch:
         x = np.array([0.0, 0.0])
         d = np.array([1.0, 1.0])
         g = grad(x)
-        alpha, f_new, g_new, fev = _backtracking_line_search(
-            loss, grad, x, d, g, backend
-        )
+        alpha, f_new, g_new, fev = _backtracking_line_search(loss, grad, x, d, g, backend)
         assert alpha > 0
         assert f_new < loss(x)
 
@@ -630,14 +625,12 @@ class TestLineSearch:
         # Let's use d = g direction so g*d > 0
 
         def loss(x):
-            return (x ** 2).sum()
+            return (x**2).sum()
 
         def grad_fn(x):
             return 2.0 * x
 
-        alpha, f_new, g_new, fev = _strong_wolfe_line_search(
-            loss, grad_fn, x, d, g, backend
-        )
+        alpha, f_new, g_new, fev = _strong_wolfe_line_search(loss, grad_fn, x, d, g, backend)
         # d is not a descent direction (dphi_0 >= 0), so alpha = 0
         assert alpha == 0.0
 
@@ -658,7 +651,9 @@ class TestLineSearch:
                     for i in range(len(x_np)):
                         e = np.zeros_like(x_np)
                         e[i] = eps
-                        g[i] = (fn(x_np + e, *args, **kwargs) - fn(x_np - e, *args, **kwargs)) / (2 * eps)
+                        g[i] = (fn(x_np + e, *args, **kwargs) - fn(x_np - e, *args, **kwargs)) / (
+                            2 * eps
+                        )
                     return g
 
                 return grad_fn
@@ -690,7 +685,9 @@ def _numpy_backend():
                 for i in range(len(x_np)):
                     e = np.zeros_like(x_np)
                     e[i] = eps
-                    g[i] = (fn(x_np + e, *args, **kwargs) - fn(x_np - e, *args, **kwargs)) / (2 * eps)
+                    g[i] = (fn(x_np + e, *args, **kwargs) - fn(x_np - e, *args, **kwargs)) / (
+                        2 * eps
+                    )
                 return g
 
             return grad_fn
@@ -703,7 +700,7 @@ class TestNewtonRaphson:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         result = newton_raphson(quad, np.array([3.0, -2.0, 1.0]), backend=backend, tol=1e-8)
         assert result.success is True
@@ -729,7 +726,7 @@ class TestNewtonRaphson:
             history.append(val)
 
         newton_raphson(
-            lambda x: float((x ** 2).sum()),
+            lambda x: float((x**2).sum()),
             np.array([5.0]),
             backend=backend,
             callback=cb,
@@ -740,7 +737,7 @@ class TestNewtonRaphson:
         backend = _numpy_backend()
 
         result = newton_raphson(
-            lambda x: float((x ** 2).sum()),
+            lambda x: float((x**2).sum()),
             np.array([100.0]),
             backend=backend,
             max_iter=1,
@@ -753,7 +750,7 @@ class TestNewtonRaphson:
         backend = _numpy_backend()
 
         def loss(x, scale):
-            return float(scale * (x ** 2).sum())
+            return float(scale * (x**2).sum())
 
         result = newton_raphson(
             loss, np.array([2.0]), backend=backend, kwargs={"scale": 3.0}, tol=1e-8
@@ -767,7 +764,7 @@ class TestModifiedNewton:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         result = modified_newton(quad, np.array([5.0, -3.0]), backend=backend, tol=1e-8)
         assert result.success is True
@@ -793,7 +790,7 @@ class TestModifiedNewton:
             history.append(val)
 
         modified_newton(
-            lambda x: float((x ** 2).sum()),
+            lambda x: float((x**2).sum()),
             np.array([10.0]),
             backend=backend,
             callback=cb,
@@ -820,7 +817,7 @@ class TestComputeHessian:
         x = backend.array(np.array([1.0, 2.0]))
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         hess, evals = _compute_hessian(quad, x, backend, (), {})
         np.testing.assert_allclose(hess, 2.0 * np.eye(2), atol=1e-3)
@@ -1068,12 +1065,20 @@ class TestLBFGSAdditionalCoverage:
         dphi_0 = _to_scalar((g * d).sum(), backend)
 
         alpha, f_new, g_new, fev = _zoom(
-            loss, grad_fn, x, d, backend,
-            alpha_lo=0.0, alpha_hi=2.0,
-            phi_lo=f_0, phi_hi=loss(x + 2.0 * d),
+            loss,
+            grad_fn,
+            x,
+            d,
+            backend,
+            alpha_lo=0.0,
+            alpha_hi=2.0,
+            phi_lo=f_0,
+            phi_hi=loss(x + 2.0 * d),
             dphi_lo=dphi_0,
-            phi_0=f_0, dphi_0=dphi_0,
-            c1=1e-4, c2=0.9,
+            phi_0=f_0,
+            dphi_0=dphi_0,
+            c1=1e-4,
+            c2=0.9,
         )
         assert alpha > 0
         assert f_new < f_0
@@ -1184,7 +1189,7 @@ class TestLBFGSAdditionalCoverage:
         backend = _numpy_backend()
 
         def loss(x):
-            return (x ** 2).sum()
+            return (x**2).sum()
 
         def grad_fn(x):
             return 2.0 * x
@@ -1193,9 +1198,7 @@ class TestLBFGSAdditionalCoverage:
         d = np.array([-5.0, 3.0])  # descent direction
         g = grad_fn(x)
 
-        alpha, f_new, g_new, fev = _strong_wolfe_line_search(
-            loss, grad_fn, x, d, g, backend
-        )
+        alpha, f_new, g_new, fev = _strong_wolfe_line_search(loss, grad_fn, x, d, g, backend)
         assert alpha > 0
         assert f_new < loss(x)
 
@@ -1217,13 +1220,20 @@ class TestLBFGSAdditionalCoverage:
 
         # Call zoom with a narrow bracket
         alpha, f_new, g_new, fev = _zoom(
-            loss, grad_fn, x, d, backend,
-            alpha_lo=0.1, alpha_hi=0.9,
+            loss,
+            grad_fn,
+            x,
+            d,
+            backend,
+            alpha_lo=0.1,
+            alpha_hi=0.9,
             phi_lo=loss(x + 0.1 * d),
             phi_hi=loss(x + 0.9 * d),
             dphi_lo=_to_scalar((grad_fn(x + 0.1 * d) * d).sum(), backend),
-            phi_0=f_0, dphi_0=dphi_0,
-            c1=1e-4, c2=0.9,
+            phi_0=f_0,
+            dphi_0=dphi_0,
+            c1=1e-4,
+            c2=0.9,
         )
         assert alpha > 0
 
@@ -1310,7 +1320,7 @@ class TestNewtonRaphsonExtra:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         # Start very close to origin so first step lands near 0
         result = newton_raphson(quad, np.array([1e-8, 1e-8]), backend=backend, tol=1e-6)
@@ -1321,7 +1331,7 @@ class TestNewtonRaphsonExtra:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         result = newton_raphson(quad, np.array([1.0]), backend=backend, kwargs=None, tol=1e-8)
         assert result.success is True
@@ -1331,7 +1341,7 @@ class TestNewtonRaphsonExtra:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         result = newton_raphson(quad, np.array([5.0, -3.0]), backend=backend, tol=1e-8)
         assert result.success is True
@@ -1376,7 +1386,7 @@ class TestModifiedNewtonExtra:
         backend = _numpy_backend()
 
         def loss(x, scale=1.0):
-            return float(scale * (x ** 2).sum())
+            return float(scale * (x**2).sum())
 
         result = modified_newton(
             loss,
@@ -1392,7 +1402,7 @@ class TestModifiedNewtonExtra:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         result = modified_newton(quad, np.array([3.0]), backend=backend, kwargs=None, tol=1e-8)
         assert result.success is True
@@ -1437,7 +1447,7 @@ class TestModifiedNewtonExtra:
         backend = _numpy_backend()
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         # Start near optimum to get a tiny step
         result = modified_newton(quad, np.array([1e-8, 1e-8]), backend=backend, tol=1e-6)
@@ -1453,7 +1463,7 @@ class TestComputeHessianExtra:
         x = backend.array(np.array([1.0]))
 
         def quad(x):
-            return float((x ** 2).sum())
+            return float((x**2).sum())
 
         hess, evals = _compute_hessian(quad, x, backend, (), {})
         assert hess.shape == (1, 1)
@@ -1481,9 +1491,7 @@ class TestComputeHessianExtra:
         def loss(x, scale, bias=0.0):
             return float(scale * ((x - bias) ** 2).sum())
 
-        hess, _ = _compute_hessian(
-            loss, x, backend, (2.0,), {"bias": 1.0}
-        )
+        hess, _ = _compute_hessian(loss, x, backend, (2.0,), {"bias": 1.0})
         # d^2/dx^2 [2*(x-1)^2] = 4*I, so Hessian should be 4*I
         np.testing.assert_allclose(hess, 4.0 * np.eye(2), atol=0.5)
 
@@ -1498,6 +1506,7 @@ class TestOptimizeUnified:
 
     def test_unknown_method_raises(self):
         from aurora.core.optimization import optimize
+
         with pytest.raises(ValueError, match="Unknown optimization"):
             optimize(lambda x: 0.0, np.zeros(2), method="bad_method", backend="numpy")
 
@@ -1508,11 +1517,13 @@ class TestOptimizeDispatch:
     def test_irls_method_with_mock_backend(self):
         """Test that optimize dispatches to irls correctly."""
         from aurora.core.optimization import optimize
+
         # Just verify the dispatch dict contains the key
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="IRLS requires"):
             optimize(lambda x: 0.0, np.zeros(2), method="irls", backend="numpy")
 
     def test_case_insensitive_method_name(self):
         from aurora.core.optimization import optimize
-        with pytest.raises(Exception):
+
+        with pytest.raises(NotImplementedError, match="automatic differentiation"):
             optimize(lambda x: 0.0, np.zeros(2), method="LBFGS", backend="numpy")

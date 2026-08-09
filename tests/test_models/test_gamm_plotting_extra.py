@@ -21,7 +21,6 @@ from aurora.models.gamm.plotting import (
     plot_smooth_effect,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers – lightweight mock GAMMResult
 # ---------------------------------------------------------------------------
@@ -160,9 +159,7 @@ class TestPlotSmoothEffect:
     def test_smooth_with_residuals(self):
         result = _make_mock_gamm_result(n_obs=50, n_basis=10)
         data = pd.DataFrame({"x": np.random.rand(50) * 10})
-        fig, ax = plot_smooth_effect(
-            result, term_name="x", data=data, show_residuals=True
-        )
+        fig, ax = plot_smooth_effect(result, term_name="x", data=data, show_residuals=True)
         assert fig is not None
         plt.close("all")
 
