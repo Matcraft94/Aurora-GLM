@@ -53,8 +53,8 @@ where W = diag(w_i) with:
 5. Update coefficients (weighted least squares):
    β^(t+1) = (X^T W^(t) X)^{-1} X^T W^(t) z^(t)
 
-6. Check convergence:
-   ||β^(t+1) - β^(t)|| / (||β^(t)|| + ε) < tolerance
+6. Check convergence on the relative deviance change:
+   |D^(t+1) - D^(t)| / (|D^(t)| + 0.1) < tolerance   (R glm convention)
 
 Deviance and Model Fit
 -----------------------
@@ -84,11 +84,26 @@ This implementation includes several stability enhancements:
    - Binomial: ε < μ < 1-ε
    - Gamma: μ > ε
 
-2. **Step halving**: If deviance increases, halve the step size
+2. **Step halving**: If a full IRLS step increases the deviance (or produces
+   a non-finite deviance), the step is halved up to 25 times; a step that
+   increases the deviance is never accepted merely because step halving was
+   exhausted — in that case iteration stops with ``converged_=False``.
 
-3. **QR decomposition**: For ill-conditioned X^T W X
+3. **Linear algebra**: the weighted least-squares step is solved via LAPACK
+   Cholesky factorization of XᵀWX, with a fallback to pivoted least squares
+   (``numpy.linalg.lstsq``) on the weighted design when XᵀWX is not positive
+   definite. Rank deficiency is reported through ``GLMResult.rank_`` and a
+   ``RuntimeWarning`` instead of being silently absorbed by jitter.
 
-4. **Convergence diagnostics**: Track both coefficient and deviance convergence
+4. **Convergence diagnostics**: condition number of XᵀWX is monitored each
+   iteration (``RuntimeWarning`` above κ = 1e8), non-convergence after
+   ``max_iter`` iterations warns explicitly, and fitted binomial
+   probabilities numerically 0 or 1 trigger a separation warning (R's
+   ``glm.fit`` convention).
+
+5. **Prior weights**: deviance, log-likelihood, AIC/BIC and the null
+   deviance use the weighted contributions Σ wᵢdᵢ / Σ wᵢℓᵢ (R ``glm``
+   convention, McCullagh & Nelder §2.3).
 
 Supported Families and Links
 -----------------------------
@@ -102,7 +117,8 @@ Supported Families and Links
 
 **Binomial** (logit, probit, cloglog):
     - Canonical link: logit
-    - Variance: V(μ) = μ(1 - μ/n)
+    - Variance: V(μ) = μ(1 − μ) on the probability scale; the number of
+      trials n enters as a prior weight (R convention)
 
 **Gamma** (inverse, identity, log):
     - Canonical link: inverse
@@ -155,10 +171,12 @@ For non-canonical links, IRLS approximates the Hessian with the expected informa
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+from scipy.linalg import cho_factor, cho_solve
 
 from ...core.types import Array
 from ...distributions._utils import (
@@ -219,6 +237,25 @@ _LINK_REGISTRY: dict[str, Callable[[], LinkFunction]] = {
     "power": PowerLink,
 }
 
+# Step-halving and conditioning limits for the production IRLS loop
+_MAX_STEP_HALVING = 25
+_ILL_CONDITIONED_THRESHOLD = 1e8
+
+# Families with a free dispersion parameter: φ̂ = deviance/(n − rank) is
+# estimated after fitting and scales the coefficient covariance (R
+# summary.glm convention). Poisson/Binomial keep φ ≡ 1.
+_DISPERSION_FAMILIES = (GaussianFamily, GammaFamily, InverseGaussianFamily)
+
+# Families whose deviance/log_likelihood accept and honor a ``weights``
+# parameter (Σ wᵢdᵢ / Σ wᵢℓᵢ, R glm convention).
+_WEIGHTED_STATS_FAMILIES = (
+    GaussianFamily,
+    PoissonFamily,
+    BinomialFamily,
+    GammaFamily,
+    InverseGaussianFamily,
+)
+
 
 def fit_glm(
     X: Array,
@@ -247,7 +284,9 @@ def fit_glm(
     link : str or LinkFunction, optional
         Link function. If None, uses family default.
     weights : array-like, optional
-        Sample weights.
+        Prior weights (R ``glm`` convention): each observation contributes
+        wᵢ times its unit deviance/log-likelihood. For grouped binomial data,
+        pass proportions as ``y`` and trial counts as ``weights``.
     offset : array-like, optional
         Offset term.
     backend : str, optional
@@ -323,12 +362,53 @@ def fit_glm(
     family_obj = _coerce_family(family)
     link_obj = _coerce_link(link, family_obj)
 
+    # Domain validation of the response (clear errors instead of silent
+    # clipping inside the families).
+    y_domain = np.asarray(_as_numpy(y_arr), dtype=np.float64)
+    if isinstance(family_obj, (GammaFamily, InverseGaussianFamily)):
+        if np.any(y_domain <= 0.0):
+            raise ValueError(
+                f"{type(family_obj).__name__} requires strictly positive responses "
+                f"(y > 0); got {int(np.sum(y_domain <= 0.0))} non-positive value(s)."
+            )
+    elif isinstance(family_obj, (PoissonFamily, NegativeBinomialFamily, TweedieFamily)):
+        if np.any(y_domain < 0.0):
+            raise ValueError(
+                f"{type(family_obj).__name__} requires non-negative responses "
+                f"(y >= 0); got {int(np.sum(y_domain < 0.0))} negative value(s)."
+            )
+
+    # Binomial family works on the probability scale (R convention): the
+    # response must be a proportion in [0, 1] and the number of trials is a
+    # prior weight. A constant trial count set via BinomialFamily(n=k) is
+    # honored by treating it as weights=k when no weights were passed.
+    if isinstance(family_obj, BinomialFamily):
+        y_check = np.asarray(_as_numpy(y_arr), dtype=np.float64)
+        if np.any(y_check < 0.0) or np.any(y_check > 1.0):
+            raise ValueError(
+                "Binomial family expects a proportion response in [0, 1]. "
+                "For grouped data with trial counts n_i, pass "
+                "y = successes / trials together with weights = trials."
+            )
+        if weights_arr is None and family_obj.n_trials != 1.0:
+            weights_arr = _ones_column(xp, y_arr.shape[0], like=y_arr).reshape(-1)
+            weights_arr = weights_arr * family_obj.n_trials
+
+    if weights_arr is not None and not isinstance(family_obj, _WEIGHTED_STATS_FAMILIES):
+        warnings.warn(
+            f"Prior weights are applied during fitting but are not propagated to "
+            f"deviance, log-likelihood and AIC/BIC for "
+            f"{type(family_obj).__name__}; fit statistics describe the unweighted model.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
     X_design = X_arr
     if fit_intercept:
         intercept_column = _ones_column(xp, X_arr.shape[0], like=X_arr)
         X_design = _concat_columns(xp, intercept_column, X_arr)
 
-    beta, eta_total, mu, n_iter, converged, deviance = _irls(
+    beta, eta_total, mu, n_iter, converged, deviance, rank, max_cond = _irls(
         xp,
         X_design,
         y_arr,
@@ -353,7 +433,7 @@ def fit_glm(
 
     if fit_intercept:
         X_null = _ones_column(xp, X_arr.shape[0], like=X_arr)
-        beta_null, _, _, _, _, null_dev = _irls(
+        _, _, _, _, _, null_dev, _, _ = _irls(
             xp,
             X_null,
             y_arr,
@@ -368,9 +448,71 @@ def fit_glm(
     else:
         null_deviance = deviance_value
 
-    log_likelihood = _to_python_float(family_obj.log_likelihood(y_arr, mu))
+    # Dispersion estimate (R summary.glm convention): φ̂ = D/(n − rank) for
+    # families with a free dispersion parameter; φ ≡ 1 for Poisson/Binomial.
+    # The covariance matrix of the coefficients is scaled by φ̂ in
+    # GLMResult._compute_inference.
+    if isinstance(family_obj, _DISPERSION_FAMILIES):
+        df_resid = max(n_obs - rank, 1)
+        dispersion = deviance_value / df_resid
+    else:
+        dispersion = 1.0
+
+    # The reported log-likelihood (and hence AIC/BIC) must use the estimated
+    # dispersion for families with a free scale, matching statsmodels'
+    # ``res.llf`` convention: shape = 1/φ̂ for Gamma, λ = 1/φ̂ for inverse
+    # Gaussian, φ = φ̂ for Tweedie. A dispersion parameter set explicitly to
+    # a non-default value at family construction is honored instead.
+    log_lik_params: dict[str, Any] = {"weights": weights_arr}
+    if isinstance(family_obj, GammaFamily) and family_obj.shape == 1.0:
+        log_lik_params["shape"] = 1.0 / dispersion
+    elif isinstance(family_obj, InverseGaussianFamily) and family_obj.lambda_ in (
+        1.0,
+        "estimate",
+    ):
+        log_lik_params["lambda_"] = 1.0 / dispersion
+    elif isinstance(family_obj, TweedieFamily) and family_obj.phi == 1.0:
+        df_resid = max(n_obs - rank, 1)
+        log_lik_params["phi"] = deviance_value / df_resid
+    log_likelihood = _to_python_float(family_obj.log_likelihood(y_arr, mu, **log_lik_params))
+    # AIC/BIC count only the mean parameters (statsmodels convention:
+    # sm.GLM(...).fit().aic == -2*llf + 2*p). R additionally counts the
+    # estimated dispersion for Gaussian-like families (+2 in AIC), so aurora
+    # AIC values for Gaussian/Gamma/InverseGaussian differ from R's by 2.
     aic = -2.0 * log_likelihood + 2.0 * n_params
     bic = -2.0 * log_likelihood + math.log(max(n_obs, 1)) * n_params
+
+    # ---- Convergence and conditioning diagnostics -----------------------------
+    if not converged:
+        warnings.warn(
+            f"IRLS failed to converge after {n_iter} iterations (max_iter={max_iter}, tol={tol}).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    if rank < n_params:
+        warnings.warn(
+            f"Design matrix is rank deficient (rank {rank} < {n_params} columns); "
+            "coefficients are not unique (aliasing). The reported solution is the "
+            "minimum-norm least-squares solution.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    if max_cond > _ILL_CONDITIONED_THRESHOLD:
+        warnings.warn(
+            f"Ill-conditioned weighted system detected: κ = {max_cond:.2e} > "
+            f"{_ILL_CONDITIONED_THRESHOLD:.0e}. Results may be numerically unstable.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    if isinstance(family_obj, BinomialFamily):
+        mu_check = np.asarray(_as_numpy(mu), dtype=np.float64)
+        if np.any(mu_check <= 1e-9) or np.any(mu_check >= 1.0 - 1e-9):
+            warnings.warn(
+                "glm.fit: fitted probabilities numerically 0 or 1 occurred "
+                "(possible complete or quasi-complete separation).",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     result = GLMResult(
         coef_=coef,
@@ -386,9 +528,13 @@ def fit_glm(
         bic_=bic,
         n_iter_=n_iter,
         converged_=converged,
+        dispersion_=dispersion,
+        rank_=rank,
+        condition_number_=max_cond,
         _X=X_arr,
         _y=y_arr,
         _weights=weights_arr,
+        _offset=offset_arr,
         _fit_intercept=fit_intercept,
     )
 
@@ -431,7 +577,13 @@ def _irls(
     offset: Array | None,
     max_iter: int,
     tol: float,
-) -> tuple[Array, Array, Array, int, bool, float]:
+) -> tuple[Array, Array, Array, int, bool, float, int, float]:
+    """Production IRLS loop.
+
+    Returns ``(beta, eta, mu, n_iter, converged, deviance, rank, max_cond)``
+    where ``rank`` is the numerically detected rank of the final weighted
+    design and ``max_cond`` the largest condition number of XᵀWX seen.
+    """
     mu = family.initialize(y)
     mu = as_namespace_array(mu, xp, like=y)
     eta_total = link.link(mu)
@@ -440,10 +592,13 @@ def _irls(
     else:
         eta_linear = eta_total
 
-    deviance_prev = _to_python_float(family.deviance(y, mu))
+    deviance_prev = _to_python_float(family.deviance(y, mu, weights=weights))
     converged = False
     beta = _zeros_vector(xp, X.shape[1], like=X)
     iteration = 0
+    rank = X.shape[1]
+    max_cond = 0.0
+    first_step = True
 
     for iteration in range(1, max_iter + 1):  # noqa: B007
         deriv = link.derivative(mu)
@@ -457,57 +612,105 @@ def _irls(
         sqrt_w = _sqrt(weight_core, xp)
         X_weighted = X * sqrt_w[..., None]
 
-        eta_with_offset = eta_linear if offset is None else eta_linear + offset
-        working_response = eta_with_offset + (y - mu) * deriv
-        if offset is not None:
-            working_response = working_response - offset
-
+        # Working response on the Xβ scale (offset removed) so that the WLS
+        # step solves against X alone.
+        working_response = eta_linear + (y - mu) * deriv
         z_weighted = working_response * sqrt_w
 
-        beta = _weighted_least_squares(xp, X_weighted, z_weighted)
-        beta = beta.reshape(-1)
+        beta_new, rank, cond = _weighted_least_squares(xp, X_weighted, z_weighted)
+        beta_new = beta_new.reshape(-1)
+        if math.isfinite(cond) and cond > max_cond:
+            max_cond = cond
+        elif not math.isfinite(cond):
+            max_cond = math.inf
 
-        eta_linear = _matvec(xp, X, beta)
-        eta_with_offset = eta_linear if offset is None else eta_linear + offset
-        mu = link.inverse(eta_with_offset)
+        # Step halving: accept only steps that do not increase the deviance;
+        # a non-finite deviance is never accepted. The first WLS step is
+        # always accepted because the data-driven initialization (e.g.
+        # μ⁽⁰⁾ = y for Gaussian, deviance 0) can sit below the deviance of
+        # any genuine IRLS step.
+        step = 1.0
+        accepted = False
+        for _halving in range(_MAX_STEP_HALVING + 1):  # noqa: B007
+            beta_trial = beta + step * (beta_new - beta)
+            eta_linear_trial = _matvec(xp, X, beta_trial)
+            eta_trial = eta_linear_trial if offset is None else eta_linear_trial + offset
+            mu_trial = link.inverse(eta_trial)
+            deviance_trial = _to_python_float(family.deviance(y, mu_trial, weights=weights))
+            if math.isfinite(deviance_trial) and (
+                first_step or deviance_trial <= deviance_prev + 1e-10 * max(1.0, abs(deviance_prev))
+            ):
+                accepted = True
+                break
+            step *= 0.5
 
-        deviance_value = family.deviance(y, mu)
-        deviance_curr = _to_python_float(deviance_value)
-
-        dev_change = abs(deviance_curr - deviance_prev) / (abs(deviance_prev) + 0.1)
-        if dev_change < tol:
-            converged = True
-            deviance_prev = deviance_curr
-            eta_total = eta_with_offset
+        if not accepted:
+            # No step along the IRLS direction reduced the deviance: stop and
+            # keep the previous (best) iterate instead of accepting a worse
+            # fit by step exhaustion. ``converged`` stays False.
             break
 
-        deviance_prev = deviance_curr
-        eta_total = eta_with_offset
+        first_step = False
+        beta = beta_trial
+        eta_linear = eta_linear_trial
+        eta_total = eta_trial
+        mu = mu_trial
 
-    return beta, eta_total, mu, iteration, converged, deviance_prev
+        dev_change = abs(deviance_trial - deviance_prev) / (abs(deviance_prev) + 0.1)
+        deviance_prev = deviance_trial
+        if dev_change < tol:
+            converged = True
+            break
+
+    return beta, eta_total, mu, iteration, converged, deviance_prev, rank, max_cond
 
 
-def _weighted_least_squares(xp, X_weighted: Array, z_weighted: Array) -> Array:
+def _weighted_least_squares(xp, X_weighted: Array, z_weighted: Array) -> tuple[Array, int, float]:
+    """Solve the weighted least-squares IRLS subproblem.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace (numpy, torch, or jax.numpy).
+    X_weighted : array (n, p)
+        Design matrix pre-multiplied by sqrt(weights).
+    z_weighted : array (n,)
+        Working response pre-multiplied by sqrt(weights).
+
+    Returns
+    -------
+    solution : array (p,)
+        Weighted least-squares solution.
+    rank : int
+        Numerically detected rank of the weighted design.
+    cond : float
+        Condition number of XᵀWX (inf when singular).
+    """
     if xp is np:
         X_mat = np.asarray(X_weighted, dtype=np.float64)
         z_vec = np.asarray(z_weighted, dtype=np.float64)
-        n_samples, n_features = X_mat.shape
-        gram = np.zeros((n_features, n_features), dtype=np.float64)
-        rhs = np.zeros(n_features, dtype=np.float64)
-
-        for row in range(n_samples):
-            xi = X_mat[row]
-            zi = z_vec[row]
-            for i in range(n_features):
-                rhs[i] += xi[i] * zi
-                gram[i, i] += xi[i] * xi[i]
-                for j in range(i + 1, n_features):
-                    val = xi[i] * xi[j]
-                    gram[i, j] += val
-                    gram[j, i] += val
-
-        solution = _solve_normal_equation_numpy(gram, rhs)
-        return solution.astype(X_mat.dtype, copy=False)
+        gram = X_mat.T @ X_mat
+        rhs = X_mat.T @ z_vec
+        try:
+            sv = np.linalg.svd(gram, compute_uv=False)
+            cond = float(sv[0] / sv[-1]) if sv[-1] > 0.0 else math.inf
+        except np.linalg.LinAlgError:  # pragma: no cover - defensive
+            cond = math.inf
+        # SVD-based rank of the weighted design: Cholesky can succeed on
+        # numerically rank-deficient Gram matrices, so the rank must be
+        # detected independently (R dqrls-style pivoted tolerance).
+        rank = int(np.linalg.matrix_rank(X_mat))
+        try:
+            # Fast path: LAPACK Cholesky on XᵀWX (positive definite case)
+            factor = cho_factor(gram, lower=True)
+            solution = cho_solve(factor, rhs)
+        except np.linalg.LinAlgError:
+            # Rank-deficient or indefinite: pivoted least squares on the
+            # weighted design itself (does not square the condition number)
+            # with SVD-based rank detection.
+            solution, _, rank_lstsq, _ = np.linalg.lstsq(X_mat, z_vec, rcond=None)
+            rank = int(rank_lstsq)
+        return solution, rank, cond
 
     # Handle PyTorch contiguous requirement
     if hasattr(X_weighted, "contiguous"):
@@ -567,73 +770,37 @@ def _weighted_least_squares(xp, X_weighted: Array, z_weighted: Array) -> Array:
         pinv = xp.linalg.pinv(gram)
         solution = pinv @ rhs_column
 
-    return solution.reshape(-1)
+    # Rank/condition diagnostics via NumPy on the (small) Gram matrix
+    gram_np = np.asarray(_as_numpy(gram), dtype=np.float64)
+    rank = int(np.linalg.matrix_rank(gram_np))
+    try:
+        sv = np.linalg.svd(gram_np, compute_uv=False)
+        cond = float(sv[0] / sv[-1]) if sv[-1] > 0.0 else math.inf
+    except np.linalg.LinAlgError:  # pragma: no cover - defensive
+        cond = math.inf
 
-
-def _solve_normal_equation_numpy(gram: np.ndarray, rhs: np.ndarray) -> np.ndarray:
-    n = gram.shape[0]
-    eye = np.eye(n, dtype=gram.dtype)
-    jitter = 1e-8
-    for _ in range(6):
-        try:
-            return _gaussian_elimination_solve_numpy(gram + jitter * eye, rhs)
-        except np.linalg.LinAlgError:
-            jitter *= 10.0
-    return _gaussian_elimination_solve_numpy(gram + jitter * eye, rhs, allow_singular=True)
-
-
-def _gaussian_elimination_solve_numpy(
-    matrix: np.ndarray,
-    rhs: np.ndarray,
-    *,
-    tol: float = 1e-12,
-    allow_singular: bool = False,
-) -> np.ndarray:
-    A = np.array(matrix, dtype=np.float64, copy=True)
-    b = np.array(rhs, dtype=np.float64, copy=True)
-    n = A.shape[0]
-
-    for k in range(n):
-        pivot_idx = k + int(np.argmax(np.abs(A[k:, k])))
-        pivot_val = A[pivot_idx, k]
-        if abs(pivot_val) < tol:
-            if allow_singular:
-                pivot_val = tol
-            else:
-                raise np.linalg.LinAlgError("Matrix is singular to working precision")
-
-        if pivot_idx != k:
-            A[[k, pivot_idx]] = A[[pivot_idx, k]]
-            b[[k, pivot_idx]] = b[[pivot_idx, k]]
-
-        pivot_val = A[k, k]
-        A[k, k:] = A[k, k:] / pivot_val
-        b[k] = b[k] / pivot_val
-
-        for i in range(k + 1, n):
-            factor = A[i, k]
-            if factor == 0.0:
-                continue
-            A[i, k:] -= factor * A[k, k:]
-            b[i] -= factor * b[k]
-
-    x = np.empty(n, dtype=A.dtype)
-    for i in range(n - 1, -1, -1):
-        x[i] = b[i] - np.dot(A[i, i + 1 :], x[i + 1 :])
-
-    return x.astype(matrix.dtype, copy=False)
+    return solution.reshape(-1), rank, cond
 
 
 def _matvec(xp, matrix: Array, vector: Array) -> Array:
     if xp is np:
         matrix_np = np.asarray(matrix, dtype=np.float64)
         vector_np = np.asarray(vector, dtype=np.float64)
-        return np.sum(matrix_np * vector_np, axis=1)
+        return matrix_np @ vector_np
 
     matmul = getattr(matrix, "matmul", None)
     if callable(matmul):
         return matmul(vector).reshape(-1)
     return (matrix @ vector).reshape(-1)
+
+
+def _as_numpy(array: Any) -> np.ndarray:
+    """Convert an array from any supported backend to a NumPy array."""
+    if isinstance(array, np.ndarray):
+        return array
+    if hasattr(array, "detach"):  # PyTorch
+        return array.detach().cpu().numpy()
+    return np.asarray(array)  # JAX and array-likes
 
 
 def _zeros_vector(xp, length: int, *, like: Array) -> Array:

@@ -33,8 +33,10 @@ from aurora.distributions.families import (
     BinomialFamily,
     GammaFamily,
     GaussianFamily,
+    InverseGaussianFamily,
     PoissonFamily,
 )
+from aurora.distributions.links import LogLink
 from aurora.models.glm import fit_glm
 
 # Tolerances
@@ -266,6 +268,68 @@ class TestGammaAgainstRFormula:
 
 
 # ============================================================================
+# Dispersion-scaled log-likelihood / AIC tests (default families).
+# With the family left at its default dispersion parameter, fit_glm plugs the
+# estimated φ̂ = D/(n − rank) into the log-likelihood (shape = 1/φ̂ for Gamma,
+# λ = 1/φ̂ for inverse Gaussian), matching statsmodels' res.llf convention.
+# Residual differences come from the scale estimator (deviance-based in
+# aurora vs Pearson-based default in statsmodels), hence the loose tolerance.
+# ============================================================================
+
+
+class TestDispersionScaledLogLikelihood:
+    """llf/AIC use the estimated dispersion, like statsmodels res.llf."""
+
+    def test_gamma_llf_aic_match_statsmodels(self):
+        rng = np.random.default_rng(1)
+        n = 400
+        x = rng.uniform(-1, 1, n)
+        mu = np.exp(0.8 + 0.5 * x)
+        y = rng.gamma(shape=5.0, scale=mu / 5.0)
+
+        aurora = fit_glm(x.reshape(-1, 1), y, family=GammaFamily(link=LogLink()))
+        sm_res = _fit_statsmodels(
+            x.reshape(-1, 1), y, sm.families.Gamma(link=sm.families.links.Log())
+        )
+
+        assert aurora.log_likelihood_ == pytest.approx(sm_res.llf, abs=0.5)
+        assert aurora.aic_ == pytest.approx(sm_res.aic, abs=1.0)
+
+    def test_inverse_gaussian_llf_aic_match_statsmodels(self):
+        rng = np.random.default_rng(1)
+        n = 400
+        x = rng.uniform(-1, 1, n)
+        mu = np.exp(0.8 + 0.5 * x)
+        y = rng.wald(mean=mu, scale=8.0)
+
+        aurora = fit_glm(x.reshape(-1, 1), y, family=InverseGaussianFamily(link=LogLink()))
+        sm_res = _fit_statsmodels(
+            x.reshape(-1, 1), y, sm.families.InverseGaussian(link=sm.families.links.Log())
+        )
+
+        assert aurora.log_likelihood_ == pytest.approx(sm_res.llf, abs=0.5)
+        assert aurora.aic_ == pytest.approx(sm_res.aic, abs=1.0)
+
+    def test_gamma_default_shape_uses_estimated_dispersion(self):
+        """Default Gamma family: llf uses shape = 1/φ̂, not shape = 1."""
+        rng = np.random.default_rng(1)
+        n = 400
+        x = rng.uniform(-1, 1, n)
+        mu = np.exp(0.8 + 0.5 * x)
+        y = rng.gamma(shape=5.0, scale=mu / 5.0)
+
+        aurora = fit_glm(x.reshape(-1, 1), y, family=GammaFamily(link=LogLink()))
+
+        family = GammaFamily(link=LogLink())
+        llf_shape1 = float(family.log_likelihood(y, np.asarray(aurora.mu_), shape=1.0))
+        llf_estimated = float(
+            family.log_likelihood(y, np.asarray(aurora.mu_), shape=1.0 / aurora.dispersion_)
+        )
+        assert aurora.log_likelihood_ == pytest.approx(llf_estimated, rel=1e-10)
+        assert aurora.log_likelihood_ != pytest.approx(llf_shape1, abs=1.0)
+
+
+# ============================================================================
 # Cross-family consistency: AIC ordering should agree with statsmodels
 # ============================================================================
 
@@ -287,3 +351,64 @@ class TestModelSelectionConsistency:
         aurora_picks_full = aurora_full.aic_ < aurora_reduced.aic_
         sm_picks_full = sm_full.aic < sm_reduced.aic
         assert aurora_picks_full == sm_picks_full
+
+
+# ============================================================================
+# Standard errors and dispersion (dispersion-scaled covariance)
+# ============================================================================
+
+
+class TestGaussianStandardErrorsVsStatsmodels:
+    """Validate SEs, covariance and dispersion against statsmodels.
+
+    Aurora estimates φ̂ = deviance/(n − rank) for dispersion families and
+    scales the coefficient covariance by φ̂ (R ``summary.glm`` convention;
+    identical to the statsmodels Gaussian default). Wald statistics are
+    z-based, matching the statsmodels GLM default (use_t=False).
+    """
+
+    def test_standard_errors_match(self, linear_data):
+        X, y = linear_data
+        aurora = fit_glm(X, y, family=GaussianFamily())
+        sm_res = _fit_statsmodels(X, y, sm.families.Gaussian())
+        np.testing.assert_allclose(aurora.std_errors_, sm_res.bse[1:], rtol=COEF_RTOL)
+        assert aurora.intercept_std_error_ == pytest.approx(sm_res.bse[0], rel=COEF_RTOL)
+
+    def test_dispersion_matches_scale(self, linear_data):
+        X, y = linear_data
+        aurora = fit_glm(X, y, family=GaussianFamily())
+        sm_res = _fit_statsmodels(X, y, sm.families.Gaussian())
+        assert aurora.dispersion_ == pytest.approx(sm_res.scale, rel=COEF_RTOL)
+        assert aurora.scale_ == aurora.dispersion_
+
+    def test_covariance_and_p_values_match(self, linear_data):
+        X, y = linear_data
+        aurora = fit_glm(X, y, family=GaussianFamily())
+        sm_res = _fit_statsmodels(X, y, sm.families.Gaussian())
+        np.testing.assert_allclose(np.asarray(aurora.coef_cov_), sm_res.cov_params(), rtol=1e-5)
+        np.testing.assert_allclose(aurora.p_values_, sm_res.pvalues[1:], rtol=1e-5)
+
+    def test_large_noise_standard_errors(self):
+        """With σ = 3 the SEs must be ~σ times larger than the φ = 1 values."""
+        rng = np.random.default_rng(2024)
+        n = 200
+        X = rng.standard_normal((n, 2))
+        y = 0.5 + X @ np.array([1.5, -0.5]) + rng.standard_normal(n) * 3.0
+        aurora = fit_glm(X, y, family=GaussianFamily())
+        sm_res = _fit_statsmodels(X, y, sm.families.Gaussian())
+        np.testing.assert_allclose(aurora.std_errors_, sm_res.bse[1:], rtol=COEF_RTOL)
+        assert aurora.intercept_std_error_ == pytest.approx(sm_res.bse[0], rel=COEF_RTOL)
+        # Dispersion estimate recovers σ² = 9 up to sampling error
+        assert aurora.dispersion_ == pytest.approx(9.0, rel=0.2)
+
+
+class TestPoissonStandardErrorsVsStatsmodels:
+    """Poisson has fixed dispersion φ ≡ 1; SEs must match statsmodels."""
+
+    def test_standard_errors_match(self, poisson_data):
+        X, y = poisson_data
+        aurora = fit_glm(X, y, family=PoissonFamily())
+        sm_res = _fit_statsmodels(X, y, sm.families.Poisson())
+        assert aurora.dispersion_ == 1.0
+        np.testing.assert_allclose(aurora.std_errors_, sm_res.bse[1:], rtol=1e-5)
+        assert aurora.intercept_std_error_ == pytest.approx(sm_res.bse[0], rel=1e-5)

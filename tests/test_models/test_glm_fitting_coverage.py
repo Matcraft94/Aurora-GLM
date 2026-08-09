@@ -12,28 +12,27 @@ Focuses on uncovered branches:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
 
+from aurora.distributions.families import GaussianFamily, PoissonFamily
+from aurora.distributions.links import LogLink
 from aurora.models.glm.fitting import (
     _clamp_positive,
-    _concat_columns,
     _coerce_family,
     _coerce_link,
+    _concat_columns,
     _matvec,
     _ones_column,
     _reciprocal,
-    _solve_normal_equation_numpy,
     _sqrt,
     _to_python_float,
     _weighted_least_squares,
     _zeros_vector,
     fit_glm,
 )
-from aurora.distributions.families import GaussianFamily, PoissonFamily
-from aurora.distributions.links import IdentityLink, LogLink
-
 
 # ---------------------------------------------------------------------------
 # fit_glm with explicit backend="numpy"
@@ -64,8 +63,13 @@ class TestFitGlmExplicitBackendNumpy:
         weights = np.ones(X.shape[0])
         offset = np.zeros(X.shape[0])
         result = fit_glm(
-            X, y, family="gaussian", backend="numpy",
-            weights=weights, offset=offset, max_iter=50,
+            X,
+            y,
+            family="gaussian",
+            backend="numpy",
+            weights=weights,
+            offset=offset,
+            max_iter=50,
         )
         assert result.converged_
 
@@ -165,54 +169,71 @@ class TestWeightedLeastSquaresNonNumpy:
         xp.linalg.solve = MagicMock(return_value=np.array([[1.0], [2.0]]))
         return xp
 
-    def _make_torch_like_arrays(self):
-        """Create arrays that mimic torch tensors (have .contiguous(), .transpose())."""
-        X = MagicMock()
-        z = np.array([1.0, 2.0, 3.0])
+    @staticmethod
+    def _wrap(arr, *, raise_on_transpose_args=False, with_meta=True, with_device=False):
+        """Deterministic non-NumPy tensor stand-in backed by a real ndarray."""
 
-        # Make X behave like a torch tensor with matmul
-        X_np = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
-        X.contiguous = MagicMock(return_value=X_np)
+        class _Wrapper:
+            def __init__(self, data):
+                self._arr = np.asarray(data, dtype=np.float64)
+                if with_device:
+                    self.device = "cpu"
 
-        # transpose returns a callable that raises TypeError (so it falls to .T)
-        def transpose_side_effect(*args, **kwargs):
-            raise TypeError("transpose takes no positional args")
+            def _spawn(self, data):
+                return type(self)(data)
 
-        X.transpose = MagicMock(side_effect=transpose_side_effect)
-        X.T = X_np.T
-        X.shape = (3, 2)
-        X.__matmul__ = MagicMock(return_value=np.zeros(3))
-        X.__rmatmul__ = MagicMock(return_value=np.zeros(2))
+            @property
+            def dtype(self):
+                if not with_meta:
+                    raise AttributeError("dtype")
+                return self._arr.dtype
 
-        return X, z
+            @property
+            def shape(self):
+                return self._arr.shape
+
+            @property
+            def T(self):
+                return self._arr.T
+
+            def transpose(self, *args):
+                if raise_on_transpose_args and args:
+                    raise TypeError("transpose takes no positional args")
+                return self._arr.transpose(*args) if args else self._arr.T
+
+            def __matmul__(self, other):
+                return self._spawn(self._arr @ np.asarray(other))
+
+            def __rmatmul__(self, other):
+                return self._spawn(np.asarray(other) @ self._arr)
+
+            def __add__(self, other):
+                return self._spawn(self._arr + other)
+
+            def __array__(self, dtype=None):
+                return np.asarray(self._arr, dtype=dtype)
+
+        return _Wrapper(arr)
 
     def test_jax_path_transpose_raises_typeerror(self):
         """Cover lines 519-523: .transpose callable but raises TypeError -> falls to .T."""
         xp = self._make_mock_jax_xp()
-
-        X_mock = MagicMock()
-        X_mock.transpose = MagicMock(side_effect=TypeError("no args"))
-        X_mock.T = np.array([[1.0, 0.5, 1.0], [0.5, 1.0, 0.0]])
-        X_mock.shape = (3, 2)
-        X_mock.dtype = np.float64
+        X_mock = self._wrap([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]], raise_on_transpose_args=True)
 
         z = np.array([1.0, 2.0, 3.0])
-        result = _weighted_least_squares(xp, X_mock, z)
+        result, rank, cond = _weighted_least_squares(xp, X_mock, z)
         assert result.shape == (2,)
+        assert rank == 2
+        assert np.isfinite(cond)
 
     def test_pytorch_ridge_scalar_creation(self):
         """Cover lines 546-553: PyTorch ridge scalar with dtype and device kwargs."""
         xp = self._make_mock_torch_xp()
-        X_data = np.array([[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]])
-
-        X_mock = MagicMock()
-        X_mock.transpose = MagicMock(return_value=X_data.T)
-        X_mock.shape = (3, 2)
-        X_mock.dtype = np.float64
-        X_mock.device = "cpu"
+        X_mock = self._wrap([[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]], with_device=True)
 
         z = np.array([1.0, 2.0, 3.0])
-        result = _weighted_least_squares(xp, X_mock, z)
+        result, rank, cond = _weighted_least_squares(xp, X_mock, z)
+        assert result.shape == (2,)
 
         # Verify tensor was called with dtype and device kwargs
         xp.tensor.assert_called_once()
@@ -227,17 +248,12 @@ class TestWeightedLeastSquaresNonNumpy:
         del xp.tensor
         xp.linalg.solve = MagicMock(return_value=np.array([[0.5], [1.5]]))
 
-        X_data = np.array([[1.0, 0.0], [0.0, 1.0]])
-        X_mock = MagicMock()
-        X_mock.transpose = MagicMock(return_value=X_data.T)
-        X_mock.shape = (2, 2)
-        # Explicitly no dtype
-        del X_mock.dtype
-        del X_mock.device
+        X_mock = self._wrap([[1.0, 0.0], [0.0, 1.0]], with_meta=False)
 
         z = np.array([1.0, 2.0])
-        result = _weighted_least_squares(xp, X_mock, z)
+        result, rank, cond = _weighted_least_squares(xp, X_mock, z)
         assert result.shape == (2,)
+        assert rank == 2
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +315,7 @@ class TestClampPositive:
         val_mock.dtype = np.float64
         val_mock.device = "cpu"
 
-        result = _clamp_positive(val_mock, xp)
+        _clamp_positive(val_mock, xp)
         xp.clamp.assert_called_once()
         xp.tensor.assert_called_once()
 
@@ -310,7 +326,7 @@ class TestClampPositive:
         xp.tensor = MagicMock(return_value=1e-12)
 
         val_mock = MagicMock(spec=[])  # No attributes at all
-        result = _clamp_positive(val_mock, xp)
+        _clamp_positive(val_mock, xp)
         xp.tensor.assert_called_once_with(1e-12)
 
     def test_jax_style_clip(self):
@@ -319,7 +335,7 @@ class TestClampPositive:
         xp = MagicMock()
         del xp.clamp  # JAX does not have .clamp
         xp.clip = MagicMock(return_value=np.clip(val, 1e-12, None))
-        result = _clamp_positive(val, xp)
+        _clamp_positive(val, xp)
         xp.clip.assert_called_once()
 
 
@@ -414,14 +430,12 @@ class TestToPythonFloat:
 
 
 class TestCoerceFamilyErrors:
-
     def test_invalid_type(self):
         with pytest.raises(TypeError, match="family must be"):
             _coerce_family(42)  # type: ignore[arg-type]
 
 
 class TestCoerceLinkErrors:
-
     def test_invalid_type(self):
         fam = GaussianFamily()
         with pytest.raises(TypeError, match="link must be"):
@@ -443,7 +457,7 @@ class TestZerosOnesWithDevice:
         like = MagicMock()
         like.dtype = np.float32
         like.device = "cuda:0"
-        result = _zeros_vector(xp, 5, like=like)
+        _zeros_vector(xp, 5, like=like)
         xp.zeros.assert_called_once_with((5,), dtype=np.float32, device="cuda:0")
 
     def test_ones_with_device(self):
@@ -453,7 +467,7 @@ class TestZerosOnesWithDevice:
         like = MagicMock()
         like.dtype = np.float32
         like.device = "cuda:0"
-        result = _ones_column(xp, 5, like=like)
+        _ones_column(xp, 5, like=like)
         xp.ones.assert_called_once_with((5, 1), dtype=np.float32, device="cuda:0")
 
     def test_zeros_no_dtype_no_device(self):
@@ -461,7 +475,7 @@ class TestZerosOnesWithDevice:
         xp = MagicMock()
         xp.zeros = MagicMock(return_value=np.zeros(3))
         like = MagicMock(spec=[])  # No attributes
-        result = _zeros_vector(xp, 3, like=like)
+        _zeros_vector(xp, 3, like=like)
         xp.zeros.assert_called_once_with((3,))
 
     def test_ones_no_dtype_no_device(self):
@@ -469,32 +483,36 @@ class TestZerosOnesWithDevice:
         xp = MagicMock()
         xp.ones = MagicMock(return_value=np.ones((3, 1)))
         like = MagicMock(spec=[])  # No attributes
-        result = _ones_column(xp, 3, like=like)
+        _ones_column(xp, 3, like=like)
         xp.ones.assert_called_once_with((3, 1))
 
 
 # ---------------------------------------------------------------------------
-# _solve_normal_equation_numpy
+# _weighted_least_squares NumPy path (Cholesky + rank-deficient fallback)
 # ---------------------------------------------------------------------------
 
 
-class TestSolveNormalEquationNumpy:
-    """Cover _solve_normal_equation_numpy (lines 573-582)."""
+class TestWeightedLeastSquaresNumpy:
+    """Cover the NumPy Cholesky/lstsq solver path of _weighted_least_squares."""
 
-    def test_simple_solve(self):
-        gram = np.array([[2.0, 0.5], [0.5, 1.0]])
-        rhs = np.array([1.0, 0.5])
-        result = _solve_normal_equation_numpy(gram, rhs)
-        # Verify A*x = b
-        np.testing.assert_allclose(gram @ result, rhs, atol=1e-6)
+    def test_simple_solve_full_rank(self):
+        X = np.array([[1.0, 0.5], [0.5, 1.0], [1.0, -0.25]])
+        z = np.array([1.0, 0.5, 2.0])
+        result, rank, cond = _weighted_least_squares(np, X, z)
+        gram = X.T @ X
+        np.testing.assert_allclose(gram @ result, X.T @ z, atol=1e-8)
+        assert rank == 2
+        assert np.isfinite(cond)
 
-    def test_singular_matrix_with_jitter(self):
-        """Cover lines 577-582: retry with increasing jitter on singular matrix."""
-        # Nearly singular matrix
-        gram = np.array([[1e-15, 0.0], [0.0, 1e-15]])
-        rhs = np.array([1.0, 1.0])
-        result = _solve_normal_equation_numpy(gram, rhs)
+    def test_rank_deficient_falls_back_to_lstsq(self):
+        """Singular XᵀWX: lstsq fallback reports reduced rank, finite solution."""
+        base = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+        X = np.column_stack([base, base[:, 0]])  # third column = first column
+        z = np.array([1.0, 2.0, 3.0])
+        result, rank, cond = _weighted_least_squares(np, X, z)
+        assert rank == 2
         assert np.all(np.isfinite(result))
+        assert cond == np.inf or cond > 1e8
 
 
 # ---------------------------------------------------------------------------
@@ -503,7 +521,6 @@ class TestSolveNormalEquationNumpy:
 
 
 class TestFitGlmEdgeCases:
-
     def test_mismatched_samples_raises(self):
         """Cover line 306: ValueError for mismatched X/y samples."""
         X = np.ones((10, 2))

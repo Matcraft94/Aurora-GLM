@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from statistics import NormalDist
 from typing import TYPE_CHECKING, Any
@@ -80,8 +79,21 @@ class GLMResult:
         Number of IRLS iterations.
     converged_ : bool
         Whether fitting converged.
+    dispersion_ : float
+        Estimated dispersion parameter φ̂ = deviance / (n − rank) for
+        families with free dispersion (Gaussian, Gamma, InverseGaussian);
+        exactly 1.0 for Poisson/Binomial. Scales the coefficient covariance
+        matrix (R ``summary.glm`` convention).
+    rank_ : int, optional
+        Numerically detected rank of the final weighted design matrix.
+        Less than the number of columns indicates aliasing.
+    condition_number_ : float, optional
+        Largest condition number of XᵀWX observed during IRLS.
     std_errors_ : Array
         Standard errors for fitted coefficients (computed on demand).
+        Based on the dispersion-scaled covariance; Wald statistics use the
+        normal (z) reference distribution, matching the statsmodels GLM
+        default (``use_t=False``).
     p_values_ : Array
         Wald p-values for fitted coefficients (computed on demand).
     coef_cov : : Array
@@ -108,16 +120,25 @@ class GLMResult:
     n_iter_: int
     converged_: bool
     log_likelihood_: float = 0.0
+    dispersion_: float = 1.0
+    rank_: int | None = None
+    condition_number_: float | None = None
     _coef_cov: Array | None = None
     _std_errors: Array | None = None
     _p_values: Array | None = None
     _X: Array | None = None
     _y: Array | None = None
     _weights: Array | None = None
+    _offset: Array | None = None
     _fit_intercept: bool = True
     _intercept_std_error: float | None = None
     _intercept_p_value: float | None = None
     _diagnostics_cache: GLMDiagnosticResult | None = None
+
+    @property
+    def scale_(self) -> float:
+        """Alias for ``dispersion_`` (statsmodels terminology)."""
+        return self.dispersion_
 
     @property
     def std_errors_(self) -> Array:
@@ -144,7 +165,13 @@ class GLMResult:
         return self._coef_cov
 
     def _compute_inference(self) -> None:
-        """Compute covariance matrix, standard errors, and Wald p-values."""
+        """Compute covariance matrix, standard errors, and Wald p-values.
+
+        The covariance is φ̂ · (XᵀWX)⁻¹, where φ̂ is ``dispersion_``
+        (= 1 for Poisson/Binomial; deviance/(n − rank) for Gaussian/Gamma/
+        InverseGaussian). Wald statistics use the standard normal (z)
+        reference distribution, matching the statsmodels GLM default.
+        """
 
         if self._X is None or self._y is None:
             raise RuntimeError("Design matrix and response are required for inference.")
@@ -167,7 +194,7 @@ class GLMResult:
             fit_intercept=self._fit_intercept,
         )
 
-        cov_full = _invert_information_numpy(fisher)
+        cov_full = _invert_information_numpy(fisher) * float(self.dispersion_)
         self._coef_cov = cov_full
 
         diag = np.clip(np.diag(cov_full), 1e-12, None)
@@ -177,7 +204,9 @@ class GLMResult:
         coef_full = _combine_coefficients_numpy(self.intercept_, coef_np, self._fit_intercept)
 
         z_scores = np.divide(coef_full, std_full, out=np.zeros_like(std_full), where=std_full > 0)
-        p_full = 2.0 * (1.0 - _standard_normal_cdf_numpy(np.abs(z_scores)))
+        # Survival-function form (ndtr on the negated statistic) stays
+        # accurate in the tails, where 1 - Φ(|z|) would round to zero.
+        p_full = 2.0 * _standard_normal_sf_numpy(np.abs(z_scores))
 
         if self._fit_intercept and self.intercept_ is not None:
             self._intercept_std_error = float(std_full[0])
@@ -684,10 +713,12 @@ def _combine_coefficients_numpy(
     return coef
 
 
-def _standard_normal_cdf_numpy(x: np.ndarray) -> np.ndarray:
+def _standard_normal_sf_numpy(x: np.ndarray) -> np.ndarray:
+    """Survival function Φ(−x) of the standard normal, accurate in the tails."""
+    from scipy.special import ndtr
+
     x = np.asarray(x, dtype=np.float64)
-    erf_vec = np.vectorize(math.erf)
-    return 0.5 * (1.0 + erf_vec(x / math.sqrt(2.0)))
+    return ndtr(-x)
 
 
 def _weighted_gram_numpy(X: np.ndarray, weights: np.ndarray) -> np.ndarray:

@@ -66,7 +66,10 @@ def glm_diagnostics(result: GLMResult) -> GLMDiagnosticResult:
     working = response * deriv
     deviance = _deviance_residuals(result.family, y, mu)
 
-    cov = np.asarray(result.coef_cov_, dtype=float)
+    # Hat matrix and dfbetas use the *unscaled* covariance (XᵀWX)⁻¹ — R's
+    # cov.unscaled convention: result.coef_cov_ is dispersion-scaled for
+    # inference, so divide the dispersion back out here.
+    cov = np.asarray(result.coef_cov_, dtype=float) / float(result.dispersion_)
     leverage = _hat_diagonal(design, weights, cov)
 
     p = design.shape[1]
@@ -75,7 +78,9 @@ def glm_diagnostics(result: GLMResult) -> GLMDiagnosticResult:
     cooks = (pearson**2 / np.clip(scale, 1e-12, None)) * (leverage / (p * denom**2))
 
     studentized = pearson / np.sqrt(denom)
-    dfbetas = _dfbetas(design, weights, cov, pearson, leverage)
+    dfbetas = _dfbetas(
+        design, weights, cov, pearson, leverage, dispersion=float(result.dispersion_)
+    )
 
     summary_cols = (
         "response_residual",
@@ -133,7 +138,10 @@ def _prepare_weights(result: GLMResult, deriv: np.ndarray, variance: np.ndarray)
 def _deviance_residuals(family: Any, y: np.ndarray, mu: np.ndarray) -> np.ndarray:
     residual = y - mu
     if isinstance(family, GaussianFamily):
-        variance = float(getattr(family, "_variance", 1.0))
+        # None = "variance estimated from data" (sentinel); the unit deviance
+        # uses variance 1.0 (R convention).
+        variance = getattr(family, "_variance", None)
+        variance = 1.0 if variance is None else float(variance)
         return residual / np.sqrt(np.clip(variance, 1e-12, None))
     if isinstance(family, PoissonFamily):
         mu_safe = np.clip(mu, 1e-12, None)
@@ -181,11 +189,19 @@ def _dfbetas(
     covariance: np.ndarray,
     pearson_residuals: np.ndarray,
     leverage: np.ndarray,
+    *,
+    dispersion: float = 1.0,
 ) -> np.ndarray:
+    """Approximate leave-one-out coefficient changes, standardized.
+
+    The numerator uses the unscaled covariance (XᵀWX)⁻¹ while the
+    standardization divides by the dispersion-scaled standard error
+    σ̂·√diag((XᵀWX)⁻¹), following R's dfbetas convention.
+    """
     n_samples, n_params = design.shape
     cov = np.asarray(covariance, dtype=np.float64)
     diag_cov = np.clip(np.diag(cov), 1e-12, None)
-    std_params = np.sqrt(diag_cov)
+    std_params = np.sqrt(diag_cov * max(float(dispersion), 1e-12))
 
     dfbetas = np.zeros((n_samples, n_params), dtype=np.float64)
     for i in range(n_samples):

@@ -52,6 +52,67 @@ def test_fit_glm_with_zero_max_iter():
     assert result.n_iter_ == 0
 
 
+class TestResponseDomainValidation:
+    """fit_glm validates the response domain with clear errors."""
+
+    def test_gamma_rejects_zero_response(self):
+        X = np.random.default_rng(0).normal(size=(50, 1))
+        y = np.abs(np.random.default_rng(1).normal(size=50)) + 0.1
+        y[3] = 0.0
+
+        with pytest.raises(ValueError, match="strictly positive"):
+            fit_glm(X, y, family="gamma")
+
+    def test_gamma_rejects_negative_response(self):
+        X = np.random.default_rng(0).normal(size=(50, 1))
+        y = np.abs(np.random.default_rng(1).normal(size=50)) + 0.1
+        y[3] = -1.0
+
+        with pytest.raises(ValueError, match="strictly positive"):
+            fit_glm(X, y, family="gamma")
+
+    def test_inverse_gaussian_rejects_zero_response(self):
+        X = np.random.default_rng(0).normal(size=(50, 1))
+        y = np.abs(np.random.default_rng(1).normal(size=50)) + 0.1
+        y[3] = 0.0
+
+        with pytest.raises(ValueError, match="strictly positive"):
+            fit_glm(X, y, family="inverse_gaussian")
+
+    def test_poisson_rejects_negative_response(self):
+        X = np.random.default_rng(0).normal(size=(50, 1))
+        y = np.random.default_rng(1).poisson(2.0, size=50).astype(float)
+        y[3] = -1.0
+
+        with pytest.raises(ValueError, match="non-negative"):
+            fit_glm(X, y, family="poisson")
+
+    def test_negative_binomial_rejects_negative_response(self):
+        X = np.random.default_rng(0).normal(size=(50, 1))
+        y = np.random.default_rng(1).poisson(2.0, size=50).astype(float)
+        y[3] = -1.0
+
+        with pytest.raises(ValueError, match="non-negative"):
+            fit_glm(X, y, family="negative_binomial")
+
+    def test_tweedie_rejects_negative_response(self):
+        X = np.random.default_rng(0).normal(size=(50, 1))
+        y = np.abs(np.random.default_rng(1).normal(size=50))
+        y[3] = -1.0
+
+        with pytest.raises(ValueError, match="non-negative"):
+            fit_glm(X, y, family="tweedie")
+
+    def test_tweedie_accepts_zero_response(self):
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(50, 1))
+        y = np.abs(rng.normal(size=50))
+        y[:10] = 0.0  # exact zeros are valid for 1 < p < 2
+
+        result = fit_glm(X, y, family="tweedie")
+        assert result is not None
+
+
 @pytest.mark.parametrize("backend", [None, "torch", "jax"])
 def test_fit_glm_poisson_with_integer_counts(backend):
     """Poisson GLM should work well with integer count data across backends."""
