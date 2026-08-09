@@ -363,7 +363,14 @@ def newton_raphson(
 
         backend = get_backend("jax")
 
-    grad_fn = backend.grad(loss_fn)
+    try:
+        grad_fn = backend.grad(loss_fn)
+    except NotImplementedError:
+        # Backend without autodiff (e.g. NumPy): central finite differences,
+        # mirroring the Hessian fallback in _compute_hessian.
+        from ..autodiff.gradient import gradient
+
+        grad_fn = gradient(loss_fn)
 
     x = backend.array(init_params)
     nfev = 0

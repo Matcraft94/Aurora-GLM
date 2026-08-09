@@ -52,7 +52,8 @@ where W = diag(w⁽ᵗ⁾).
 
 **Step 3: Check convergence**
 
-Stop when ||β⁽ᵗ⁺¹⁾ - β⁽ᵗ⁾|| < tol
+Stop when the relative parameter change is below tolerance:
+||β⁽ᵗ⁺¹⁾ − β⁽ᵗ⁾|| / (||β⁽ᵗ⁾|| + ε) < tol (both dense and sparse routes).
 
 Equivalence to Fisher Scoring
 ------------------------------
@@ -98,21 +99,18 @@ Numerical Stability
    - Minimum threshold: 10⁻¹²
    - Prevents overflow in weights
 
-2. **Weight clipping**: Ensure w_i ∈ [ε, M] for stability
-   - Avoids both overflow and underflow
-   - Maintains condition number of X^T W X
-
-3. **Direct solve via Cholesky**: For positive-definite X^T W X
+2. **Direct solve via Cholesky**: For positive-definite X^T W X
    - Computational cost: O(p³) for p predictors
    - Numerically stable when well-conditioned
 
-4. **Backend-agnostic**: Supports NumPy, PyTorch, JAX
+3. **Backend-agnostic**: Supports NumPy, PyTorch, JAX
    - Automatic differentiation not required
    - Pure linear algebra operations
 
-5. **Sparse matrix support**: Automatic detection and handling
+4. **Sparse matrix support**: Automatic detection and handling
    - Uses scipy.sparse operations when X is sparse
-   - Sparse direct solver (SuperLU) for linear systems
+   - The (dense) p × p normal equations are solved via Cholesky,
+     with a pivoted least-squares fallback
    - Significant speedup for high-dimensional categorical data
 
 Sparse Matrix Support
@@ -122,8 +120,10 @@ sparse-aware operations for computational efficiency:
 
 **Sparse operations**:
 1. **Matrix-vector products**: X @ β uses sparse BLAS level 2
-2. **Weighted normal equations**: X^T W X computed via sparse matmul
-3. **Linear solve**: Uses sparse direct solver (SuperLU via scipy.sparse.linalg)
+2. **Weighted normal equations**: X^T W X computed via sparse matmul, then
+   densified (it is only p × p)
+3. **Linear solve**: Dense Cholesky on X^T W X, falling back to
+   ``numpy.linalg.lstsq`` when X^T W X is not positive definite
 
 **Complexity with sparse X** (nnz = number of non-zeros):
 - Matrix-vector product: O(nnz) instead of O(np)
@@ -498,7 +498,10 @@ def _irls_sparse(
         if callback is not None:
             callback(iteration, beta.copy(), loss_value)
 
-        if step_norm < tol:
+        # Relative convergence test, aligned with the dense route
+        # (scipy.optimize / R glm convention).
+        beta_norm = float(np.sqrt(np.sum(beta**2)))
+        if step_norm / (beta_norm + 1e-12) < tol:
             return OptimizationResult(
                 x=beta,
                 fun=loss_value,
@@ -561,7 +564,7 @@ def irls(
     Parameters
     ----------
     loss_fn : callable
-        Loss function taking (params, *args, **kwargs)
+        Loss function taking ``(params, *args, **kwargs)``
     init_params : array-like (p,)
         Initial parameter estimates
     backend : Backend, optional
@@ -663,13 +666,18 @@ def irls(
         return backend.array(data, dtype=getattr(beta, "dtype", None))
 
     for iteration in range(max_iter):
-        eta = X @ beta + offset_arr
+        # Linear predictor without offset: η* = Xβ
+        eta_star = X @ beta
+        # Full linear predictor with offset: η = η* + offset
+        eta = eta_star + offset_arr
         mu = link.inverse(eta)
         g_prime = link.derivative(mu)
         var = variance_fn(mu)
 
         weights = _safe_divide(backend, 1.0, var * (g_prime**2))
-        z = eta + (y - mu) * g_prime
+        # Working response on the η* scale (offset removed) so the WLS step
+        # solves against X alone and does not absorb the offset into β.
+        z = eta_star + (y - mu) * g_prime
 
         sqrt_w = _sqrt(backend, weights)
         WX = X * sqrt_w.unsqueeze(-1) if hasattr(sqrt_w, "unsqueeze") else X * sqrt_w[:, None]

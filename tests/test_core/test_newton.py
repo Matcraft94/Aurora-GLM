@@ -95,9 +95,7 @@ class TestNewtonRaphson:
 
     def test_max_iter_exceeded(self):
         """Low max_iter should return success=False."""
-        result = newton_raphson(
-            _rosenbrock, jnp.array([-5.0, 5.0]), max_iter=2, tol=1e-15
-        )
+        result = newton_raphson(_rosenbrock, jnp.array([-5.0, 5.0]), max_iter=2, tol=1e-15)
         assert not result.success
         assert result.nit == 2
         assert "Maximum" in result.message
@@ -109,19 +107,25 @@ class TestNewtonRaphson:
         def cb(iteration, params, loss):
             history.append((iteration, float(loss)))
 
-        newton_raphson(_quadratic_1d, jnp.array([0.0]), callback=cb)
-        assert len(history) > 0
+        def quartic_1d(x):
+            # (x-3)^4 needs several Newton iterations, unlike a quadratic
+            return (x[0] - 3.0) ** 4
+
+        newton_raphson(quartic_1d, jnp.array([0.0]), callback=cb)
+        assert len(history) > 1
         # Loss should decrease
         losses = [h[1] for h in history]
         assert losses[-1] < losses[0]
 
     def test_args_passed(self):
         """Additional args should be passed to loss function."""
+
         def shifted_quadratic(x, offset):
             return jnp.sum((x - offset) ** 2)
 
         result = newton_raphson(
-            shifted_quadratic, jnp.array([0.0, 0.0]),
+            shifted_quadratic,
+            jnp.array([0.0, 0.0]),
             args=(jnp.array([2.0, 3.0]),),
         )
         assert result.success
@@ -129,11 +133,13 @@ class TestNewtonRaphson:
 
     def test_kwargs_passed(self):
         """Additional kwargs should be passed to loss function."""
+
         def shifted_quadratic(x, offset=None):
             return jnp.sum((x - offset) ** 2)
 
         result = newton_raphson(
-            shifted_quadratic, jnp.array([0.0, 0.0]),
+            shifted_quadratic,
+            jnp.array([0.0, 0.0]),
             kwargs={"offset": jnp.array([2.0, 3.0])},
         )
         assert result.success
@@ -147,9 +153,7 @@ class TestNewtonRaphson:
 
     def test_gradient_norm_convergence(self):
         """Should converge when gradient norm < tol."""
-        result = newton_raphson(
-            _quadratic_1d, jnp.array([0.0]), tol=1e-8
-        )
+        result = newton_raphson(_quadratic_1d, jnp.array([0.0]), tol=1e-8)
         assert result.success
         assert np.linalg.norm(result.grad) < 1e-6
 
@@ -177,7 +181,8 @@ class TestModifiedNewton:
     def test_handles_bad_start(self):
         """Modified Newton should handle poor starting points better."""
         result = modified_newton(
-            _rosenbrock, jnp.array([-5.0, 5.0]),
+            _rosenbrock,
+            jnp.array([-5.0, 5.0]),
             max_iter=200,
         )
         # Modified Newton should at least make progress even if it doesn't converge
@@ -186,7 +191,8 @@ class TestModifiedNewton:
     def test_lambda_init_parameter(self):
         """Custom lambda_init should work."""
         result = modified_newton(
-            _quadratic, jnp.array([5.0, -3.0]),
+            _quadratic,
+            jnp.array([5.0, -3.0]),
             lambda_init=1.0,
         )
         assert result.success
@@ -194,8 +200,10 @@ class TestModifiedNewton:
     def test_max_iter(self):
         """Should respect max_iter."""
         result = modified_newton(
-            _rosenbrock, jnp.array([-5.0, 5.0]),
-            max_iter=3, tol=1e-15,
+            _rosenbrock,
+            jnp.array([-5.0, 5.0]),
+            max_iter=3,
+            tol=1e-15,
         )
         assert not result.success
         assert result.nit == 3
@@ -212,11 +220,13 @@ class TestModifiedNewton:
 
     def test_args_kwargs(self):
         """Additional args/kwargs should work."""
+
         def shifted_quad(x, offset):
             return jnp.sum((x - offset) ** 2)
 
         result = modified_newton(
-            shifted_quad, jnp.array([0.0, 0.0]),
+            shifted_quad,
+            jnp.array([0.0, 0.0]),
             args=(jnp.array([1.0, 2.0]),),
         )
         assert result.success
@@ -232,15 +242,14 @@ class TestModifiedNewton:
 
     def test_step_size_convergence(self):
         """Should converge when step size < tol."""
-        result = modified_newton(
-            _quadratic, jnp.array([0.1, 0.1]), tol=1e-8
-        )
+        result = modified_newton(_quadratic, jnp.array([0.1, 0.1]), tol=1e-8)
         assert result.success
 
     def test_non_convex_function(self):
         """Modified Newton should handle non-convex functions."""
         result = modified_newton(
-            _non_convex, jnp.array([2.0, 2.0]),
+            _non_convex,
+            jnp.array([2.0, 2.0]),
             max_iter=100,
         )
         # Should at least converge to a stationary point
@@ -258,7 +267,8 @@ class TestHessianComputation:
     def test_jax_backend(self):
         """JAX backend should compute exact Hessian."""
         result = newton_raphson(
-            _quadratic, jnp.array([3.0, 2.0]),
+            _quadratic,
+            jnp.array([3.0, 2.0]),
             backend=get_backend("jax"),
         )
         assert result.success
@@ -269,7 +279,8 @@ class TestHessianComputation:
         """NumPy backend should use finite differences."""
         backend = get_backend("numpy")
         result = newton_raphson(
-            _quadratic_1d, np.array([0.0]),
+            _quadratic_1d,
+            np.array([0.0]),
             backend=backend,
         )
         assert result.success
@@ -284,7 +295,8 @@ class TestHessianComputation:
 
         backend = get_backend("pytorch")
         result = newton_raphson(
-            _quadratic_1d, torch.tensor([0.0]),
+            _quadratic_1d,
+            torch.tensor([0.0]),
             backend=backend,
         )
         assert result.success
