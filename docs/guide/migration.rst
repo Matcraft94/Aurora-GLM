@@ -89,9 +89,6 @@ GAM comparison:
    * - Mixed terms
      - ``gam(y ~ s(x1) + x2, data=df)``
      - ``fit_gam_formula("y ~ s(x1) + x2", data)``
-   * - Tensor product
-     - ``gam(y ~ te(x1, x2), data=df)``
-     - ``fit_gam_formula("y ~ te(x1, x2)", data)``
    * - REML selection
      - ``gam(..., method="REML")``
      - ``fit_additive_gam(..., method="REML")``
@@ -184,7 +181,7 @@ Aurora-GLM is validated against R and statsmodels to within 1e-6 tolerance:
 - GLM coefficients match ``statsmodels`` and R's ``glm()``
 - GAM smooth terms match R's ``mgcv::gam()``
 - GAMM variance components match R's ``lme4::lmer()``
-- All 520+ tests in the test suite verify this agreement
+- The 3,377 tests in the test suite verify this agreement
 
 If results differ between Aurora and R, check:
 

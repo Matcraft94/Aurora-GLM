@@ -7,6 +7,173 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(models): GLM fit statistics now propagate prior weights — deviance,
+  log-likelihood, null deviance and AIC/BIC use Σ wᵢ·(contribution) (R
+  `glm(weights=)` convention); matches statsmodels `freq_weights` exactly
+  (Δdeviance = 0.0) (`aurora/models/glm/fitting.py`, distribution families)
+- fix(models): dispersion φ̂ = deviance/(n − rank) estimated for
+  Gaussian/Gamma/InverseGaussian and coefficient covariance scaled
+  accordingly — standard errors were previously anti-conservative by a
+  factor σ (assumed φ = 1); SEs now match statsmodels to ~1e-12
+  (`aurora/models/glm/fitting.py`, `aurora/models/base/result.py`)
+- fix(distributions): `BinomialFamily` now consistently in probability
+  scale — grouped binomial works via proportions + `weights = n_trials`
+  (or `BinomialFamily(n=k)`), with exact log-likelihood including
+  log C(n, y); raw counts raise a clear error instead of silently
+  diverging (`aurora/distributions/families/binomial.py`)
+- fix(models): production WLS solver replaced — vectorized Gram matrix +
+  LAPACK Cholesky with SVD-`lstsq` fallback, rank/aliasing detection
+  (`rank_`, `condition_number_` on `GLMResult`); ~27× faster
+  (0.93 s → 0.035 s at n = 2×10⁴) (`aurora/models/glm/fitting.py`)
+- fix(models): production IRLS gains step-halving on the deviance,
+  NaN/Inf guards, κ > 1e8 monitoring, non-convergence warnings and
+  R-style separation detection (`aurora/models/glm/fitting.py`)
+- fix(optimization): dense core IRLS offset bug — the working response
+  included the offset, so β absorbed and doubled it each iteration;
+  Poisson + offset now matches statsmodels to 3.3e-16
+  (`aurora/core/optimization/irls.py`)
+- fix(inference): Self & Liang (1987) boundary mixture for df = 1 was
+  built with survival(χ²₀) = 1 (p ≥ 0.5 always, never rejects); corrected
+  to p = 0.5·P(χ²₁ > t), and the boundary detector now connects to real
+  `GAMMResult` attributes (`aurora/inference/anova/__init__.py`)
+- fix(inference): `anova_glm` reimplemented — single-model partial Wald
+  tests and deviance-difference LRT / Gaussian F for model comparisons
+  (was `SS = β̂²` and an RSS-based F invalid for non-Gaussian GLMs);
+  verified against `statsmodels.stats.anova_lm` to ~1e-14
+- fix(inference): sandwich HC0–HC4 now use the GLM Fisher-information
+  bread, IRLS-weighted leverages and Pearson residuals (were OLS
+  analogues, wrong for non-Gaussian GLMs); HC0 matches statsmodels to
+  3.2e-13 (`aurora/inference/robust.py`)
+- fix(smoothing): B-spline basis double-counted basis functions at
+  interior knots (partition of unity broken: rows summed to 2.0);
+  half-open intervals per de Boor (2001) (`aurora/smoothing/splines/bspline.py`)
+- fix(smoothing): REML criterion reimplemented per Wood (2011, eq. 4) —
+  the previous formula lacked the −r·log λ pseudo-determinant barrier and
+  selected λ → 0 (interpolation) (`aurora/smoothing/selection/reml.py`,
+  `aurora/smoothing/splines/pspline.py`)
+- fix(models): additive GAM identifiability — mgcv-style sum-to-zero
+  constraints absorbed by reparametrization (Wood 2017 §4.3); the design
+  was rank-deficient with catastrophic cancellation (cond 2.2e17 → 213)
+  (`aurora/models/gam/additive.py`)
+- fix(smoothing): thin-plate penalty projected onto the constraint
+  subspace (Wood 2003) — previously indefinite (β′Sβ < 0 observed);
+  Duchon radial basis corrected (parity, sign, m selection for d ≥ 4)
+  (`aurora/smoothing/thinplate.py`)
+- fix(smoothing): natural cubic spline basis rebuilt in the ESL
+  (eq. 5.4–5.5) form; the previous "naturalness correction" could not
+  zero f″ at the upper boundary (`aurora/smoothing/splines/cubic.py`)
+- fix(gamm): harmful PQL "bias correction" reverted — it scaled β by a
+  factor that grows with the number of groups and can flip signs
+  (Breslow & Lin 1995 is NOT implemented; documented limitation)
+  (`aurora/models/gamm/pql.py`)
+- fix(gamm): `pql_smooth` working response divided by dμ/dη (was
+  multiplied — not the Breslow & Clayton estimator); random-effects
+  penalty built as I ⊗ Ψ⁻¹ (was mis-broadcast, crashing on random
+  slopes); non-Gaussian GAMM log-likelihood/AIC/BIC now use the family
+  conditional log-likelihood (were Gaussian RSS formulas); fitted values
+  on the response scale (`aurora/models/gamm/pql_smooth.py`,
+  `aurora/models/gamm/interface.py`)
+- fix(gamm): `fit_pql` gains step-halving on the penalized deviance and a
+  divergence guard — Poisson GAMMs with strong effects previously
+  diverged to |β| ~ 1e294 while reporting `converged=True`; boundary
+  convergence detected when variance components collapse to Ψ ≈ 0
+  (`aurora/models/gamm/pql.py`)
+- fix(gamm): `fit_laplace` infers `n_effects` from `psi_init` (random
+  slopes work); Laplace variance update uses the Hessian second-moment
+  correction; missing (q/2)·log(2π) constant added
+  (`aurora/models/gamm/laplace.py`)
+- fix(distributions): negative binomial `estimate_theta(method="ml")`
+  solved a wrong score equation and silently fell back to the moments
+  estimator; corrected per Lawless (1987) / `MASS::theta.ml` (θ = 2
+  recovered as 2.02), moments estimator now uses fitted μ
+  (`aurora/distributions/families/negative_binomial.py`)
+- fix(models): log-likelihood for Gamma/InverseGaussian/Tweedie now
+  receives the estimated dispersion before AIC/BIC (Gamma with shape = 5:
+  llf −529.1 vs statsmodels −528.9; was −707.5)
+  (`aurora/models/glm/fitting.py`)
+- fix(distributions): link functions at the extremes — cloglog uses
+  `expm1`/`log1p` (η = −40 no longer underflows to 0), probit clamp
+  [−8, 8] removed, PowerLink guards negative-power NaN
+  (`aurora/distributions/links/common.py`)
+- fix(models): response-domain validation in `fit_glm` — out-of-support
+  responses (y ≤ 0 for Gamma/IG, negative for Poisson/NB, …) raise clear
+  errors instead of being silently clipped
+  (`aurora/models/glm/fitting.py`)
+- fix(optimization): `newton_raphson` falls back to central finite
+  differences when the backend provides no `grad()` (NumPy backend was
+  unusable) (`aurora/core/optimization/newton.py`)
+- fix(gamm): Gaussian GAMM REML optimizer handles rank-deficient
+  fixed-effects designs (ridge fallback for log|X′V⁻¹X|, QR reduction of
+  col(X) — full-rank designs bit-identical) (`aurora/models/gamm/estimation.py`)
+- test: repaired suite collection (two empty test classes), rewrote the
+  PISA integration test that ran at import time, updated the stale
+  `fit_gamm_gaussian` API usage in `test_pisa_debug.py`
+- fix(models): GAM confidence bands in `plot_smooth()` now estimate the scale
+  as σ̂² = RSS/(n − edf) instead of the naive `np.var(residuals)` (n divisor,
+  no edf correction); the docstring now states the truth about the computed
+  covariance — the Bayesian Vp (Wood 2017 §6.10), not the frequentist Ve
+  previously announced (`aurora/models/gam/plotting.py`)
+- fix(optimization): IRLS sparse-path docstring no longer claims a SuperLU
+  direct solver; the code densifies the p×p normal equations and uses dense
+  Cholesky with an `lstsq` fallback (`aurora/core/optimization/irls.py`)
+- test(benchmarks): R-comparison test read the dead JSON key `results`
+  instead of `comparisons` (diagnostic branch was unreachable); intercept
+  difference now participates in the pass/fail criteria; tolerances
+  tightened to 1e-6 for coefficients/deviance/fitted/AIC; Gaussian-like AIC
+  compared after the documented +2 dispersion-parameter offset
+  (`benchmarks/compare_with_r.py`, `tests/test_models/test_glm_vs_r.py`)
+
+### Added
+
+- ci: new `.github/workflows/tests.yml` — test matrix (Python 3.10/3.12,
+  `pytest -m "not slow" --no-cov`), ruff lint/format gate, and an
+  R-validation job (`r-lib/actions/setup-r@v2` + `jsonlite`) running
+  `tests/test_models/test_glm_vs_r.py`
+- test(models): validation tests for prior weights, grouped binomial,
+  Gaussian/Poisson standard errors and dispersion-scaled log-likelihood
+  against statsmodels (previously no SE comparison existed)
+- test(inference): HC0–HC3 vs statsmodels, anova vs `anova_lm`, LRT with
+  real GAMMs and the corrected Self–Liang oracle
+- test(smoothing): partition of unity at knots, REML barrier at λ → 0,
+  GAM identifiability stability, TPS penalty PSD, natural cubic boundary
+  conditions (f″ = 0 at both ends)
+- test(models): `test_plot_smooth_ci_uses_edf_corrected_scale` verifies the
+  GAM band against an independent recomputation with σ̂² = RSS/(n − edf)
+- test(gamm): PQL smooth path with known values, random slopes, and the
+  strong-effects step-halving regression test
+- docs: VALIDATION.md gains a "Validated Claims → Executable Tests" table
+  mapping every public numerical claim to its backing test, and its IRLS
+  convergence/convention sections now describe the current code
+  (deviance-relative criterion, step-halving, Cholesky/lstsq solver,
+  κ > 1e8 warning)
+- docs: user documentation audited and updated to the remediated code —
+  README (real family count, link count, executable examples, new
+  `GLMResult` attributes, PQL limitation notes), Sphinx guides
+  (inference/gam/formula/migration APIs corrected), examples README,
+  GAMM API reference
+
+### Changed
+
+- docs: README validation claims replaced by test-backed statements —
+  matches statsmodels to <1e-8 and R `glm()` to <1e-6 in automated tests
+  (was the unsubstantiated "max diff < 1e-11"); test count corrected to
+  the real collected total
+- chore: mypy `python_version` raised to 3.12 so modern numpy stubs parse;
+  baseline: 402 errors in 58 files
+- chore: coverage configuration unified into `pyproject.toml`
+  (`.coveragerc` removed; its omits/excludes merged)
+- chore: ruff gate cleaned — `examples/`, `benchmarks/` and
+  `verify_references.py` excluded from the strict gate (notebooks and
+  benchmark scripts); ~150 real lint errors fixed in `tests/` (unused
+  variables turned into asserts or dropped, import order, ambiguous names)
+- chore: author metadata unified to "Lucy Eduardo Arias" (LICENSE spelling);
+  license metadata migrated to PEP 639 (`license = "MIT"`,
+  setuptools>=77); `.gitignore` fixed (`revn/` → `renv/`, removed stale
+  global `*.html`, added `coverage.json`/`entities.json`/`mempalace.yaml`,
+  kept `examples/data/insurance.csv` tracked)
+
 ## [1.0.0] - 2026-04-01
 
 ### Added
@@ -51,7 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Sphinx documentation site with Furo theme
 - Updated README.md to reflect Phase 5 at 92% complete
 - Added PyPI badge and installation instructions (`pip install aurora-glm`)
-- Updated test count from 494 to 520
+- Updated documented test count to the real collected total (3,377 via `pytest --collect-only`)
 
 ## [0.7.0] - 2025-12-06
 

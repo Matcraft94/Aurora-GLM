@@ -46,9 +46,8 @@ class GAMResult:
             Alias for ``lambda_`` (optimal smoothing parameter).
 
         r_squared : float
-            Coefficient of determination (R-squared), where R-squared = 1 - rss /sum(tss) / tss
-
-    **2, Note: R-squared is computed only from residualss and not residuals so the can be negative.
+            Coefficient of determination (R-squared), computed from the
+            residuals as ``1 - rss / tss``; can be negative.
 
         >>> # Predict at new points
         >>> y_pred = result.predict(np.linspace(0, 2 * np.pi, 2))

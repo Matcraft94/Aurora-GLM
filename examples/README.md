@@ -2,9 +2,9 @@
 
 Complete collection of production-ready examples demonstrating Aurora-GLM capabilities for statistical modeling across diverse domains.
 
-**Aurora-GLM Version**: 0.6.1
+**Aurora-GLM Version**: 1.0.0
 **Total Case Studies**: 17
-**Last Updated**: December 2024
+**Last Updated**: August 2026
 
 ---
 
@@ -106,7 +106,7 @@ If you're new to Aurora-GLM, follow this learning sequence:
 
 ---
 
-### Environmental & Ecological (4 cases)
+### Environmental & Ecological (5 cases)
 
 **02. Air Quality Assessment (GAM)**
 - Model: Gaussian GAM
@@ -125,6 +125,12 @@ If you're new to Aurora-GLM, follow this learning sequence:
 - Focus: Time-series prediction of bike share usage
 - Techniques: Temporal patterns, additive decomposition
 - Key Result: Strong day-of-week and temperature effects
+
+**14. Wind Power Forecasting (GAM)**
+- Model: GAM with smooths of wind speed and direction
+- Focus: Renewable energy output prediction
+- Techniques: Multiple smooth terms, non-linear relationships
+- Key Result: Power curve is strongly non-linear in wind speed
 
 **15. US Traffic Accidents Severity (Ordinal GAMM)**
 - Model: Mixed models for ordinal outcomes
@@ -192,23 +198,17 @@ If you're new to Aurora-GLM, follow this learning sequence:
 
 ## Data Files
 
-The `data/` directory contains supporting datasets:
+Datasets live in `06_case_studies/data/` (notebooks reference them as
+`data/<name>.csv` or `../data/<name>.csv`). Several notebooks also generate
+synthetic data inline. Versioned datasets include:
 
-- `medical_insurance.csv` - Insurance costs (Case 01, 10)
-- `air_quality.csv` - Air pollution measurements (Case 02)
-- `species_distribution.csv` - Species presence/habitat (Case 03)
-- `sleep_study.csv` - Sleep efficiency across subjects (Case 04)
-- `clinical_trial.csv` - Treatment response data (Case 05, 06)
-- `psychometric_data.csv` - Item response data (Case 07)
-- `education_multilevel.csv` - Student achievement (Case 08)
-- `french_motor_claims.csv` - Insurance claims (Case 09)
+- `insurance.csv` - Medical insurance costs (Cases 01, 10; also in `examples/data/`)
+- `airquality.csv` - Air pollution measurements (Case 02)
+- `sleepstudy.csv` - Reaction times across subjects (Case 04)
+- `pisaUK.csv` - Educational achievement (Case 08)
+- `freMTPL2freq.csv` - French motor third-party liability claim frequencies (Case 09)
+- `bike_sharing_hourly.csv` - Hourly bike rental demand (Case 11)
 - `telco_churn.csv` - Customer churn data (Case 12)
-- `bike_sharing.csv` - Bike rental demand (Case 11)
-- `breast_cancer.csv` - Survival data (Case 13)
-- `wind_power.csv` - Renewable energy (Case 14)
-- `traffic_accidents.csv` - Road safety (Case 15)
-- `ecommerce_conversions.csv` - Conversion rates (Case 16)
-- `restaurant_health.csv` - Health inspection scores (Case 17)
 
 ---
 
@@ -277,17 +277,17 @@ formula = "y ~ s(x1) + x2 + (1 | group)"
 
 # 3. Fit model
 from aurora.models.gamm import fit_gamm
-result = fit_gamm(y=data['y'], X=data[['x1', 'x2']],
-                  random_effects=[RandomEffect(grouping='group')],
-                  groups_data={'group': data['group']})
+result = fit_gamm(formula=formula, data=data)
 
 # 4. Interpret results
 print(result.summary())
-result.plot_smooth_terms()
+print(result.beta_parametric)        # Fixed effects
+print(result.variance_components)    # Random-effect variances
 
 # 5. Diagnostics
-result.plot_residuals()
-result.plot_qq()
+from aurora.visualization import plot_gamm_diagnostics, plot_gamm_random_effects
+plot_gamm_diagnostics(result)
+plot_gamm_random_effects(result)
 ```
 
 ---
@@ -336,7 +336,7 @@ pip install -e /path/to/Aurora-GLM
 ## References
 
 ### Aurora-GLM Documentation
-- GitHub: https://github.com/anthropics/aurora-glm
+- GitHub: https://github.com/Matcraft94/Aurora-GLM
 - Main module: `import aurora`
 
 ### Background Reading
@@ -367,8 +367,8 @@ If you use these examples in your research, please cite Aurora-GLM:
   title = {Aurora-GLM: Generalized Linear and Additive Models},
   author = {Arias, Lucy E.},
   year = {2025},
-  url = {https://github.com/anthropics/aurora-glm},
-  version = {0.6.1}
+  url = {https://github.com/Matcraft94/Aurora-GLM},
+  version = {1.0.0}
 }
 ```
 
@@ -376,5 +376,5 @@ If you use these examples in your research, please cite Aurora-GLM:
 
 **Questions?** Open an issue on GitHub or consult the case study READMEs for domain-specific guidance.
 
-**Last Updated**: December 6, 2024
+**Last Updated**: August 9, 2026
 **Maintainer**: Lucy E. Arias

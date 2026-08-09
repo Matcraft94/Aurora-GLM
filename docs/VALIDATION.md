@@ -26,7 +26,7 @@ known convention differences and how to reproduce each validation locally.
 Aurora-GLM is validated through three layers, listed in increasing order of
 authority:
 
-### Layer 1: Internal unit tests (~500 tests)
+### Layer 1: Internal unit tests (3,377 tests collected)
 
 Located in `tests/`. Verify algorithmic correctness against closed-form
 solutions, analytical gradients, and synthetic data with known ground truth.
@@ -179,17 +179,29 @@ where `ell` is the total log-likelihood (with all normalizing constants) and
 
 ## 5. IRLS Convergence Criterion
 
-Starting in v1.0.0 (Phase 2.3), the IRLS algorithm uses the **relative**
-convergence criterion:
+The production GLM fit path (`fit_glm` in `aurora/models/glm/fitting.py`)
+checks convergence on the **relative deviance change**, following the R
+`glm.fit` convention:
 
-    ||beta^(t+1) - beta^(t)||_2 / (||beta^(t)||_2 + 1e-12) < tol
+    |D^(t+1) - D^(t)| / (|D^(t)| + 0.1) < tol
 
-This matches the convention used by `scipy.optimize`, R `glm()`, and
-statsmodels. The `1e-12` guard prevents division-by-zero when beta
-collapses (e.g., intercept-only models).
+Additional safeguards in the same loop:
 
-Prior versions used the absolute criterion `||delta||_2 < tol`, which could
-falsely converge for large coefficients or fail to converge for small ones.
+- **Step-halving**: a step that increases the deviance (or yields a
+  non-finite deviance) is halved up to 25 times; if no acceptable step is
+  found, iteration stops with ``converged_=False`` rather than accepting a
+  worse fit.
+- **Solver**: the weighted least-squares step uses LAPACK Cholesky on
+  X'WX, falling back to pivoted least squares (``numpy.linalg.lstsq``) when
+  X'WX is not positive definite. Numerical rank deficiency is reported
+  through ``GLMResult.rank_`` with a ``RuntimeWarning``.
+- **Conditioning**: the condition number of X'WX is monitored each
+  iteration and a ``RuntimeWarning`` is emitted above κ = 1e8.
+
+The low-level `aurora/core/optimization/irls.py` routine (used by other
+algorithms, including the sparse path) instead uses the relative
+parameter-change criterion `||delta|| / (||beta|| + 1e-12) < tol`, aligned
+with the scipy.optimize convention.
 
 ---
 
@@ -255,16 +267,34 @@ cat /tmp/r_validation.json
 |-------|--------|-------------|---|
 | GLM log-likelihood | Full (with constants) | Full | Full |
 | Gamma parameterization | Shape alpha | Scale phi = 1/alpha | Shape alpha |
-| AIC formula | -2*ell + 2*k | -2*ell + 2*k | -2*ell + 2*k |
-| IRLS convergence | Relative ||delta||/||beta|| | Relative | Relative |
-| Step-halving | Yes (max 10 backtracks, alpha = 0.5) | Yes | Yes |
+| AIC formula | -2*ell + 2*k (mean params only) | -2*ell + 2*k | -2*ell + 2*k (+ dispersion for Gaussian-like families, so R's AIC is higher by 2) |
+| IRLS convergence (`fit_glm`) | Relative deviance change |ΔD|/(|D|+0.1) (R glm.fit style) | Relative parameter change | Relative deviance change |
+| Step-halving | Yes (deviance-based, up to 25 halvings) | Yes | Yes |
+| Solver | Cholesky on X'WX, pivoted lstsq fallback, rank reported via `rank_` | QR/pinv | pivoted QR (dqrls) |
 | Condition number warning | Yes, at kappa > 1e8 | No | No |
 | Boundary correction (LRT) | Yes (Self & Liang 1987) | No | Yes (in lme4) |
-| PQL bias correction | Yes (Breslow & Lin 1995) | No | No |
+| PQL bias correction | No (uncorrected PQL; documented limitation, cf. Breslow & Lin 1995) | No | No |
 
 ---
 
-## 9. Test Result Summary (v1.0.0)
+## 9. Validated Claims → Executable Tests
+
+Every public numerical claim is backed by an automated, executable test:
+
+| Claim | Executable test |
+|-------|-----------------|
+| GLM coefficients, log-likelihood, AIC/BIC, deviance, fitted values match statsmodels (< 1e-8) | `tests/test_models/test_glm_vs_statsmodels.py` |
+| GLM coefficients, deviance, fitted values match R `glm()` (< 1e-6; AIC matches after the documented +2 dispersion offset for Gaussian-like families) | `tests/test_models/test_glm_vs_r.py` (skips without Rscript; runs in the CI `r-validation` job) |
+| Observation/frequency weights match statsmodels | `tests/test_models/test_glm_weights.py` |
+| Grouped (n-trial) binomial matches statsmodels | `tests/test_models/test_glm_grouped_binomial.py` |
+| Heteroscedasticity-consistent (sandwich HC) standard errors match statsmodels | `tests/test_inference/test_robust_vs_statsmodels.py` |
+| ANOVA / likelihood-ratio tests match statsmodels | `tests/test_inference/test_anova.py` |
+| Multi-backend consistency (NumPy / PyTorch / JAX) | `tests/test_backends/` |
+| GAM confidence bands use σ̂² = RSS/(n − edf) with the Bayesian covariance Vp | `tests/test_models/test_gam_plotting.py::test_plot_smooth_ci_uses_edf_corrected_scale` |
+
+---
+
+## 10. Test Result Summary (v1.0.0)
 
 Run with: `pytest tests/test_models/test_glm_vs_statsmodels.py -v`
 
@@ -290,7 +320,7 @@ TestModelSelectionConsistency::test_poisson_model_selection_picks_same_model  PA
 
 ---
 
-## 10. Citing This Validation
+## 11. Citing This Validation
 
 If you use Aurora-GLM in published research, cite:
 

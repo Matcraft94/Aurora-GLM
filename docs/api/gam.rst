@@ -11,7 +11,7 @@ Fitting
 
 .. autofunction:: aurora.models.gam.additive.fit_additive_gam
 
-.. autofunction:: aurora.models.gam.formula.fit_gam_formula
+.. autofunction:: aurora.models.gam.additive.fit_gam_formula
 
 Result
 ------

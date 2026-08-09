@@ -122,14 +122,11 @@ lme4-style random effects use the ``(effects | group)`` syntax:
 Tensor products
 ===============
 
-Tensor products model smooth interactions between two or more variables:
+.. note::
 
-.. code-block:: text
-
-   y ~ te(x1, x2) + x3
-
-This creates a 2D smooth surface of ``x1`` and ``x2``, equivalent to
-``te()`` in R's mgcv package.
+   Tensor product smooths (``te(x1, x2)`` in mgcv) are **not currently
+   supported** by the formula parser. Formulas accept univariate smooths
+   ``s(...)``, parametric terms, and random effects only.
 
 .. _formula-data:
 

@@ -14,7 +14,7 @@ Aurora-GLM Documentation
 
    .. grid-item-card:: User Guide
       :link: guide/index
-      :link-type: ref
+      :link-type: doc
       :class-card: guide-card
 
       Step-by-step tutorials covering GLM, GAM, GAMM, formula syntax,
@@ -22,14 +22,14 @@ Aurora-GLM Documentation
 
    .. grid-item-card:: API Reference
       :link: api/index
-      :link-type: ref
+      :link-type: doc
       :class-card: api-card
 
       Complete reference for all public modules, classes, and functions.
 
    .. grid-item-card:: Examples
       :link: examples/index
-      :link-type: ref
+      :link-type: doc
       :class-card: examples-card
 
       17 case studies including insurance pricing, species distribution,

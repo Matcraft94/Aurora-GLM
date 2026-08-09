@@ -45,7 +45,7 @@ The ``link`` parameter works the same way.
 Distribution families
 =====================
 
-Aurora-GLM supports 10+ exponential family distributions:
+Aurora-GLM supports 9 exponential family distributions:
 
 .. list-table::
    :header-rows: 1

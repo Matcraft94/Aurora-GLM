@@ -143,7 +143,7 @@ Formula interface
 -----------------
 
 The easiest way to fit a GAM is with
-:func:`~aurora.models.gam.formula.fit_gam_formula`:
+:func:`~aurora.models.gam.additive.fit_gam_formula`:
 
 .. code-block:: python
 
@@ -170,14 +170,11 @@ See :doc:`/guide/formula` for the complete formula syntax reference.
 Tensor product smooths
 ----------------------
 
-Tensor products model interactions between variables using ``te()``:
+.. note::
 
-.. code-block:: text
-
-   y ~ te(x1, x2) + x3
-
-This creates a 2D smooth surface of ``x1`` and ``x2``, equivalent to
-``te()`` in R's mgcv package.
+   Tensor product smooths (``te(x1, x2)`` in mgcv) are **not currently
+   supported** by the formula interface or the public fitting functions.
+   Only univariate smooth terms ``s(x)`` can be combined additively.
 
 .. _gam-visualization:
 
@@ -191,7 +188,7 @@ Plot smooth functions and diagnostic plots:
    from aurora.visualization import plot_smooth, plot_all_smooths
 
    # Plot a single smooth term
-   fig = plot_smooth(result, term_index=0)
+   fig = plot_smooth(result, term=0)
 
    # Plot all smooth terms
    figs = plot_all_smooths(result)

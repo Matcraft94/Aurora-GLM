@@ -13,13 +13,18 @@ Wald tests
 
 .. code-block:: python
 
+   import numpy as np
    from aurora.inference.hypothesis import wald_test
 
-   # Test all coefficients (joint hypothesis)
-   result = wald_test(glm_result)
+   # Test a single coefficient (contrast vector over [intercept, X0, X1])
+   result = wald_test(glm_result, [0, 1, 0])
 
-   # Test specific coefficients
-   result = wald_test(glm_result, indices=[1, 2])
+   # Joint test of all coefficients
+   p = len(glm_result.coef_) + 1  # +1 for the intercept
+   result = wald_test(glm_result, np.eye(p))
+
+``wald_test`` takes a contrast vector (or matrix) and returns a dict with
+``statistic``, ``p_value``, and ``df``.
 
 .. _inference-ci:
 
@@ -31,30 +36,36 @@ Confidence intervals
    from aurora.inference.intervals import confidence_intervals
 
    ci = confidence_intervals(glm_result, level=0.95)
-   print(ci)
+   print(ci.lower, ci.upper)
 
    # Also available via predict
    mean, lower, upper = glm_result.predict(X_new, interval="confidence", level=0.95)
+
+.. note::
+
+   Only **Wald** confidence intervals are implemented. Profile-likelihood
+   and bootstrap (BCa) intervals are not currently available
+   (``method="profile"`` raises ``NotImplementedError``).
 
 .. _inference-robust:
 
 Robust standard errors
 ======================
 
-Sandwich (HC) estimators for heteroscedasticity-consistent inference:
+Sandwich (HC) estimators for heteroscedasticity-consistent inference,
+using the GLM bread matrix and leverage values:
 
 .. code-block:: python
 
    from aurora.inference.robust import robust_covariance
 
    # HC0 (White's estimator)
-   cov_robust = robust_covariance(glm_result, type="HC0")
+   cov_robust = robust_covariance(glm_result, hc_type="HC0")
 
-   # HC1 (default, small-sample correction)
-   cov_robust = robust_covariance(glm_result, type="HC1")
+   # HC3 (default, jackknife-like, recommended for small samples)
+   cov_robust = robust_covariance(glm_result, hc_type="HC3")
 
-   # HC3 (jackknife-like, most conservative)
-   cov_robust = robust_covariance(glm_result, type="HC3")
+Available types: ``HC0``, ``HC1``, ``HC2``, ``HC3``, ``HC4``.
 
 .. _inference-diagnostics:
 
@@ -84,10 +95,13 @@ Diagnostic plots
 
 .. code-block:: python
 
-   from aurora.visualization import plot_diagnostics, plot_diagnostics_panel
+   # Full diagnostic panel (residuals, QQ, scale-location, leverage)
+   # GLMResult carries its own plotting method:
+   fig = glm_result.plot_diagnostics()
 
-   # Single diagnostic plot
-   fig = plot_diagnostics(glm_result)
+.. note::
 
-   # Full diagnostic panel (residuals, QQ, scale-location, Cook's)
-   figs = plot_diagnostics_panel(glm_result)
+   :func:`aurora.visualization.plot_diagnostics` and
+   :func:`aurora.visualization.plot_diagnostics_panel` operate on
+   ``GAMMResult`` objects; for GLM results use the
+   ``glm_result.plot_diagnostics()`` method shown above.

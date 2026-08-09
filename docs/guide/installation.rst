@@ -75,7 +75,7 @@ Verifying the installation
 .. code-block:: python
 
    import aurora
-   print(aurora.__version__)   # 0.7.0
+   print(aurora.__version__)   # 1.0.0
 
    # Quick smoke test
    import numpy as np
