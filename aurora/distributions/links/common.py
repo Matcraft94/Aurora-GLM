@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from .._utils import (
@@ -153,6 +155,14 @@ class LogitLink(LinkFunction):
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
         xp = namespace(eta)
         eta_arr = as_namespace_array(eta, xp, like=eta)
+        # Clamp eta to prevent overflow in exp(-eta): exp(±700) stays finite
+        # in float64. Beyond this range the sigmoid is numerically 0 or 1.
+        if xp is np:
+            eta_arr = np.clip(eta_arr, -700, 700)
+        elif hasattr(xp, "clamp"):  # PyTorch
+            eta_arr = xp.clamp(eta_arr, -700, 700)
+        else:  # JAX or other
+            eta_arr = xp.clip(eta_arr, -700, 700)
         return 1.0 / (1.0 + xp.exp(-eta_arr))
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
@@ -234,14 +244,18 @@ class CLogLogLink(LinkFunction):
     def link(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
         mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
-        one_minus = 1.0 - mu_arr
-        one_minus = ensure_positive(one_minus, xp)
-        return xp.log(-xp.log(one_minus))
+        # -log(1 - mu) via log1p to keep full precision for mu close to 1
+        log_term = -xp.log1p(-mu_arr)
+        log_term = ensure_positive(log_term, xp)
+        return xp.log(log_term)
 
     def inverse(self, eta):  # noqa: ANN001 - signature from base class
         xp = namespace(eta)
         eta_arr = as_namespace_array(eta, xp, like=eta)
-        return 1.0 - xp.exp(-xp.exp(eta_arr))
+        # 1 - exp(-exp(eta)) = -expm1(-exp(eta)): expm1 keeps full precision
+        # in the left tail (eta << 0), where 1 - exp(-exp(eta)) underflows
+        # to exactly 0 (e.g. eta <= -37 in float64).
+        return -xp.expm1(-xp.exp(eta_arr))
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         xp = namespace(mu)
@@ -373,9 +387,11 @@ class PowerLink(LinkFunction):
             # Use exp for power ≈ 0
             return xp.exp(eta_arr)
 
-        # Ensure result is positive
-        if self.power > 0:
-            eta_arr = ensure_positive(eta_arr, xp)
+        # eta = mu^power with mu > 0 is always positive, for any nonzero
+        # power. Guard against negative/NaN-producing input for both signs
+        # of power (previously power < 0 with eta < 0 returned NaN or a
+        # negative — invalid — mean).
+        eta_arr = ensure_positive(eta_arr, xp)
 
         return eta_arr ** (1.0 / self.power)
 
@@ -480,49 +496,39 @@ class ProbitLink(LinkFunction):
 
     def link(self, mu):  # noqa: ANN001 - signature from base class
         """Transform probability to linear predictor: η = Φ^{-1}(μ)."""
-        from scipy.stats import norm
-
         xp = namespace(mu)
         mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
 
-        # Φ^{-1}(μ) - inverse normal CDF
-        if xp is np:
-            return norm.ppf(mu_arr)
-        elif xp is torch:  # type: ignore[comparison-overlap]
-            # PyTorch: use scipy and convert
-            mu_np = mu_arr.detach().cpu().numpy()
-            eta_np = norm.ppf(mu_np)
-            return torch.as_tensor(eta_np, dtype=mu_arr.dtype, device=mu_arr.device)
-        else:
-            # JAX or other: convert through numpy
-            import numpy as np_std
+        # Φ^{-1}(μ) - inverse normal CDF, native to each backend
+        if xp is torch:  # type: ignore[comparison-overlap]
+            return torch.special.ndtri(mu_arr)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            from jax.scipy.special import ndtri
 
-            mu_np = np_std.asarray(mu_arr)
-            eta_np = norm.ppf(mu_np)
-            return xp.asarray(eta_np)
-
-    def inverse(self, eta):  # noqa: ANN001 - signature from base class
-        """Transform linear predictor to probability: μ = Φ(η)."""
+            return ndtri(mu_arr)
         from scipy.stats import norm
 
+        return norm.ppf(mu_arr)
+
+    def inverse(self, eta):  # noqa: ANN001 - signature from base class
+        """Transform linear predictor to probability: μ = Φ(η).
+
+        No clamping is applied: Φ(η) is evaluable over the whole float64
+        range (it saturates to 0 or 1 only around |η| ≈ 38). Families are
+        responsible for clipping probabilities away from the boundaries.
+        """
         xp = namespace(eta)
         eta_arr = as_namespace_array(eta, xp, like=eta)
 
-        # Clamp eta to avoid extreme values
-        if xp is np:
-            eta_clamped = np.clip(eta_arr, -8, 8)  # norm.cdf(-8) ≈ 6e-16
-            return norm.cdf(eta_clamped)
-        elif xp is torch:  # type: ignore[comparison-overlap]
-            eta_clamped = torch.clamp(eta_arr, -8, 8)
-            eta_np = eta_clamped.detach().cpu().numpy()
-            mu_np = norm.cdf(eta_np)
-            return torch.as_tensor(mu_np, dtype=eta_arr.dtype, device=eta_arr.device)
-        else:
-            import numpy as np_std
+        if xp is torch:  # type: ignore[comparison-overlap]
+            return torch.special.ndtr(eta_arr)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            from jax.scipy.special import ndtr
 
-            eta_np = np_std.clip(np_std.asarray(eta_arr), -8, 8)
-            mu_np = norm.cdf(eta_np)
-            return xp.asarray(mu_np)
+            return ndtr(eta_arr)
+        from scipy.stats import norm
+
+        return norm.cdf(eta_arr)
 
     def derivative(self, mu):  # noqa: ANN001 - signature from base class
         """Compute derivative: dg/dμ = 1/φ(Φ^{-1}(μ)).
@@ -530,31 +536,14 @@ class ProbitLink(LinkFunction):
         The derivative is the reciprocal of the normal PDF evaluated
         at the quantile corresponding to μ.
         """
-        from scipy.stats import norm
-
         xp = namespace(mu)
         mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
 
-        if xp is np:
-            z = norm.ppf(mu_arr)
-            pdf_z = norm.pdf(z)
-            # Avoid division by zero at extreme values
-            pdf_z = np.clip(pdf_z, 1e-10, None)
-            return 1.0 / pdf_z
-        elif xp is torch:  # type: ignore[comparison-overlap]
-            mu_np = mu_arr.detach().cpu().numpy()
-            z = norm.ppf(mu_np)
-            pdf_z = np.clip(norm.pdf(z), 1e-10, None)
-            deriv_np = 1.0 / pdf_z
-            return torch.as_tensor(deriv_np, dtype=mu_arr.dtype, device=mu_arr.device)
-        else:
-            import numpy as np_std
-
-            mu_np = np_std.asarray(mu_arr)
-            z = norm.ppf(mu_np)
-            pdf_z = np_std.clip(norm.pdf(z), 1e-10, None)
-            deriv_np = 1.0 / pdf_z
-            return xp.asarray(deriv_np)
+        # z = Φ^{-1}(μ); φ(z) = exp(-z²/2) / √(2π), all backend-native
+        z = self.link(mu_arr)
+        pdf_z = xp.exp(-0.5 * z**2) / math.sqrt(2.0 * math.pi)
+        pdf_z = ensure_positive(pdf_z, xp, eps=1e-10)
+        return 1.0 / pdf_z
 
 
 __all__ = [

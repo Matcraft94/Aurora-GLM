@@ -371,15 +371,85 @@ class TestNegativeBinomialThetaEstimation:
         assert theta_est > 100
 
     def test_estimate_theta_ml_basic(self):
-        """Test ML estimator runs without error."""
+        """Test ML estimator runs without error on overdispersed data."""
         family = NegativeBinomialFamily(theta="estimate")
 
-        y = np.array([0, 1, 1, 2, 3, 5, 7, 10])
-        mu = np.array([1.0, 1.5, 2.0, 2.5, 3.5, 5.0, 6.0, 9.0])
+        rng = np.random.default_rng(0)
+        mu = np.array([1.0, 1.5, 2.0, 2.5, 3.5, 5.0, 6.0, 9.0] * 20)
+        y = rng.negative_binomial(n=2.0, p=2.0 / (2.0 + mu)).astype(float)
 
         theta_ml = family.estimate_theta(y, mu, method="ml")
 
         assert theta_ml > 0
+
+    def test_estimate_theta_ml_recovers_true_theta(self):
+        """ML estimator recovers theta with heterogeneous means.
+
+        Data generated from NB2 with theta=2 and mu varying with a
+        covariate. The ML estimator (Lawless 1987 score equation, as in
+        MASS::theta.ml) should recover theta ≈ 2, while the marginal
+        moments estimator (ignoring mu) is badly biased downward.
+        """
+        family = NegativeBinomialFamily(theta="estimate")
+
+        rng = np.random.default_rng(42)
+        n = 2000
+        x = rng.uniform(-1, 1, n)
+        theta_true = 2.0
+        mu = np.exp(1.0 + 0.8 * x)
+        y = rng.negative_binomial(n=theta_true, p=theta_true / (theta_true + mu)).astype(float)
+
+        theta_ml = family.estimate_theta(y, mu, method="ml")
+
+        # Recovers the true theta reasonably well
+        np.testing.assert_allclose(theta_ml, theta_true, rtol=0.2)
+
+        # The biased marginal estimator (pre-fix behavior) must NOT match
+        var_y, mean_y = float(np.var(y)), float(np.mean(y))
+        theta_marginal = mean_y**2 / (var_y - mean_y)
+        assert abs(theta_ml - theta_true) < abs(theta_marginal - theta_true)
+
+    def test_estimate_theta_ml_differs_from_moments(self):
+        """ML and moments estimates coincide only by coincidence."""
+        family = NegativeBinomialFamily(theta="estimate")
+
+        rng = np.random.default_rng(7)
+        n = 500
+        mu = rng.gamma(shape=2.0, scale=2.0, size=n)
+        y = rng.negative_binomial(n=3.0, p=3.0 / (3.0 + mu)).astype(float)
+
+        theta_ml = family.estimate_theta(y, mu, method="ml")
+        theta_mm = family.estimate_theta(y, mu, method="moments")
+
+        assert theta_ml != pytest.approx(theta_mm, rel=1e-8)
+
+    def test_estimate_theta_ml_fallback_warns(self):
+        """Fallback to moments emits RuntimeWarning when ML has no root."""
+        family = NegativeBinomialFamily(theta="estimate")
+
+        # Exactly fitted data (y == mu): the score stays positive over the
+        # whole bracket, so brentq cannot run and the fallback must warn.
+        y = np.array([2.0, 5.0, 8.0, 3.0, 6.0])
+        mu = y.copy()
+
+        with pytest.warns(RuntimeWarning, match="method-of-moments"):
+            theta_ml = family.estimate_theta(y, mu, method="ml")
+
+        assert theta_ml > 0
+
+    def test_estimate_theta_moments_uses_fitted_mu(self):
+        """Moments estimator conditions on fitted means (theta.mm style)."""
+        family = NegativeBinomialFamily(theta="estimate")
+
+        rng = np.random.default_rng(123)
+        n = 2000
+        theta_true = 4.0
+        mu = rng.gamma(shape=3.0, scale=2.0, size=n)
+        y = rng.negative_binomial(n=theta_true, p=theta_true / (theta_true + mu)).astype(float)
+
+        theta_mm = family.estimate_theta(y, mu, method="moments")
+
+        np.testing.assert_allclose(theta_mm, theta_true, rtol=0.35)
 
     def test_estimate_theta_invalid_method(self):
         """Test invalid method raises ValueError."""

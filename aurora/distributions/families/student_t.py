@@ -76,6 +76,12 @@ class StudentTFamily(Family):
 
     The variance is nu / (nu - 2) for nu > 2. For nu <= 2, variance is infinite.
 
+    .. note::
+        **Backend support**: this family is NumPy-only — its methods call
+        ``numpy``/``scipy`` directly and do not use the backend namespace
+        abstraction. Passing PyTorch tensors or JAX arrays is not
+        supported.
+
     Examples
     --------
     >>> from aurora.models.glm import fit_glm

@@ -401,6 +401,16 @@ class TestTweedieParameterEstimation:
 
         assert 1.1 <= power_est <= 1.9
 
+    def test_estimate_power_restores_power_attribute(self):
+        """estimate_power must not leave the family mutated."""
+        family = TweedieFamily(power=1.3)
+        y = np.array([0.0, 0.0, 1.0, 2.0, 5.0, 10.0])
+        mu = np.array([0.5, 1.0, 1.5, 2.5, 4.0, 8.0])
+
+        family.estimate_power(y, mu, power_range=(1.1, 1.9))
+
+        assert family.power == 1.3
+
 
 class TestTweedieProbabilityZero:
     """Tests for probability of zero (P(Y=0))."""

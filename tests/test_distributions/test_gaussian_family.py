@@ -212,3 +212,25 @@ def test_gaussian_initialize_returns_mean(xp):
 
     # Should equal y
     assert _allclose(mu_init, y, xp, rtol=1e-12, atol=1e-12)
+
+
+def test_gaussian_explicit_variance_one_is_not_default():
+    """GaussianFamily(variance=1.0) is fixed variance, not 'estimate'.
+
+    The default (variance=None) estimates the variance from the residuals;
+    an explicit variance=1.0 must be honored as a known variance even though
+    it coincides numerically with the old default.
+    """
+    y = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    mu = np.zeros(5)  # RSS = 30, estimated variance = 6
+
+    ll_estimated = float(GaussianFamily().log_likelihood(y, mu))
+    ll_fixed = float(GaussianFamily(variance=1.0).log_likelihood(y, mu))
+
+    n = len(y)
+    expected_fixed = -0.5 * 30.0 - 0.5 * n * np.log(2.0 * np.pi)
+    expected_estimated = -0.5 * 30.0 / 6.0 - 0.5 * n * (np.log(2.0 * np.pi) + np.log(6.0))
+
+    assert ll_fixed == pytest.approx(expected_fixed, rel=1e-12)
+    assert ll_estimated == pytest.approx(expected_estimated, rel=1e-12)
+    assert ll_fixed != pytest.approx(ll_estimated)

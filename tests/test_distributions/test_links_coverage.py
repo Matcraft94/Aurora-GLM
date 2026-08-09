@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from aurora.distributions.links import (
     CLogLogLink,
@@ -11,9 +10,7 @@ from aurora.distributions.links import (
     InverseLink,
     InverseSquareLink,
     LogLink,
-    LogitLink,
     PowerLink,
-    ProbitLink,
     SqrtLink,
 )
 

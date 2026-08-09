@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-
 # ---------------------------------------------------------------------------
 # Helpers for building mock torch / jax modules
 # ---------------------------------------------------------------------------
@@ -300,7 +299,7 @@ class TestAsNamespaceArrayTorch:
     def test_scalar_to_torch(self, mock_torch):
         import aurora.distributions._utils as u
 
-        result = u.as_namespace_array(3.0, mock_torch)
+        u.as_namespace_array(3.0, mock_torch)
         mock_torch.as_tensor.assert_called_once()
 
     def test_with_like_dtype(self, mock_torch):
@@ -356,7 +355,7 @@ class TestOnesLikeTorch:
 
         fake_tensor = MagicMock(name="fake_torch_tensor")
         fake_tensor.__class__ = mock_torch.Tensor
-        result = u.ones_like(fake_tensor)
+        u.ones_like(fake_tensor)
         mock_torch.ones_like.assert_called_once_with(fake_tensor)
 
 
@@ -366,6 +365,19 @@ class TestOnesLikeTorch:
 
 
 class TestClipProbabilityTorch:
+    def test_torch_clips(self, mock_torch):
+        import aurora.distributions._utils as u
+
+        prob = MagicMock(name="prob_tensor")
+        prob.__class__ = mock_torch.Tensor
+        prob.dtype = np.float64
+        prob.device = "cpu"
+        result = u.clip_probability(prob, mock_torch, eps=1e-9)
+        assert mock_torch.tensor.call_count == 2
+        mock_torch.clamp.assert_called_once()
+        assert result.__class__ is mock_torch.Tensor
+
+
 class TestClipProbabilityJax:
     def test_jax_clips(self, mock_jax):
         mj, mjnp = mock_jax
@@ -383,6 +395,19 @@ class TestClipProbabilityJax:
 
 
 class TestEnsurePositiveTorch:
+    def test_torch_ensure_positive(self, mock_torch):
+        import aurora.distributions._utils as u
+
+        value = MagicMock(name="value_tensor")
+        value.__class__ = mock_torch.Tensor
+        value.dtype = np.float64
+        value.device = "cpu"
+        result = u.ensure_positive(value, mock_torch, eps=1e-12)
+        mock_torch.tensor.assert_called_once()
+        mock_torch.clamp.assert_called_once()
+        assert result.__class__ is mock_torch.Tensor
+
+
 class TestEnsurePositiveJax:
     def test_jax_ensure_positive(self, mock_jax):
         mj, mjnp = mock_jax
@@ -404,7 +429,7 @@ class TestLogFactorialTorch:
         import aurora.distributions._utils as u
 
         value = np.float64(5.0)
-        result = u.log_factorial(value, mock_torch)
+        u.log_factorial(value, mock_torch)
         mock_torch.lgamma.assert_called_once()
         # lgamma receives (value + 1.0) => 6.0
         call_arg = mock_torch.lgamma.call_args[0][0]
@@ -426,7 +451,7 @@ class TestLogFactorialJax:
         # patch that import path.
         fake_gammaln = MagicMock(side_effect=lambda x: np.array(6.0))
         with patch.dict(sys.modules, {"jax.scipy.special": MagicMock(gammaln=fake_gammaln)}):
-            result = u.log_factorial(value, mjnp)
+            u.log_factorial(value, mjnp)
         fake_gammaln.assert_called_once()
 
 
@@ -440,7 +465,7 @@ class TestLogGammaTorch:
         import aurora.distributions._utils as u
 
         value = np.float64(5.0)
-        result = u.log_gamma(value, mock_torch)
+        u.log_gamma(value, mock_torch)
         mock_torch.lgamma.assert_called_once()
         call_arg = mock_torch.lgamma.call_args[0][0]
         assert_allclose(np.asarray(call_arg), 5.0)
@@ -459,7 +484,7 @@ class TestLogGammaJax:
         value = np.float64(5.0)
         fake_gammaln = MagicMock(side_effect=lambda x: np.array(3.178))
         with patch.dict(sys.modules, {"jax.scipy.special": MagicMock(gammaln=fake_gammaln)}):
-            result = u.log_gamma(value, mjnp)
+            u.log_gamma(value, mjnp)
         fake_gammaln.assert_called_once()
 
 
@@ -473,7 +498,7 @@ class TestDigammaTorch:
         import aurora.distributions._utils as u
 
         value = np.float64(1.0)
-        result = u.digamma(value, mock_torch)
+        u.digamma(value, mock_torch)
         mock_torch.digamma.assert_called_once()
 
 
@@ -490,5 +515,5 @@ class TestDigammaJax:
         value = np.float64(1.0)
         fake_digamma = MagicMock(side_effect=lambda x: np.array(-0.5772))
         with patch.dict(sys.modules, {"jax.scipy.special": MagicMock(digamma=fake_digamma)}):
-            result = u.digamma(value, mjnp)
+            u.digamma(value, mjnp)
         fake_digamma.assert_called_once()

@@ -21,6 +21,7 @@ References
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -204,10 +205,10 @@ class NegativeBinomialFamily(Family):
         # Convert mu to scalar for max comparison
         if xp is torch:  # type: ignore[comparison-overlap]
             mu_val = max(float(mu.item() if hasattr(mu, "item") else mu), 0.1)
-            return torch.full_like(y_arr, mu_val, dtype=torch.float32)
+            return torch.full_like(y_arr, mu_val)
         elif xp is jnp:  # type: ignore[comparison-overlap]
             mu_val = max(float(mu), 0.1)
-            return jnp.full_like(y_arr, mu_val, dtype=jnp.float32)
+            return jnp.full_like(y_arr, mu_val)
         else:
             mu_val = max(float(mu), 0.1)
             return np.full_like(y_arr, mu_val, dtype=float)
@@ -334,33 +335,40 @@ class NegativeBinomialFamily(Family):
     def _estimate_theta_moments(self, y: NDArray, mu: NDArray) -> float:
         """Method of moments estimator for theta.
 
-        Based on: Var(Y) = μ + μ²/θ
-        Rearranging: θ = μ² / (Var(Y) - μ)
+        Uses the fitted means (MASS::theta.mm style):
+            θ̂ = Σ μ̂ᵢ² / Σ [(yᵢ − μ̂ᵢ)² − μ̂ᵢ]
+
+        This conditions on the fitted mean structure instead of the marginal
+        mean/variance of y, so it is not distorted by heterogeneity in μ.
         """
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
-        as_namespace_array(mu, xp, like=y_arr)
+        mu_arr = as_namespace_array(mu, xp, like=y_arr)
 
-        # Compute mean and variance
-        mean_y = float(xp.mean(y_arr))
-        var_y = float(xp.var(y_arr))
-
-        # Var = μ + μ²/θ => θ = μ²/(Var - μ)
-        excess_var = var_y - mean_y
+        sum_mu2 = float(xp.sum(mu_arr**2))
+        excess_var = float(xp.sum((y_arr - mu_arr) ** 2 - mu_arr))
 
         if excess_var <= 0:
             # No overdispersion detected, return large theta (near Poisson)
             return 1e6
 
-        theta = mean_y**2 / excess_var
+        theta = sum_mu2 / excess_var
 
         # Ensure reasonable bounds
         return float(np.clip(theta, 0.01, 1e6))
 
     def _estimate_theta_ml(self, y: NDArray, mu: NDArray, maxiter: int = 50) -> float:
-        """Maximum likelihood estimator for theta.
+        """Maximum likelihood estimator for theta given fitted means.
 
-        Uses Newton-Raphson on the profile log-likelihood.
+        Solves the profile score equation (Lawless 1987; MASS::theta.ml):
+
+            score(θ) = Σᵢ [ ψ(yᵢ+θ) − ψ(θ) + log θ + 1
+                            − log(θ+μᵢ) − (yᵢ+θ)/(θ+μᵢ) ] = 0
+
+        where ψ is the digamma function. If the score has no root in the
+        search bracket (e.g. Poisson-like data, where the ML estimate is
+        θ → ∞), falls back to the method-of-moments estimate with a
+        RuntimeWarning instead of returning it silently.
 
         Note: This method converts inputs to NumPy since it uses
         scipy.optimize which requires NumPy arrays.
@@ -371,23 +379,35 @@ class NegativeBinomialFamily(Family):
         # Convert to NumPy for scipy.optimize
         y_np = np.asarray(y, dtype=float)
         mu_np = np.asarray(mu, dtype=float)
-        n = len(y_np)
 
         def score(theta):
-            """Score function for theta."""
+            """Profile score function for theta (see class references)."""
             if theta <= 0:
                 return np.inf
 
-            # d/dθ log L
-            psi_deriv = special.digamma(y_np + theta) - special.digamma(theta)
-            term1 = np.sum(psi_deriv)
-            term2 = n * np.log(theta / (theta + mu_np)).mean()
-            term3 = n * (1 - mu_np / (theta + mu_np)).mean()
-
-            return term1 + term2 + term3
+            return float(
+                np.sum(
+                    special.digamma(y_np + theta)
+                    - special.digamma(theta)
+                    + np.log(theta)
+                    + 1.0
+                    - np.log(theta + mu_np)
+                    - (y_np + theta) / (theta + mu_np)
+                )
+            )
 
         # Initial estimate from moments
         theta_init = self._estimate_theta_moments(y, mu)
+
+        def fallback(reason: str) -> float:
+            warnings.warn(
+                f"ML estimation of theta did not converge ({reason}); "
+                f"falling back to the method-of-moments estimate "
+                f"(theta={theta_init:.4g}).",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            return theta_init
 
         # Bracket search
         try:
@@ -395,13 +415,12 @@ class NegativeBinomialFamily(Family):
 
             # Check if solution exists in bracket
             if score(theta_lo) * score(theta_hi) > 0:
-                # Use moments estimate if no root in bracket
-                return theta_init
+                return fallback("no sign change of the score in [0.01, 1000]")
 
             theta_ml = brentq(score, theta_lo, theta_hi, maxiter=maxiter)
             return float(theta_ml)
-        except (ValueError, RuntimeError):
-            return theta_init
+        except (ValueError, RuntimeError) as exc:
+            return fallback(str(exc))
 
     def d_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """First derivative of log-likelihood w.r.t. μ.

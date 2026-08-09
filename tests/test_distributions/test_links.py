@@ -153,6 +153,71 @@ def test_cloglog_link_clips_extremes(xp):
         assert torch.all(torch.isfinite(eta))
 
 
+def test_cloglog_inverse_left_tail_no_underflow():
+    """inverse uses -expm1(-exp(η)): the left tail must not underflow to 0.
+
+    For η ≲ -37 the naive 1 - exp(-exp(η)) returns exactly 0.0 in float64;
+    the exact value is ≈ exp(η).
+    """
+    link = CLogLogLink()
+    eta = np.array([-40.0, -50.0])
+    mu = link.inverse(eta)
+    np.testing.assert_allclose(mu, np.exp(eta), rtol=1e-10)
+    assert np.all(mu > 0.0)
+
+
+def test_cloglog_inverse_known_values():
+    """Known exact values of the cloglog inverse link."""
+    link = CLogLogLink()
+    # inverse(0) = 1 - e^{-1}
+    np.testing.assert_allclose(link.inverse(np.array([0.0])), 1.0 - np.exp(-1.0), rtol=1e-12)
+    # inverse(3) = 1 - exp(-e^3)
+    np.testing.assert_allclose(
+        link.inverse(np.array([3.0])), 1.0 - np.exp(-np.exp(3.0)), rtol=1e-12
+    )
+
+
+def test_cloglog_link_known_values():
+    """Known exact values of the cloglog link."""
+    link = CLogLogLink()
+    # link(1 - e^{-1}) = log(-log(e^{-1})) = log(1) = 0
+    np.testing.assert_allclose(link.link(np.array([1.0 - np.exp(-1.0)])), 0.0, atol=1e-12)
+
+
+def test_probit_inverse_beyond_old_clamp():
+    """Probit inverse is evaluable past the old ±8 clamp.
+
+    Φ is representable down to |η| ≈ 38 in float64; inverse(-10) must equal
+    Φ(-10) ≈ 7.62e-24, not Φ(-8) ≈ 6.22e-16.
+    """
+    from scipy.stats import norm
+
+    link = ProbitLink()
+    eta = np.array([-10.0, 10.0, -30.0])
+    np.testing.assert_allclose(link.inverse(eta), norm.cdf(eta), rtol=1e-10)
+
+
+def test_power_link_negative_power_negative_eta_no_nan():
+    """PowerLink with power < 0 and η < 0 must not produce NaN.
+
+    η = μ^p is always positive for μ > 0 regardless of the sign of p, so
+    negative η is invalid input and is clipped to a small positive value
+    instead of propagating NaN (fractional 1/p) or a negative mean (p = -1).
+    """
+    link = PowerLink(power=-1.0)
+    mu = link.inverse(np.array([-2.0, 0.0]))
+    assert np.all(np.isfinite(mu))
+    assert np.all(mu > 0.0)
+
+
+def test_power_link_inverse_known_values():
+    """Known exact values of the power inverse link."""
+    sqrt_link = PowerLink(power=0.5)
+    np.testing.assert_allclose(sqrt_link.inverse(np.array([3.0])), 9.0, rtol=1e-12)
+    inv_link = PowerLink(power=-1.0)
+    np.testing.assert_allclose(inv_link.inverse(np.array([4.0])), 0.25, rtol=1e-12)
+
+
 # ============================================================================
 # ProbitLink Tests
 # ============================================================================

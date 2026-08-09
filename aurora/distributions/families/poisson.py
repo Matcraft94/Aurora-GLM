@@ -68,7 +68,11 @@ class PoissonFamily(Family):
         y_arr = as_namespace_array(y, xp, like=mu)
         mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
         log_y_fact = log_factorial(y_arr, xp)
-        return (y_arr * xp.log(mu_arr) - mu_arr - log_y_fact).sum()
+        contrib = y_arr * xp.log(mu_arr) - mu_arr - log_y_fact
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            contrib = as_namespace_array(w_arr, xp, like=mu_arr) * contrib
+        return contrib.sum()
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
@@ -82,7 +86,11 @@ class PoissonFamily(Family):
             ones = np.ones_like(mu_arr)
         ratio = xp.where(y_arr == 0, ones, y_arr / mu_arr)
         log_term = xp.log(ratio)
-        return (2.0 * (y_arr * log_term - (y_arr - mu_arr))).sum()
+        contrib = 2.0 * (y_arr * log_term - (y_arr - mu_arr))
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            contrib = as_namespace_array(w_arr, xp, like=mu_arr) * contrib
+        return contrib.sum()
 
     def variance(self, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(mu)

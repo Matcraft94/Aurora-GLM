@@ -377,6 +377,9 @@ class BetaFamily(Family):
         if xp is torch:  # type: ignore[comparison-overlap]
             mean_val = torch.mean(y_arr)
             return torch.full_like(y_arr, mean_val)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mean_val = jnp.mean(y_arr)
+            return jnp.full_like(y_arr, mean_val)
         else:
             mean_val = np.mean(y_arr)
             return np.full_like(y_arr, mean_val)
@@ -384,14 +387,23 @@ class BetaFamily(Family):
     def estimate_phi(self, y, mu=None):
         """Estimate precision parameter from data.
 
-        Uses method-of-moments estimation based on sample variance.
+        Uses method-of-moments estimation based on the sample variance:
+
+            φ̂ = ȳ(1 − ȳ) / Var(y) − 1
+
+        .. note::
+            **Limitation**: this is the *marginal* MoM estimator — it uses
+            the sample mean/variance of y and ignores the fitted means
+            ``mu`` (kept for API compatibility only). With heterogeneous
+            means it is biased; a proper conditional estimator would solve
+            Σ (yᵢ−μ̂ᵢ)² / [μ̂ᵢ(1−μ̂ᵢ)] = n / (φ+1) style equations.
 
         Parameters
         ----------
         y : array
             Observed proportions.
         mu : array, optional
-            Fitted means. If None, uses sample mean.
+            Fitted means. Currently unused (see note above).
 
         Returns
         -------
@@ -400,18 +412,6 @@ class BetaFamily(Family):
         """
         xp = namespace(y)
         y_arr = clip_probability(as_namespace_array(y, xp, like=y), xp, eps=0.01)
-
-        if mu is None:
-            if xp is torch:  # type: ignore[comparison-overlap]
-                torch.mean(y_arr)
-            else:
-                np.mean(y_arr)
-        else:
-            mu_arr = clip_probability(as_namespace_array(mu, xp, like=y_arr), xp, eps=0.01)
-            if xp is torch:  # type: ignore[comparison-overlap]
-                torch.mean(mu_arr)
-            else:
-                np.mean(mu_arr)
 
         return self._estimate_phi_mm(y_arr, xp)
 

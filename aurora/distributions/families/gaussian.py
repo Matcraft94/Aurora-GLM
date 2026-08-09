@@ -28,9 +28,9 @@ class GaussianFamily(Family):
 
     Parameters
     ----------
-    variance : float, default=1.0
+    variance : float or None, default=None
         Known variance parameter. Set to a known value for weighted least
-        squares; estimated from data when left at the default.
+        squares; estimated from data when None (the default).
     link : LinkFunction, optional
         Link function. Defaults to IdentityLink(), which is the canonical
         link for the Gaussian family.
@@ -61,7 +61,7 @@ class GaussianFamily(Family):
     BinomialFamily : For binary/proportion data.
     """
 
-    def __init__(self, variance: float = 1.0, link: LinkFunction | None = None) -> None:
+    def __init__(self, variance: float | None = None, link: LinkFunction | None = None) -> None:
         self._variance = variance
         self._link = link or IdentityLink()
 
@@ -71,29 +71,50 @@ class GaussianFamily(Family):
         mu_arr = as_namespace_array(mu, xp, like=y_arr)
         resid = y_arr - mu_arr
         n = y_arr.shape[0] if hasattr(y_arr, "shape") and y_arr.shape else len(y_arr)
+        # Prior weights (R convention): llf = Σ wᵢℓᵢ, with n_eff = Σ wᵢ in the
+        # normalization constant and σ̂² = Σ wᵢrᵢ² / Σ wᵢ when the variance is
+        # estimated. Matches statsmodels freq_weights.
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            w_arr = as_namespace_array(w_arr, xp, like=mu_arr)
+            n_eff = float(w_arr.sum())
+            weighted_resid2 = w_arr * (resid**2)
+        else:
+            n_eff = float(n)
+            weighted_resid2 = resid**2
         if "variance" in params:
             var_arr = as_namespace_array(params["variance"], xp, like=mu_arr)
-        elif self._variance != 1.0:
+        elif self._variance is not None:
             var_arr = as_namespace_array(self._variance, xp, like=mu_arr)
         else:
-            rss = float(xp.sum(resid**2)) if hasattr(resid, "sum") else float(sum(resid**2))
-            var_arr = as_namespace_array(rss / max(n, 1), xp, like=mu_arr)
+            rss = float(weighted_resid2.sum())
+            var_arr = as_namespace_array(rss / max(n_eff, 1.0), xp, like=mu_arr)
         log_var = xp.log(var_arr)
-        return (-0.5 * (resid**2) / var_arr).sum() - 0.5 * n * (_LOG_2PI + log_var)
+        return (-0.5 * weighted_resid2 / var_arr).sum() - 0.5 * n_eff * (_LOG_2PI + log_var)
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
         mu_arr = as_namespace_array(mu, xp, like=y_arr)
+        # Unit deviance (R convention): RSS when no fixed variance is set.
         variance = params.get("variance", self._variance)
+        if variance is None:
+            variance = 1.0
         var_arr = as_namespace_array(variance, xp, like=mu_arr)
         resid = y_arr - mu_arr
-        return ((resid**2) / var_arr).sum()
+        contrib = (resid**2) / var_arr
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            contrib = as_namespace_array(w_arr, xp, like=mu_arr) * contrib
+        return contrib.sum()
 
     def variance(self, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(mu)
         mu_arr = as_namespace_array(mu, xp, like=mu)
+        # Variance function V(μ) = 1 unless a fixed variance was given.
         scale = params.get("variance", self._variance)
+        if scale is None:
+            scale = 1.0
         scale_arr = as_namespace_array(scale, xp, like=mu_arr)
         if getattr(scale_arr, "shape", ()) == ():
             return ones_like(mu_arr) * scale_arr

@@ -75,6 +75,11 @@ class GammaFamily(Family):
         self._shape = shape
         self._link = link or InverseLink()
 
+    @property
+    def shape(self) -> float:
+        """Shape parameter (inverse dispersion)."""
+        return self._shape
+
     def _shape_array(self, xp, like):
         shape_param = self._shape
         return ensure_positive(as_namespace_array(shape_param, xp, like=like), xp)
@@ -89,14 +94,22 @@ class GammaFamily(Family):
         term2 = (shape_arr - 1.0) * xp.log(y_arr)
         term3 = -shape_arr * y_arr / mu_arr
         term4 = -log_gamma(shape_arr, xp)
-        return (term1 + term2 + term3 + term4).sum()
+        contrib = term1 + term2 + term3 + term4
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            contrib = as_namespace_array(w_arr, xp, like=mu_arr) * contrib
+        return contrib.sum()
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
         y_arr = ensure_positive(as_namespace_array(y, xp, like=mu), xp)
         mu_arr = ensure_positive(as_namespace_array(mu, xp, like=y_arr), xp)
         ratio = y_arr / mu_arr
-        return (2.0 * ((y_arr - mu_arr) / mu_arr - xp.log(ratio))).sum()
+        contrib = 2.0 * ((y_arr - mu_arr) / mu_arr - xp.log(ratio))
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            contrib = as_namespace_array(w_arr, xp, like=mu_arr) * contrib
+        return contrib.sum()
 
     def variance(self, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(mu)

@@ -57,12 +57,16 @@ class TweedieFamily(Family):
     event magnitudes). The variance function is Var(Y) = phi * mu^p, where
     the power parameter p controls the shape.
 
-    Special cases based on power parameter p:
+    Special cases of the Tweedie family (for reference):
     - p = 0: Gaussian
-    - p = 1: Poisson (not for continuous data)
+    - p = 1: Poisson
     - 1 < p < 2: Compound Poisson-Gamma (Tweedie proper)
     - p = 2: Gamma
     - p = 3: Inverse Gaussian
+
+    This class implements only the compound Poisson-Gamma case 1 < p < 2;
+    for the boundary cases use the dedicated families (GaussianFamily,
+    PoissonFamily, GammaFamily, InverseGaussianFamily).
 
     Parameters
     ----------
@@ -227,11 +231,11 @@ class TweedieFamily(Family):
         else:
             mu_init = 0.1
 
-        # Return with correct backend
+        # Return with correct backend, preserving the input dtype
         if xp is torch:  # type: ignore[comparison-overlap]
-            return torch.full_like(y_arr, mu_init, dtype=torch.float32)
+            return torch.full_like(y_arr, mu_init)
         elif xp is jnp:  # type: ignore[comparison-overlap]
-            return jnp.full_like(y_arr, mu_init, dtype=jnp.float32)
+            return jnp.full_like(y_arr, mu_init)
         else:
             return np.full_like(y_arr, mu_init, dtype=float)
 
@@ -310,13 +314,18 @@ class TweedieFamily(Family):
         return float(xp.sum(d))
 
     def log_likelihood(self, y: NDArray, mu: NDArray, **params) -> float:
-        """Approximate log-likelihood for Tweedie.
+        """Approximate (quasi-)log-likelihood for Tweedie.
 
-        The Tweedie density has no closed form, but can be expressed
-        as an infinite series or computed via Fourier inversion.
-
-        For fitting purposes, we use the quasi-likelihood relationship:
-            -2 log L ≈ D/φ + constant
+        .. warning::
+            The Tweedie density has no closed form. This method returns the
+            **quasi-likelihood** ``-D/(2φ)``, which drops the normalization
+            constant ``c(y, φ, p)`` of the full density (the series
+            evaluation of Dunn & Smyth 2005 is not implemented). As a
+            consequence, the returned value — and any AIC/BIC derived from
+            it — is **not comparable across families, nor across different
+            values of the power parameter p or the dispersion φ**. It is
+            only meaningful for comparing models that share the same family,
+            power and dispersion (e.g. nested mean models).
 
         Parameters
         ----------
@@ -330,7 +339,7 @@ class TweedieFamily(Family):
         Returns
         -------
         float
-            Approximate log-likelihood
+            Approximate (quasi-)log-likelihood
         """
         phi = params.get("phi", self.phi)
 
@@ -357,8 +366,15 @@ class TweedieFamily(Family):
         ndarray
             IRLS weights
         """
-        mu = np.maximum(mu, 1e-10)
-        return 1.0 / self.variance(mu)
+        xp = namespace(mu)
+        mu_arr = as_namespace_array(mu, xp, like=mu)
+        if xp is torch:  # type: ignore[comparison-overlap]
+            mu_arr = torch.clamp(mu_arr, min=1e-10)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mu_arr = jnp.clip(mu_arr, 1e-10, None)
+        else:
+            mu_arr = np.maximum(mu_arr, 1e-10)
+        return 1.0 / self.variance(mu_arr)
 
     def estimate_power(
         self,
@@ -367,7 +383,19 @@ class TweedieFamily(Family):
         power_range: tuple[float, float] = (1.1, 1.9),
         n_grid: int = 20,
     ) -> float:
-        """Estimate optimal power parameter via profile likelihood.
+        """Estimate the power parameter via a deviance grid search.
+
+        .. note::
+            This is a **heuristic**: it minimizes the unit deviance over a
+            grid of powers. It is not a profile likelihood in p — the full
+            Tweedie density (Dunn & Smyth 2005 series evaluation) is not
+            implemented, and the quasi-likelihood ignores the normalization
+            constant that depends on p, so the criterion is not a valid
+            profile likelihood for the power parameter. Treat the result as
+            a rough starting value, not an MLE.
+
+        The family's ``power`` attribute is always restored to its original
+        value before returning.
 
         Parameters
         ----------
@@ -391,10 +419,14 @@ class TweedieFamily(Family):
         powers = np.linspace(power_range[0], power_range[1], n_grid)
         deviances = []
 
-        for p in powers:
-            self.power = p
-            dev = self.deviance(y, mu)
-            deviances.append(dev)
+        original_power = self.power
+        try:
+            for p in powers:
+                self.power = p
+                dev = self.deviance(y, mu)
+                deviances.append(dev)
+        finally:
+            self.power = original_power
 
         # Find minimum
         best_idx = np.argmin(deviances)

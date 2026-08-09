@@ -48,6 +48,8 @@ aurora.distributions.links.common.InverseLink : Alternative link
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from .._utils import as_namespace_array, ensure_positive, namespace
@@ -159,7 +161,13 @@ class InverseGaussianFamily(Family):
             # Method-of-moments estimation
             lambda_param = self._estimate_lambda_mm(y, mu, xp)
         elif lambda_param == "estimate":
-            lambda_param = 1.0  # Fallback
+            warnings.warn(
+                "lambda_='estimate' requires observed/fitted values to estimate "
+                "the shape parameter; falling back to lambda_=1.0.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            lambda_param = 1.0
 
         if isinstance(lambda_param, str):
             lambda_param = 1.0
@@ -252,6 +260,10 @@ class InverseGaussianFamily(Family):
             y_arr - mu_arr
         ) ** 2 / (2 * mu_arr**2 * y_arr)
 
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            log_lik = as_namespace_array(w_arr, xp, like=mu_arr) * log_lik
+
         if xp is torch:  # type: ignore[comparison-overlap]
             return torch.sum(log_lik)
         return np.sum(log_lik)
@@ -290,6 +302,10 @@ class InverseGaussianFamily(Family):
 
         # Unit deviance: (y - μ)² / (μ² y)
         unit_dev = (y_arr - mu_arr) ** 2 / (mu_arr**2 * y_arr)
+
+        w_arr = params.get("weights")
+        if w_arr is not None:
+            unit_dev = as_namespace_array(w_arr, xp, like=mu_arr) * unit_dev
 
         if xp is torch:  # type: ignore[comparison-overlap]
             return torch.sum(unit_dev)
@@ -367,6 +383,9 @@ class InverseGaussianFamily(Family):
         if xp is torch:  # type: ignore[comparison-overlap]
             mean_val = torch.mean(y_arr)
             return torch.full_like(y_arr, mean_val)
+        elif xp is jnp:  # type: ignore[comparison-overlap]
+            mean_val = jnp.mean(y_arr)
+            return jnp.full_like(y_arr, mean_val)
         else:
             mean_val = np.mean(y_arr)
             return np.full_like(y_arr, mean_val, dtype=y_arr.dtype)

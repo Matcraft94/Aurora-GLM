@@ -61,15 +61,31 @@ def _safe_log(value, xp, eps: float = 1e-12):
 class BinomialFamily(Family):
     """Binomial distribution family for binary and proportion data.
 
-    The Binomial family models binary outcomes or proportions. For binary
-    data (0/1), use n=1 (default). For grouped binomial data, set n to
-    the number of trials. The variance function is V(mu) = n * mu * (1 - mu/n).
+    This family follows the R ``binomial()`` convention: the response is a
+    **proportion** in [0, 1] and the mean parameter μ is a probability. The
+    variance function is V(μ) = μ(1 − μ) and the number of trials enters as
+    a prior weight (McCullagh & Nelder 1989, §2.3).
+
+    Usage conventions
+    -----------------
+    - **Binary (Bernoulli) data**: pass 0/1 responses; no weights needed.
+    - **Grouped data**: pass observed proportions ``y = successes / trials``
+      and the trial counts as weights. With ``fit_glm`` use
+      ``fit_glm(X, proportions, family=BinomialFamily(), weights=trials)``.
+      A constant number of trials can also be set via ``BinomialFamily(n=k)``,
+      which ``fit_glm`` treats as ``weights=k`` when no explicit weights are
+      given. When trial counts are supplied (either way), the log-likelihood
+      includes the binomial coefficient term ``log C(n_i, n_i·y_i)`` so that
+      ``log_likelihood_``/``aic_`` match R and statsmodels exactly.
 
     Parameters
     ----------
     n : float, default=1.0
-        Number of trials. Use 1.0 for binary (Bernoulli) data. For grouped
-        binomial responses, set to the number of trials per observation.
+        Constant number of trials per observation. Used as the prior weight
+        in ``deviance``/``log_likelihood`` (and by ``fit_glm`` as
+        ``weights=n``) when no explicit ``weights`` are passed. Leave at the
+        default 1.0 for binary data or when passing per-observation trial
+        counts through ``weights``.
     link : LinkFunction, optional
         Link function. Defaults to LogitLink(), which is the canonical link
         for the Binomial family. Alternatives include ProbitLink and CLogLogLink.
@@ -78,6 +94,8 @@ class BinomialFamily(Family):
     ----------
     default_link : LinkFunction
         The link function for this family (LogitLink by default).
+    n_trials : float
+        The constant trial count ``n`` given at construction.
 
     Examples
     --------
@@ -90,7 +108,7 @@ class BinomialFamily(Family):
     array([0.16, 0.25, 0.16])
     >>> # Use with fit_glm for logistic regression
     >>> X = np.random.randn(200, 2)
-    >>> p = 1.0 / (1.0 + np.exp(-(X @ np.array([1.0, -0.5])))
+    >>> p = 1.0 / (1.0 + np.exp(-(X @ np.array([1.0, -0.5]))))
     >>> y = np.random.binomial(1, p)
     >>> result = fit_glm(X, y, family=family)
 
@@ -105,65 +123,86 @@ class BinomialFamily(Family):
         self._n = n
         self._link = link or LogitLink()
 
+    @property
+    def n_trials(self) -> float:
+        """Constant number of trials per observation (default 1.0)."""
+        return self._n
+
+    def _weights_and_trials(self, xp, params, like):
+        """Resolve prior weights / trial counts for deviance and log-likelihood.
+
+        Returns ``(weights, trials)`` as namespace arrays (or None). Explicit
+        ``weights`` take precedence, then an explicit ``n`` parameter, then the
+        constant ``n`` given at construction (only when different from 1).
+        """
+        weights = params.get("weights")
+        n_param = params.get("n")
+        if weights is not None:
+            w_arr = as_namespace_array(weights, xp, like=like)
+            return w_arr, w_arr
+        if n_param is not None:
+            n_arr = as_namespace_array(n_param, xp, like=like)
+            return n_arr, n_arr
+        if self._n != 1.0:
+            n_arr = as_namespace_array(self._n, xp, like=like)
+            return n_arr, n_arr
+        return None, None
+
     def log_likelihood(self, y, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
-        mu_arr = as_namespace_array(mu, xp, like=y_arr)
-        n_param = params.get("n", self._n)
-        n_arr = as_namespace_array(n_param, xp, like=mu_arr)
-        probability = clip_probability(mu_arr / n_arr, xp)
-        term1 = y_arr * _safe_log(probability, xp)
-        term2 = (n_arr - y_arr) * _safe_log(1.0 - probability, xp)
-        log_binom_coef = log_gamma(n_arr + 1.0, xp) - log_factorial(y_arr, xp) - log_gamma(
-            n_arr - y_arr + 1.0, xp
-        )
-        return (term1 + term2 + log_binom_coef).sum()
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=y_arr), xp)
+        w_arr, n_arr = self._weights_and_trials(xp, params, mu_arr)
+
+        contrib = y_arr * _safe_log(mu_arr, xp) + (1.0 - y_arr) * _safe_log(1.0 - mu_arr, xp)
+        if w_arr is not None:
+            contrib = w_arr * contrib
+        total = contrib.sum()
+
+        if n_arr is not None:
+            # Binomial coefficient log C(n, n·y): makes the log-likelihood
+            # (and hence AIC/BIC) match R's glm() and statsmodels exactly for
+            # grouped binomial data. For Bernoulli data (n = 1) or 0/1
+            # responses this term is exactly zero.
+            k_arr = n_arr * y_arr
+            log_binom_coef = (
+                log_gamma(n_arr + 1.0, xp)
+                - log_factorial(k_arr, xp)
+                - log_gamma(n_arr - k_arr + 1.0, xp)
+            )
+            total = total + log_binom_coef.sum()
+        return total
 
     def deviance(self, y, mu, **params):  # noqa: ANN001 - match Family signature
-        """Compute binomial deviance with consistent epsilon handling.
+        """Compute binomial deviance on the probability scale.
 
-        Uses _safe_log() for consistency with log_likelihood().
+        Unit deviance d_i = 2 [y_i log(y_i/μ_i) + (1−y_i) log((1−y_i)/(1−μ_i))]
+        with the convention 0·log 0 = 0; the total deviance is Σ w_i d_i
+        (R convention, McCullagh & Nelder §2.3).
         """
         xp = namespace(y, mu)
         y_arr = as_namespace_array(y, xp, like=mu)
-        mu_arr = as_namespace_array(mu, xp, like=y_arr)
-        n_param = params.get("n", self._n)
-        n_arr = as_namespace_array(n_param, xp, like=mu_arr)
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=y_arr), xp)
+        w_arr, _ = self._weights_and_trials(xp, params, mu_arr)
 
-        eps = 1e-12
-
-        # Clamp y and mu to valid range [eps, n-eps]
-        if xp is torch:
-            eps_tensor = torch.tensor(eps, dtype=mu_arr.dtype, device=mu_arr.device)
-            y_safe = torch.clamp(y_arr, min=eps_tensor, max=n_arr - eps_tensor)
-            mu_safe = torch.clamp(mu_arr, min=eps_tensor, max=n_arr - eps_tensor)
-        elif xp is jnp:  # type: ignore[comparison-overlap]
-            y_safe = jnp.clip(y_arr, eps, n_arr - eps)
-            mu_safe = jnp.clip(mu_arr, eps, n_arr - eps)
-        else:
-            y_safe = np.clip(y_arr, eps, n_arr - eps)
-            mu_safe = np.clip(mu_arr, eps, n_arr - eps)
-
-        # Use _safe_log for consistency with log_likelihood
-        term1 = y_arr * _safe_log(y_safe / mu_safe, xp, eps=eps)
-        term2 = (n_arr - y_arr) * _safe_log((n_arr - y_safe) / (n_arr - mu_safe), xp, eps=eps)
-
-        return (2.0 * (term1 + term2)).sum()
+        # _safe_log clips the ratio away from 0, so at y = 0 (resp. y = 1)
+        # the product is exactly 0 * finite = 0, giving the 0 log 0 = 0 rule.
+        term1 = y_arr * _safe_log(y_arr / mu_arr, xp)
+        term2 = (1.0 - y_arr) * _safe_log((1.0 - y_arr) / (1.0 - mu_arr), xp)
+        contrib = 2.0 * (term1 + term2)
+        if w_arr is not None:
+            contrib = w_arr * contrib
+        return contrib.sum()
 
     def variance(self, mu, **params):  # noqa: ANN001 - match Family signature
         xp = namespace(mu)
-        mu_arr = as_namespace_array(mu, xp, like=mu)
-        n_param = params.get("n", self._n)
-        n_arr = as_namespace_array(n_param, xp, like=mu_arr)
-        probability = clip_probability(mu_arr / n_arr, xp)
-        return n_arr * probability * (1.0 - probability)
+        mu_arr = clip_probability(as_namespace_array(mu, xp, like=mu), xp)
+        return mu_arr * (1.0 - mu_arr)
 
     def initialize(self, y):  # noqa: ANN001 - match Family signature
         xp = namespace(y)
         y_arr = as_namespace_array(y, xp, like=y)
-        n_arr = as_namespace_array(self._n, xp, like=y_arr)
-        p_init = clip_probability((y_arr + 0.5) / (n_arr + 1.0), xp)
-        return n_arr * p_init
+        return clip_probability((y_arr + 0.5) / 2.0, xp)
 
     @property
     def default_link(self) -> LinkFunction:
