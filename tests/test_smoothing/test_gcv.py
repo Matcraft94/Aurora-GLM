@@ -351,3 +351,32 @@ def test_gcv_score_decreases_at_optimum():
     # Optimal should be better (or very close)
     assert gcv_opt <= gcv_lower * 1.01  # Allow 1% tolerance
     assert gcv_opt <= gcv_upper * 1.01
+
+
+def test_gcv_score_zero_weights_effective_n():
+    """Zero-weight observations must not count towards n in the GCV score.
+
+    With n_eff = #{i : w_i > 0} (Wood 2017, §4.5), the GCV score with some
+    zero weights must equal the score computed on the reduced dataset with
+    those observations removed (zero-weight rows contribute nothing to
+    X'WX, X'Wy, RSS or tr(H)).
+    """
+    rng = np.random.default_rng(42)
+    n = 100
+
+    x = np.linspace(0, 1, n)
+    y = np.sin(2 * np.pi * x) + 0.1 * rng.normal(size=n)
+
+    knots = BSplineBasis.create_knots(x, n_basis=10, degree=3)
+    basis = BSplineBasis(knots, degree=3)
+    X = basis.basis_matrix(x)
+    S = basis.penalty_matrix(order=2)
+
+    weights = np.ones(n)
+    weights[::2] = 0.0  # Zero out every other observation
+    keep = weights > 0
+
+    score_zero_weighted = gcv_score(y, X, S, lambda_=0.1, weights=weights)
+    score_reduced = gcv_score(y[keep], X[keep], S, lambda_=0.1)
+
+    np.testing.assert_allclose(score_zero_weighted, score_reduced, rtol=1e-10)

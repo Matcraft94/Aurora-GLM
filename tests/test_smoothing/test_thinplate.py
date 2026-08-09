@@ -242,7 +242,7 @@ def test_fit_tps_smoothing_parameter():
 
 
 def test_fit_tps_edf():
-    """EDF should be finite and reasonable."""
+    """EDF should be finite and in a valid range."""
     np.random.seed(42)
     n = 80
     d = 2
@@ -251,13 +251,137 @@ def test_fit_tps_edf():
     y = X[:, 0] + X[:, 1] + 0.1 * np.random.randn(n)
 
     knots = X[::4]
-    knots.shape[0]
+    k = knots.shape[0]
 
     result = fit_tps(X, y, knots=knots, lambda_=0.1)
 
-    # EDF should be finite (may be negative due to numerical issues with TPS)
-    # This is a known issue with thin plate splines and nearly singular matrices
+    # With the constraint-absorbed PSD penalty the EDF is bounded by the
+    # number of knots (constrained design columns) and positive
     assert np.isfinite(result["edf"])
+    assert 0 < result["edf"] <= k + 1e-8
+
+
+def test_tps_penalty_positive_semidefinite():
+    """The constraint-absorbed TPS penalty must be positive semi-definite.
+
+    Regression test: the raw radial energy matrix E = eta(||x_i - x_j||) is
+    only conditionally PSD (its eigenvalues ranged over [-10, 11]), so
+    beta' S beta could be negative in a real fit.  After absorbing the
+    constraints T' delta = 0 (Wood 2003) all eigenvalues must be >= 0.
+    """
+    rng = np.random.default_rng(42)
+    knots = rng.normal(size=(20, 2))
+    S = tps_penalty(knots, d=2)
+
+    eigvals = np.linalg.eigvalsh(S)
+    assert eigvals.min() > -1e-12
+
+    # beta' S beta >= 0 for arbitrary coefficient vectors
+    beta = rng.normal(size=S.shape[0])
+    assert beta @ S @ beta >= -1e-12
+
+
+def test_tps_penalty_equals_energy_on_constraint_subspace():
+    """The projected penalty equals the raw bending energy when T' delta = 0."""
+    from scipy.spatial.distance import cdist
+
+    from aurora.smoothing.thinplate import (
+        _null_space_of_transpose,
+        _tps_polynomial,
+        _tps_radial,
+    )
+
+    rng = np.random.default_rng(42)
+    k, d, m = 25, 2, 2
+    knots = rng.normal(size=(k, d))
+
+    E = _tps_radial(cdist(knots, knots, metric="euclidean"), d, m)
+    T = _tps_polynomial(knots, d, m)
+    Z = _null_space_of_transpose(T)
+    M = T.shape[1]
+
+    S = tps_penalty(knots, d=d, m=m)
+
+    # For delta in null(T') (i.e. delta = Z gamma), delta' S delta == delta' E delta
+    gamma = rng.normal(size=k - M)
+    delta = Z @ gamma
+    beta = np.concatenate([delta, np.zeros(M)])
+    np.testing.assert_allclose(beta @ S @ beta, delta @ E @ delta, rtol=1e-10)
+    # And the raw energy on this subspace is non-negative
+    assert delta @ E @ delta >= -1e-12
+
+
+def test_tps_fit_penalty_nonnegative():
+    """beta' S beta must be non-negative in an actual fit (was -1.30)."""
+    rng = np.random.default_rng(42)
+    n = 150
+    X = rng.uniform(-1, 1, (n, 2))
+    y = np.exp(-np.sum(X**2, axis=1)) + 0.05 * rng.normal(size=n)
+
+    knots = X[::5]
+    result = fit_tps(X, y, knots=knots, lambda_=0.01)
+    S = tps_penalty(knots, d=2)
+
+    assert result["coefficients"] @ S @ result["coefficients"] >= -1e-12
+
+
+def test_tps_radial_duchon_higher_dimensions():
+    """Duchon (1977) radial function for d >= 4 and the CPSD sign convention.
+
+    The radial function is eta(r) = c r^(2m-d) log(r) for even d and
+    eta(r) = c r^(2m-d) for odd d, with the minimal valid m (2m > d) and
+    c = (-1)^(m - ceil(d/2) + 1) the sign making the energy matrix
+    conditionally positive semi-definite.  The old code inverted the
+    parity, used the exponent d-2, and ignored the sign.
+    """
+    from aurora.smoothing.thinplate import _tps_radial
+
+    r = np.array([[0.5], [1.0], [2.0]])
+
+    # d = 4, minimal m = 3: eta(r) = +r^2 log(r)  (even d -> log form)
+    eta4 = _tps_radial(r, d=4, m=3)
+    expected4 = (r**2) * np.log(r)
+    np.testing.assert_allclose(eta4, expected4, rtol=1e-12)
+
+    # d = 5, minimal m = 3: eta(r) = -r  (odd d -> pure power, negative sign)
+    eta5 = _tps_radial(r, d=5, m=3)
+    np.testing.assert_allclose(eta5, -r, rtol=1e-12)
+
+    # d = 5, m = 4: eta(r) = +r^3 (sign alternates with m)
+    eta5b = _tps_radial(r, d=5, m=4)
+    np.testing.assert_allclose(eta5b, r**3, rtol=1e-12)
+
+    # Classical cases keep their signs: +r^3 (d=1), +r^2 log r (d=2), -r (d=3)
+    np.testing.assert_allclose(_tps_radial(r, d=1, m=2), r**3, rtol=1e-12)
+    np.testing.assert_allclose(_tps_radial(r, d=3, m=2), -r, rtol=1e-12)
+
+
+def test_tps_m_validation():
+    """m must satisfy the Duchon condition 2m > d."""
+    rng = np.random.default_rng(42)
+    knots = rng.normal(size=(30, 5))
+
+    with pytest.raises(ValueError, match="2m > d"):
+        tps_penalty(knots, d=5, m=2)
+
+    # Minimal valid m works and yields a PSD penalty
+    S = tps_penalty(knots, d=5, m=3)
+    assert np.linalg.eigvalsh(S).min() > -1e-12
+
+
+def test_fit_tps_4d():
+    """TPS fit should work in d = 4 with the corrected Duchon formula."""
+    rng = np.random.default_rng(42)
+    n = 100
+    X = rng.uniform(-1, 1, (n, 4))
+    y = np.sum(np.sin(2 * X), axis=1) + 0.05 * rng.normal(size=n)
+
+    result = fit_tps(X, y, knots=X[::4], lambda_=0.01)
+
+    assert result["m"] == 3  # Minimal valid order for d = 4
+    assert result["fitted_values"].shape == (n,)
+    r_squared = 1 - np.sum((y - result["fitted_values"]) ** 2) / np.sum((y - np.mean(y)) ** 2)
+    assert r_squared > 0.9
 
 
 def test_select_knots_uniform():

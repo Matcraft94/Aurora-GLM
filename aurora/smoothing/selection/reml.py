@@ -11,14 +11,28 @@ Mathematical Framework
 ----------------------
 REML treats spline coefficients as random effects and estimates the smoothing
 parameter(s) by maximising the restricted (or marginal) likelihood.  For a
-single smoothing parameter lambda the REML criterion (up to constants) is
+single smoothing parameter lambda the REML criterion (up to additive constants
+in lambda), obtained by profiling out the scale parameter phi, is
 
-    -2 log(REML) = log|X'WX + lambda S| - log|X'WX| + (n - p) log(RSS)
+    -2 log(REML) = (n - M_p) log(D) + log|X'WX + lambda S|
+                   - r log(lambda) - log|S|_+
 
-where RSS is the penalised residual sum of squares.  Minimising this expression
-over lambda yields the REML-optimal smoothing parameter.
+where
 
-For *multiple* smoothing parameters the alternating scheme implemented in
+* D    = ||W^{1/2}(y - X beta_hat)||^2 + lambda beta_hat' S beta_hat
+         is the *penalised* deviance evaluated at the penalised estimate,
+* r    = rank(S) is the rank of the penalty,
+* M_p  = dim null(S) = p - r is the dimension of the penalty null space,
+* log|S|_+ is the log pseudo-determinant of S (sum of the log positive
+  eigenvalues).
+
+Note that ``r log(lambda) + log|S|_+ = log|lambda S|_+``, so the criterion can
+equivalently be written with ``-log|lambda S|_+``.  The ``-r log lambda``
+term is essential: it provides the barrier that keeps the optimum away from
+lambda = 0 (no smoothing / interpolation).
+
+For *multiple* smoothing parameters the same expression applies with
+``S_lambda = sum_j lambda_j S_j``: the alternating scheme implemented in
 ``select_multiple_smoothing_parameters_reml`` cycles through each lambda_j,
 optimising one at a time while holding the others fixed, until convergence.
 
@@ -48,6 +62,20 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 
 
+def _penalty_rank_and_log_pdet(S: np.ndarray) -> tuple[int, float]:
+    """Rank and log pseudo-determinant of a symmetric penalty matrix.
+
+    The log pseudo-determinant log|S|_+ is the sum of the log positive
+    eigenvalues; the rank is the number of positive eigenvalues (using the
+    standard relative tolerance of ``numpy.linalg.matrix_rank``).
+    """
+    eigvals = np.linalg.eigvalsh(S)
+    max_eig = float(np.max(np.abs(eigvals))) if eigvals.size else 0.0
+    tol = max_eig * max(S.shape) * np.finfo(float).eps
+    positive = eigvals[eigvals > tol]
+    return int(positive.size), float(np.sum(np.log(positive)))
+
+
 def reml_score(
     y: np.ndarray,
     X: np.ndarray,
@@ -57,10 +85,14 @@ def reml_score(
 ) -> float:
     """Compute REML score for given smoothing parameter.
 
-    The REML criterion is:
-        -2 log(REML) = log|X'WX + λS| + log|X'WX| + (n-p) log(RSS)
+    The REML criterion (Wood 2011, eq. 4; Wood 2017, §4.6), profiled over the
+    scale parameter and up to additive constants in lambda, is:
 
-    where RSS is the penalized residual sum of squares.
+        -2 log(REML) = (n - M_p) log(D) + log|X'WX + λS| - r log(λ) - log|S|_+
+
+    where D is the penalised deviance ``||W^{1/2}(y - Xβ̂)||² + λβ̂'Sβ̂``,
+    ``r = rank(S)``, ``M_p = dim null(S)``, and ``log|S|_+`` is the log
+    pseudo-determinant of S.
 
     Parameters
     ----------
@@ -82,9 +114,12 @@ def reml_score(
 
     Notes
     -----
-    The REML criterion penalizes both overfitting (via RSS) and model
+    The REML criterion penalizes both overfitting (via the deviance) and model
     complexity (via determinant terms). It is invariant to fixed effects
     and provides unbiased estimates of variance components.
+
+    The ``-r log(λ)`` term acts as a barrier preventing λ → 0 (interpolation);
+    omitting it collapses the optimum onto the lower search bound.
 
     REML is generally preferred over GCV for:
     - Multiple smoothing parameters
@@ -99,10 +134,12 @@ def reml_score(
     # Weight matrix
     if weights is None:
         W = np.eye(n)
-        np.eye(n)
     else:
         W = np.diag(weights)
-        np.diag(np.sqrt(weights))
+
+    # Penalty rank r and log pseudo-determinant log|S|_+ (constant in λ)
+    rank_S, log_pdet_S = _penalty_rank_and_log_pdet(S)
+    M_p = p - rank_S  # Dimension of the penalty null space
 
     # Penalized precision matrix
     XtWX = X.T @ W @ X
@@ -113,26 +150,23 @@ def reml_score(
         XtWy = X.T @ W @ y
         coefficients = np.linalg.solve(A, XtWy)
 
-        # Compute residual sum of squares
+        # Penalized deviance: RSS plus penalty contribution
         fitted_values = X @ coefficients
         residuals = y - fitted_values
         RSS = np.sum(weights * residuals**2 if weights is not None else residuals**2)
+        deviance = RSS + lambda_ * float(coefficients @ S @ coefficients)
+        # Guard against exact interpolation (deviance = 0)
+        deviance = max(deviance, np.finfo(float).tiny)
 
-        # Log determinants
+        # Log determinant of the penalized precision
         # log|A| = log|X'WX + λS|
         sign_A, logdet_A = np.linalg.slogdet(A)
         if sign_A <= 0:
             return np.inf
 
-        # log|X'WX|
-        sign_XtWX, logdet_XtWX = np.linalg.slogdet(XtWX)
-        if sign_XtWX <= 0:
-            return np.inf
-
-        # REML score
-        # -2 log(REML) = log|A| + log|X'WX| + (n-p) log(RSS/(n-p))
-        # Simplified: log|A| + log|X'WX| + (n-p) log(RSS)
-        reml = logdet_A - logdet_XtWX + (n - p) * np.log(RSS)
+        # REML score (Wood 2011, eq. 4; Wood 2017, §4.6)
+        # -2 log(REML) = (n - M_p) log D + log|A| - r log λ - log|S|_+
+        reml = (n - M_p) * np.log(deviance) + logdet_A - rank_S * np.log(lambda_) - log_pdet_S
 
         return float(reml)
 
@@ -169,8 +203,9 @@ def select_smoothing_parameter_reml(
         Maximum smoothing parameter to search.
     method : {'brent', 'golden'}, default='brent'
         Optimization method:
-        - 'brent': Brent's method (recommended)
-        - 'golden': Golden section search
+        - 'brent': Bounded Brent search on the log(λ) interval
+          (``scipy.optimize.minimize_scalar(method='bounded')``; recommended)
+        - 'golden': Golden section search over a bracket spanning the bounds
 
     Returns
     -------
@@ -235,7 +270,6 @@ def select_smoothing_parameter_reml(
     log_lambda_min = np.log(lambda_min)
     log_lambda_max = np.log(lambda_max)
 
-    # Use 'bounded' method when bounds are specified
     if method == "golden":
         # Golden section needs bracket, not bounds
         result = minimize_scalar(
@@ -247,13 +281,15 @@ def select_smoothing_parameter_reml(
             ),
             method="golden",
         )
-    else:
-        # Use bounded method for Brent
+    elif method == "brent":
+        # Bounded Brent search restricted to the log(λ) interval
         result = minimize_scalar(
             objective,
             bounds=(log_lambda_min, log_lambda_max),
             method="bounded",
         )
+    else:
+        raise ValueError(f"method must be 'brent' or 'golden', got '{method}'")
 
     if not result.success:
         raise RuntimeError(f"REML optimization failed: {result.message}")

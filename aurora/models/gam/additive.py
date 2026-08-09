@@ -134,23 +134,16 @@ class AdditiveGAMResult:
 
         n_new = X_new_arr.shape[0]
 
-        # Start with parametric terms
-        if len(self.parametric_terms) > 0:
-            # Extract parametric columns (including intercept)
-            X_param_new = np.column_stack(
-                [
-                    np.ones(n_new),  # Intercept
-                    *[
-                        X_new_arr[:, t.variable]
-                        if isinstance(t.variable, int)
-                        else X_new_arr[:, t.variable]
-                        for t in self.parametric_terms
-                    ],
-                ]
-            )
-            y_pred = X_param_new @ self.parametric_coef
-        else:
-            y_pred = np.zeros(n_new)
+        # Start with parametric terms. The intercept is always part of the
+        # parametric coefficient vector (it is always included at fit time),
+        # so it must be included here even with no parametric terms.
+        X_param_new = np.column_stack(
+            [
+                np.ones(n_new),  # Intercept
+                *[X_new_arr[:, t.variable] for t in self.parametric_terms],
+            ]
+        )
+        y_pred = X_param_new @ self.parametric_coef
 
         # Add smooth terms
         for _i, term in enumerate(self.smooth_terms):
@@ -397,6 +390,34 @@ def fit_additive_gam(
         smooth_design_matrices[term_name] = X_smooth
         smooth_penalties[term_name] = S_smooth
 
+    # Absorb sum-to-zero identifiability constraints by reparametrization
+    # (Wood 2017, §4.3; the method used by mgcv).  Each smooth basis spans
+    # the constant function, so the design [1 | X_s1 | X_s2 | ...] is
+    # rank-deficient and X'WX + λS is singular for every λ.  For each smooth
+    # j we reparametrise with Z_j spanning null(1'X_j):
+    #     X_j <- X_j Z_j,   S_j <- Z_j' S_j Z_j
+    # The constrained fit automatically satisfies sum_i f_j(x_ij) = 0, and
+    # the fitted system has full rank.  Coefficients are mapped back to the
+    # original basis (β_j = Z_j γ_j) after fitting, so predictions are
+    # unaffected.
+    smooth_Z = {}
+    constrained_design_matrices = {}
+    constrained_penalties = {}
+
+    for term in smooth_terms:
+        term_name = f"s({term.variable})"
+        X_j = smooth_design_matrices[term_name]
+        S_j = smooth_penalties[term_name]
+
+        # Constraint row vector C_j = 1'X_j (column sums of the basis)
+        C_j = X_j.sum(axis=0)
+        Q, _ = np.linalg.qr(C_j[:, None], mode="complete")
+        Z_j = Q[:, 1:]
+
+        smooth_Z[term_name] = Z_j
+        constrained_design_matrices[term_name] = X_j @ Z_j
+        constrained_penalties[term_name] = Z_j.T @ S_j @ Z_j
+
     # Build parametric design matrix (intercept + parametric terms)
     X_parametric_list = [np.ones(n)]  # Intercept
 
@@ -410,8 +431,9 @@ def fit_additive_gam(
 
     X_parametric = np.column_stack(X_parametric_list)
 
-    # Assemble full design matrix: [X_parametric | X_smooth1 | X_smooth2 | ...]
-    design_matrices = [X_parametric] + list(smooth_design_matrices.values())
+    # Assemble full design matrix: [X_parametric | X_s1 Z_1 | X_s2 Z_2 | ...]
+    # (constrained smooth bases; see constraint absorption above)
+    design_matrices = [X_parametric] + list(constrained_design_matrices.values())
     X_full = np.column_stack(design_matrices)
 
     # Build block-diagonal penalty matrix
@@ -421,7 +443,7 @@ def fit_additive_gam(
 
     for term in smooth_terms:
         term_name = f"s({term.variable})"
-        penalty_blocks.append(smooth_penalties[term_name])
+        penalty_blocks.append(constrained_penalties[term_name])
 
     # Create block-diagonal penalty matrix
     from scipy.linalg import block_diag
@@ -490,9 +512,11 @@ def fit_additive_gam(
 
     for term in smooth_terms:
         term_name = f"s({term.variable})"
-        n_basis = smooth_design_matrices[term_name].shape[1]
+        # Size of the constrained (reparametrised) smooth block
+        n_basis_c = smooth_Z[term_name].shape[1]
 
-        smooth_coef[term_name] = coefficients[idx : idx + n_basis]
+        # Map constrained coefficients back to the original basis: β_j = Z_j γ_j
+        smooth_coef[term_name] = smooth_Z[term_name] @ coefficients[idx : idx + n_basis_c]
 
         # All smooths use same lambda
         lambda_values[term_name] = lambda_opt
@@ -502,17 +526,17 @@ def fit_additive_gam(
         try:
             if H is not None:
                 # Get columns corresponding to this smooth term
-                X_j = X_full[:, idx : idx + n_basis]
+                X_j = X_full[:, idx : idx + n_basis_c]
                 # EDF for this term is trace of its influence
-                H_j = X_j @ A_inv[idx : idx + n_basis, :] @ X_full.T @ W
+                H_j = X_j @ A_inv[idx : idx + n_basis_c, :] @ X_full.T @ W
                 edf_j = float(np.trace(H_j))
 
-                # Sanity check: EDF should be between 0 and n_basis
-                if not (0 <= edf_j <= n_basis + 1):
+                # Sanity check: EDF should be between 0 and n_basis_c
+                if not (0 <= edf_j <= n_basis_c + 1):
                     # Fall back to simple division
                     edf_j = max(
                         0.0,
-                        (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms),
+                        (selection_result.get("edf", n_basis_c) - n_parametric) / len(smooth_terms),
                     )
 
                 edf_values[term_name] = edf_j
@@ -520,16 +544,16 @@ def fit_additive_gam(
                 # Fallback: equal division (subtract parametric)
                 edf_values[term_name] = max(
                     0.0,
-                    (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms),
+                    (selection_result.get("edf", n_basis_c) - n_parametric) / len(smooth_terms),
                 )
         except (np.linalg.LinAlgError, ValueError):
             # Numerical issues - use fallback
             edf_values[term_name] = max(
                 0.0,
-                (selection_result.get("edf", n_basis) - n_parametric) / len(smooth_terms),
+                (selection_result.get("edf", n_basis_c) - n_parametric) / len(smooth_terms),
             )
 
-        idx += n_basis
+        idx += n_basis_c
 
     # Compute residuals
     residuals = y_arr - fitted_values

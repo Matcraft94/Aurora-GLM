@@ -111,7 +111,6 @@ class CubicSplineBasis:
             raise ValueError("x must be 1-dimensional")
 
         n = x_arr.shape[0]
-        k = len(self.knots_)
 
         # All knots including boundaries
         # Convert to numpy first, then to target backend
@@ -123,68 +122,36 @@ class CubicSplineBasis:
         # Initialize basis matrix
         B = xp.zeros((n, self.n_basis_), dtype=x_arr.dtype)
 
-        # Compute basis functions using the natural cubic spline formulation
-        # This implementation uses the truncated power basis representation
+        # Natural cubic spline basis (Hastie, Tibshirani & Friedman 2009,
+        # ESL eq. 5.4-5.5).  With all K knots xi_1 < ... < xi_K (boundary
+        # knots included):
+        #   N_1(x) = 1,   N_2(x) = x,
+        #   N_{j+2}(x) = d_j(x) - d_{K-1}(x),   j = 1, ..., K-2,
+        #   d_j(x) = [(x - xi_j)_+^3 - (x - xi_K)_+^3] / (xi_K - xi_j).
+        # Every N_j has zero second derivative at both boundary knots, so
+        # the natural boundary conditions f''(xi_1) = f''(xi_K) = 0 hold
+        # exactly for any coefficient vector.
 
         # Linear terms (first two basis functions)
         B[:, 0] = xp.ones(n)
         B[:, 1] = x_arr
 
-        # Cubic terms with natural boundary conditions
-        for j in range(k):
-            knot = all_knots[j + 1]  # Interior knot j
-            # Truncated power basis: (x - knot)_+^3
+        n_total = len(all_knots_np)  # K: interior knots + 2 boundary knots
+        xi_upper = all_knots[n_total - 1]  # xi_K
+
+        def _truncated_cube(knot: Any) -> Any:
             diff = x_arr - knot
-            B[:, j + 2] = xp.where(diff > 0, diff**3, xp.zeros_like(diff))
+            return xp.where(diff > 0, diff**3, xp.zeros_like(diff))
 
-        # Apply natural boundary conditions
-        # This transforms the truncated power basis into natural cubic splines
-        B = self._apply_natural_constraints(B, all_knots, xp)
+        cube_upper = _truncated_cube(xi_upper)
 
-        return B
+        def _d(knot: Any) -> Any:
+            return (_truncated_cube(knot) - cube_upper) / (xi_upper - knot)
 
-    def _apply_natural_constraints(self, B: Any, all_knots: Any, xp: Any) -> Any:
-        """Apply natural boundary conditions to transform the basis matrix.
+        d_penultimate = _d(all_knots[n_total - 2])  # d_{K-1}
 
-        Natural cubic splines have zero second derivative at both boundary
-        knots.  This method enforces the condition by subtracting appropriate
-        linear combinations of the truncated power terms.
-
-        Parameters
-        ----------
-        B : array, shape (n_samples, n_basis)
-            Basis matrix with raw truncated-power columns (modified in place).
-        all_knots : array
-            Full knot vector including boundary knots.
-        xp : module
-            Array namespace for backend-agnostic operations.
-
-        Returns
-        -------
-        B : array, shape (n_samples, n_basis)
-            Basis matrix after applying natural boundary constraints.
-        """
-        k = len(self.knots_)
-        if k < 2:
-            return B
-
-        # Get boundary values
-        a = all_knots[0]  # Lower boundary
-        b = all_knots[-1]  # Upper boundary
-
-        # For each interior knot, adjust to satisfy natural conditions
-        for j in range(k):
-            knot = all_knots[j + 1]
-
-            # Compute adjustment factors
-            d_numer = (b - knot) ** 3 - (b - a) ** 3
-            d_denom = b - a
-
-            if abs(d_denom) > 1e-10:
-                d = d_numer / d_denom
-
-                # Apply correction
-                B[:, j + 2] = B[:, j + 2] - d * B[:, 1] / 3.0
+        for j in range(n_total - 2):
+            B[:, j + 2] = _d(all_knots[j]) - d_penultimate
 
         return B
 
@@ -203,8 +170,19 @@ class CubicSplineBasis:
         For natural cubic splines, the penalty can be computed analytically.
         The first two basis functions (constant and linear) receive zero penalty
         since their second derivatives are zero.
+
+        For the ESL (5.4-5.5) basis N_{j+2} = d_j - d_{K-1} with
+        d_j(x) = [(x - xi_j)_+^3 - (x - xi_K)_+^3] / (xi_K - xi_j), the second
+        derivative is d_j''(x) = 6[(x - xi_j)_+ - (x - xi_K)_+]/(xi_K - xi_j).
+        Since (x - xi_K)_+ = 0 on [xi_1, xi_K] and every N_j'' vanishes
+        outside the boundary knots, the integral over the real line reduces to
+
+            ∫ d_i'' d_j'' dx = J(xi_i, xi_j) / [(xi_K - xi_i)(xi_K - xi_j)]
+
+        with J(t, s) = ∫ 6(x - t)_+ 6(x - s)_+ dx, and
+
+            S[i+2, j+2] = D(i,j) - D(i,K-1) - D(K-1,j) + D(K-1,K-1).
         """
-        len(self.knots_)
         n_basis = self.n_basis_
 
         # Initialize penalty matrix
@@ -217,35 +195,40 @@ class CubicSplineBasis:
         all_knots = np.concatenate(
             [[self.boundary_knots_[0]], self.knots_, [self.boundary_knots_[1]]]
         )
+        n_total = len(all_knots)  # K
+        upper = all_knots[-1]  # xi_K
+        km1 = n_total - 2  # Index of xi_{K-1}
 
-        # For cubic terms
-        for i in range(2, n_basis):
-            for j in range(i, n_basis):
-                # Integrate the product of second derivatives
-                # For truncated power basis (x - t)_+^3, second derivative is 6(x - t)_+
-                penalty_ij = self._integrate_second_derivatives(i, j, all_knots)
-                S[i, j] = penalty_ij
-                S[j, i] = penalty_ij  # Symmetric
+        def _D(p: int, q: int) -> float:
+            """Integral of d_p''(x) d_q''(x) over the real line."""
+            return self._integrate_second_derivatives(all_knots[p], all_knots[q], upper) / (
+                (upper - all_knots[p]) * (upper - all_knots[q])
+            )
+
+        # For cubic terms: S[i+2, j+2] = D(i,j) - D(i,K-1) - D(K-1,j) + D(K-1,K-1)
+        for i in range(n_total - 2):
+            for j in range(i, n_total - 2):
+                penalty_ij = _D(i, j) - _D(i, km1) - _D(km1, j) + _D(km1, km1)
+                S[i + 2, j + 2] = penalty_ij
+                S[j + 2, i + 2] = penalty_ij  # Symmetric
 
         return S
 
-    def _integrate_second_derivatives(self, i: int, j: int, all_knots: np.ndarray) -> float:
-        """Compute the penalty integral for a pair of cubic basis functions.
+    def _integrate_second_derivatives(self, t_i: float, t_j: float, upper: float) -> float:
+        """Integrate the product of two truncated-power second derivatives.
 
-        Evaluates  integral f_i''(x) f_j''(x) dx  analytically, where each
-        basis function is a truncated power term  b(x) = (x - t)_+^3  with
-        second derivative  b''(x) = 6(x - t)_+.
+        Evaluates  J(t_i, t_j) = ∫ 6(x - t_i)_+ 6(x - t_j)_+ dx  analytically
+        over [max(t_i, t_j), upper] (the integrand is zero below both knots).
 
         Parameters
         ----------
-        i : int
-            Index of the first basis function (offset by 2 from the linear
-            terms).
-        j : int
-            Index of the second basis function (offset by 2 from the linear
-            terms).
-        all_knots : ndarray
-            Full knot vector including boundary knots.
+        t_i : float
+            Knot of the first truncated power term b(x) = (x - t_i)_+^3,
+            whose second derivative is 6(x - t_i)_+.
+        t_j : float
+            Knot of the second truncated power term.
+        upper : float
+            Upper integration limit (upper boundary knot).
 
         Returns
         -------
@@ -253,13 +236,8 @@ class CubicSplineBasis:
             Value of the integrated product of second derivatives.
             Returns 0.0 when the integration interval is degenerate.
         """
-        # Get corresponding knots (offset by 2 because first two basis are linear)
-        knot_i = all_knots[i - 1]
-        knot_j = all_knots[j - 1]
-
-        # Integrate from max(knot_i, knot_j) to upper boundary
-        lower = max(knot_i, knot_j)
-        upper = all_knots[-1]
+        # Integrate from max(t_i, t_j) to the upper boundary
+        lower = max(t_i, t_j)
 
         if lower >= upper:
             return 0.0
@@ -271,7 +249,7 @@ class CubicSplineBasis:
         # Integral: x³/3 - (t_i+t_j)x²/2 + t_i*t_j*x
 
         def antiderivative(x: float) -> float:
-            return x**3 / 3.0 - (knot_i + knot_j) * x**2 / 2.0 + knot_i * knot_j * x
+            return x**3 / 3.0 - (t_i + t_j) * x**2 / 2.0 + t_i * t_j * x
 
         integral = antiderivative(upper) - antiderivative(lower)
         return 36.0 * integral

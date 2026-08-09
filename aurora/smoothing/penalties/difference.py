@@ -138,11 +138,18 @@ def weighted_difference_penalty(
 
     Notes
     -----
-    For order=2 and non-uniform knots, the penalty approximates:
-        Σ [(β_{i+2} - β_{i+1})/h_{i+1} - (β_{i+1} - β_i)/h_i]²
-    where h_i = knots[i+1] - knots[i]
+    For order=1 the rows of the difference matrix are the divided
+    differences ``(β_{i+1} - β_i) / h_i`` with ``h_i = knots[i+1] - knots[i]``.
+    For order=2 the penalty is
 
-    This gives better approximation to ∫[f''(x)]² dx for irregular knots.
+        Σ_i [(β_{i+2} - β_{i+1})/h_{i+1} - (β_{i+1} - β_i)/h_i]²
+
+    (plain differences of the weighted first differences).  For order > 2,
+    plain differences are applied on top of the order-2 divided differences.
+
+    For uniform spacing h, the order-2 penalty reduces to h^{-2} D₂'D₂,
+    i.e. the unweighted penalty up to a constant factor (absorbed into the
+    smoothing parameter).
 
     Examples
     --------
@@ -171,20 +178,20 @@ def weighted_difference_penalty(
     if np.any(h <= 0):
         raise ValueError("knots must be strictly increasing")
 
-    # Create weighted difference matrix
-    # For simplicity, use uniform weights initially
-    # A more sophisticated version would weight by h_i^{-order}
+    # Weighted divided differences using the actual knot spacings h_i.
+    # Order 1: row i is (β_{i+1} - β_i) / h_i.
+    # Order 2: row i is (β_{i+2} - β_{i+1})/h_{i+1} - (β_{i+1} - β_i)/h_i,
+    # i.e. plain differences of the weighted first differences.
+    # Higher orders apply plain differences on top of the order-2 ones.
     D = np.eye(n_basis, dtype=np.float64)
 
-    for _ in range(order):
+    for o in range(order):
         D = np.diff(D, axis=0)
+        if o == 0:
+            # Weight first differences by the inverse knot spacing
+            D = D / h[: D.shape[0], None]
 
-    # Weight by average spacing (simplified)
-    # For proper implementation, would need to weight each row appropriately
-    avg_spacing = np.mean(h)
-    weight = 1.0 / avg_spacing**order
-
-    S = weight * (D.T @ D)
+    S = D.T @ D
 
     return S
 

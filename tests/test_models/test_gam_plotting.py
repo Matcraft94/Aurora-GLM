@@ -367,3 +367,56 @@ def test_plot_smooth_handles_singular_precision():
 
     assert fig is not None
     plt.close(fig)
+
+
+def test_plot_smooth_ci_uses_edf_corrected_scale():
+    """Confidence bands must use sigma^2 = RSS / (n - edf), not np.var(residuals).
+
+    Recomputes the Bayesian band (Wood 2017, §6.10) independently and checks
+    the plotted band matches, and that it is wider than the band implied by
+    the naive n-divisor variance estimate.
+    """
+    rng = np.random.default_rng(42)
+    n = 100
+
+    x = np.linspace(0, 10, n)
+    y = np.sin(x) + 0.1 * rng.normal(size=n)
+
+    result = fit_gam(x, y, n_basis=15)
+    n_points = 100
+    fig = plot_smooth(result, n_points=n_points)
+
+    ax = fig.axes[0]
+    # The confidence band is drawn with fill_between -> one PolyCollection
+    assert len(ax.collections) >= 1
+    vertices = ax.collections[0].get_paths()[0].vertices
+    plt.close(fig)
+
+    # fill_between path layout (2*n_points + 3 vertices):
+    # upper[0], lower edge (x ascending), upper[last], upper edge (x
+    # descending), closing vertex
+    lower = vertices[1 : n_points + 1, 1]
+    upper = vertices[n_points + 2 : 2 * n_points + 2, 1][::-1]
+    band_width = upper - lower
+
+    # Independent recomputation of the expected band
+    x_grid = np.linspace(np.min(result.x), np.max(result.x), n_points)
+    basis = result.basis
+    B_grid = basis.basis_matrix(x_grid)
+    B_train = basis.basis_matrix(result.x)
+    S = basis.penalty_matrix(order=2)
+    precision_inv = np.linalg.inv(B_train.T @ B_train + result.lambda_ * S)
+
+    rss = float(np.sum(result.residuals**2))
+    sigma2_edf = rss / (n - result.edf)
+    var_grid = sigma2_edf * np.einsum("ij,jk,ik->i", B_grid, precision_inv, B_grid)
+
+    from scipy.stats import norm
+
+    z = norm.ppf(0.975)
+    expected_width = 2 * z * np.sqrt(var_grid)
+    np.testing.assert_allclose(band_width, expected_width, rtol=1e-10)
+
+    # The edf-corrected scale is strictly larger than the naive n-divisor one
+    sigma2_naive = float(np.var(result.residuals))
+    assert sigma2_edf > sigma2_naive

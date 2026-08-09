@@ -97,10 +97,16 @@ def plot_smooth(
 
     Notes
     -----
-    Confidence bands are computed using the Bayesian posterior covariance:
-        Var(f(x)) = B(x) @ Cov(β) @ B(x).T
+    Confidence bands use the **Bayesian** posterior covariance of the penalized
+    smooth, Vp (Wood 2017, §6.10):
 
-    where B(x) is the basis matrix and Cov(β) = σ² (X'WX + λS)^(-1) X'WX (X'WX + λS)^(-1).
+        Var(f(x)) = σ̂² · B(x) (X'X + λS)⁻¹ B(x)'
+
+    where B(x) is the basis matrix and σ̂² = RSS / (n - edf) is the
+    scale estimate corrected for the effective degrees of freedom. This is
+    the Bayesian covariance (the frequentist Ve would insert an extra
+    X'WX factor between the inverses); Bayesian bands for penalized splines
+    have good across-the-function frequentist coverage (Marra & Wood 2012).
 
     Partial residuals for term j are:
         r_j = y - f_{-j}(x)
@@ -169,10 +175,15 @@ def plot_smooth(
     f_grid = B_grid @ coef
 
     # Compute confidence bands
-    # For now, use simple approach: Var(f) ≈ σ² * B @ (X'X + λS)^(-1) @ B'
-    # This is approximate; exact requires full covariance matrix
+    # Bayesian posterior covariance of the smooth (Wood 2017, §6.10):
+    #     Var(f(x)) = σ̂² · B(x) (X'X + λS)⁻¹ B(x)'
+    # with σ̂² estimated as RSS / (n - edf), i.e. corrected for the effective
+    # degrees of freedom absorbed by the fit (not the naive n divisor).
 
-    residual_var = np.var(result.residuals)
+    residuals = np.asarray(result.residuals, dtype=np.float64)
+    n_obs = residuals.size
+    edf = result.total_edf_ if is_additive else result.edf
+    residual_var = float(residuals @ residuals) / max(n_obs - edf, 1.0)
 
     # Build X'X + λS for this term
     # Reconstruct design matrix and penalty matrix

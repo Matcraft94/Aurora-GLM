@@ -351,8 +351,10 @@ class PSplineBasis:
         rss = np.sum(weights * residuals**2)
         sigma2 = rss / (n - edf) if n > edf else rss / n
 
-        # GCV score for reference
-        gcv = n * rss / (n - edf) ** 2 if n > edf else np.inf
+        # GCV score for reference (effective sample size excludes
+        # zero-weight observations, Wood 2017 §4.5)
+        n_eff = float(np.sum(weights > 0))
+        gcv = n_eff * rss / (n_eff - edf) ** 2 if n_eff > edf else np.inf
 
         return PSplineResult(
             coef_=coef,
@@ -377,7 +379,11 @@ class PSplineBasis:
     ) -> float:
         """Select the smoothing parameter by minimising the GCV score.
 
-        GCV(lambda) = n * RSS / (n - edf)^2
+        GCV(lambda) = n_eff * RSS / (n_eff - edf)^2
+
+        where n_eff = #{i : w_i > 0} is the effective sample size
+        (Wood 2017, §4.5): zero-weight observations contribute neither to
+        RSS nor to edf and must not be counted.
 
         GCV is an approximation to leave-one-out cross-validation that avoids
         n separate fits.  Optimisation is performed on the log(lambda) scale
@@ -401,7 +407,8 @@ class PSplineBasis:
         lambda_opt : float
             Smoothing parameter that minimises the GCV score.
         """
-        n = len(y)
+        # Effective sample size (zero-weight observations contribute nothing)
+        n_eff = float(np.sum(weights > 0))
         W = np.diag(weights)
         BtW = B.T @ W
         BtWB = BtW @ B
@@ -418,11 +425,11 @@ class PSplineBasis:
                 H = B @ P_inv @ BtW
                 edf = np.trace(H)
 
-                if edf >= n:
+                if edf >= n_eff:
                     return np.inf
 
                 rss = np.sum(weights * (y - fitted) ** 2)
-                return n * rss / (n - edf) ** 2
+                return n_eff * rss / (n_eff - edf) ** 2
             except np.linalg.LinAlgError:
                 return np.inf
 
@@ -505,9 +512,17 @@ class PSplineBasis:
         """Select the smoothing parameter by maximising the REML likelihood.
 
         Minimises the negative REML criterion over lambda on the log scale.
-        REML provides unbiased variance-component estimation and is generally
-        more stable than GCV for small samples or when the effective degrees
-        of freedom are large relative to n.
+        Uses the profiled REML criterion of Wood (2011, eq. 4; 2017, §4.6)
+        implemented in :func:`aurora.smoothing.selection.reml.reml_score`:
+
+            -2 log(REML) = (n - M_p) log(D) + log|B'WB + λS|
+                           - r log(λ) - log|S|_+
+
+        with D the penalised deviance, r = rank(S), M_p = dim null(S) and
+        log|S|_+ the log pseudo-determinant.  REML provides unbiased
+        variance-component estimation and is generally more stable than GCV
+        for small samples or when the effective degrees of freedom are large
+        relative to n.
 
         Parameters
         ----------
@@ -527,40 +542,10 @@ class PSplineBasis:
         lambda_opt : float
             Smoothing parameter that maximises the REML likelihood.
         """
-        n, k = B.shape
-        W = np.diag(weights)
-        BtW = B.T @ W
-        BtWB = BtW @ B
-        BtWy = BtW @ y
+        from ..selection.reml import reml_score
 
         def neg_reml(log_lambda: float) -> float:
-            lam = np.exp(log_lambda)
-            try:
-                # Precision matrix
-                P = BtWB + lam * S
-
-                # Coefficients
-                coef = np.linalg.solve(P, BtWy)
-                fitted = B @ coef
-
-                # RSS
-                rss = np.sum(weights * (y - fitted) ** 2)
-
-                # Log determinants
-                sign_P, logdet_P = np.linalg.slogdet(P)
-                sign_BtWB, logdet_BtWB = np.linalg.slogdet(BtWB + 1e-10 * np.eye(k))
-
-                if sign_P <= 0 or sign_BtWB <= 0:
-                    return np.inf
-
-                # REML log-likelihood (up to constants)
-                # -2 * REML ∝ (n-k)*log(σ²) + log|P| - log|B'WB| + RSS/σ²
-                # For fixed σ², minimize: log|P| + (n-k)*log(RSS)
-                reml_crit = logdet_P + (n - k) * np.log(rss + 1e-10)
-
-                return reml_crit
-            except np.linalg.LinAlgError:
-                return np.inf
+            return reml_score(y, B, S, np.exp(log_lambda), weights=weights)
 
         log_range = (np.log(lambda_range[0]), np.log(lambda_range[1]))
         result = minimize_scalar(neg_reml, bounds=log_range, method="bounded")

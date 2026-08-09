@@ -461,3 +461,104 @@ def test_reml_stability_extreme_lambda():
     # Very large lambda
     reml_large = reml_score(y, X, S, lambda_=1e10)
     assert np.isfinite(reml_large)
+
+
+def test_reml_barrier_at_zero_lambda():
+    """The -r log(lambda) term must create a barrier as lambda -> 0.
+
+    Without this term the old criterion decreased monotonically towards
+    lambda = 0 (interpolation).  With the correct criterion (Wood 2011,
+    eq. 4) the score at a tiny lambda exceeds the score at the optimum.
+    """
+    rng = np.random.default_rng(42)
+    n = 150
+
+    x = np.linspace(0, 1, n)
+    y = np.sin(2 * np.pi * x) + 0.2 * rng.normal(size=n)
+
+    knots = BSplineBasis.create_knots(x, n_basis=15, degree=3)
+    basis = BSplineBasis(knots, degree=3)
+    X = basis.basis_matrix(x)
+    S = basis.penalty_matrix(order=2)
+
+    result = select_smoothing_parameter_reml(y, X, S)
+    lam_opt = result["lambda_opt"]
+
+    score_opt = reml_score(y, X, S, lam_opt)
+    score_tiny = reml_score(y, X, S, 1e-8)
+    score_huge = reml_score(y, X, S, 1e5)
+
+    # Interior minimum: both extremes are worse than the optimum
+    assert score_tiny > score_opt
+    assert score_huge > score_opt
+
+
+def test_reml_lambda_is_interior_and_smooths():
+    """REML optimum must be interior and produce genuine smoothing.
+
+    Setup from the audit: n = 150, sinusoid plus noise, 15 basis functions.
+    The old (incorrect) criterion selected lambda at the lower bound and
+    interpolated the noise; the correct criterion must:
+    - select a lambda away from both search bounds,
+    - recover the smooth curve well below the noise level,
+    - yield effective degrees of freedom well below the basis size.
+    """
+    rng = np.random.default_rng(42)
+    n = 150
+
+    x = np.linspace(0, 1, n)
+    y_true = np.sin(2 * np.pi * x)
+    noise_sd = 0.2
+    y = y_true + noise_sd * rng.normal(size=n)
+
+    knots = BSplineBasis.create_knots(x, n_basis=15, degree=3)
+    basis = BSplineBasis(knots, degree=3)
+    X = basis.basis_matrix(x)
+    S = basis.penalty_matrix(order=2)
+
+    lambda_min, lambda_max = 1e-6, 1e6
+    result = select_smoothing_parameter_reml(y, X, S, lambda_min=lambda_min, lambda_max=lambda_max)
+
+    # Lambda strictly interior (orders of magnitude from both bounds)
+    assert lambda_min * 100 < result["lambda_opt"] < lambda_max / 100
+
+    # Smoothing is effective: EDF well below the number of basis functions
+    assert result["edf"] < X.shape[1] - 2
+
+    # The fit recovers the curve: error vs the true function well below
+    # the noise variance, and clearly better than interpolation (lambda -> 0)
+    mse_smooth = np.mean((result["fitted_values"] - y_true) ** 2)
+    assert mse_smooth < noise_sd**2 / 4
+
+    # Interpolating fit (tiny lambda) tracks noise: its error vs the truth
+    # must be worse than the smoothed fit
+    coef_interp = np.linalg.solve(X.T @ X + 1e-10 * S, X.T @ y)
+    mse_interp = np.mean((X @ coef_interp - y_true) ** 2)
+    assert mse_smooth < mse_interp
+
+    # High R^2 against the true curve
+    r2 = 1 - np.sum((result["fitted_values"] - y_true) ** 2) / np.sum((y_true - y_true.mean()) ** 2)
+    assert r2 > 0.95
+
+
+def test_reml_pspline_route_agrees():
+    """The P-spline REML route must use the same corrected criterion."""
+    from aurora.smoothing.splines.pspline import PSplineBasis
+
+    rng = np.random.default_rng(42)
+    n = 150
+
+    x = np.linspace(0, 1, n)
+    y_true = np.sin(2 * np.pi * x)
+    y = y_true + 0.2 * rng.normal(size=n)
+
+    basis = PSplineBasis(n_basis=15, degree=3, penalty_order=2)
+    result = basis.fit(x, y, lambda_="reml", lambda_range=(1e-6, 1e6))
+
+    # Interior lambda
+    assert 1e-4 < result.lambda_ < 1e4
+
+    # Effective smoothing and good recovery
+    assert result.edf_ < 15 - 2
+    mse = np.mean((result.fitted_values_ - y_true) ** 2)
+    assert mse < 0.2**2 / 4

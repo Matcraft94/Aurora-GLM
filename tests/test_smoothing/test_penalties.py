@@ -315,3 +315,28 @@ def test_penalty_matrices_are_positive_semidefinite():
         eigenvalues = np.linalg.eigvals(S)
         # All eigenvalues should be non-negative (allowing small numerical error)
         assert np.all(eigenvalues >= -1e-10)
+
+
+def test_weighted_difference_penalty_exact_formula():
+    """Weighted penalty must use the actual per-interval spacings h_i.
+
+    For order=2 the difference matrix rows must be the divided differences
+    (β_{i+2} - β_{i+1})/h_{i+1} - (β_{i+1} - β_i)/h_i, not plain
+    differences scaled by an average spacing.
+    """
+    knots = np.array([0.0, 0.1, 0.2, 0.4, 0.7, 1.0, 1.5])
+    n_basis = 5
+    S = weighted_difference_penalty(n_basis, knots, order=2)
+
+    h = np.diff(knots[: n_basis + 2])
+    D1 = np.diff(np.eye(n_basis), axis=0) / h[: n_basis - 1, None]
+    D2 = np.diff(D1, axis=0)
+
+    np.testing.assert_allclose(S, D2.T @ D2, rtol=1e-12)
+
+    # For uniform spacing the result is h^{-2} times the unweighted penalty
+    knots_u = np.linspace(0, 1, 8)
+    S_u = weighted_difference_penalty(6, knots_u, order=2)
+    S_plain = difference_penalty(6, order=2)
+    h_u = knots_u[1] - knots_u[0]
+    np.testing.assert_allclose(S_u, S_plain / h_u**2, rtol=1e-12)

@@ -234,3 +234,72 @@ def test_cubic_basis_extrapolation():
     # Should not raise, and should return reasonable values
     assert B.shape == (2, 5)
     assert np.all(np.isfinite(B))
+
+
+def test_cubic_basis_natural_boundary_conditions():
+    """Natural cubic basis must have zero second derivative at both boundaries.
+
+    Regression test: the old truncated-power basis with a linear-column
+    correction could not enforce f''(b) = 0.  The ESL (eq. 5.4-5.5) basis
+    N_{k+2}(x) = d_k(x) - d_{K-1}(x) satisfies f''(xi_1) = f''(xi_K) = 0
+    exactly for any coefficient vector.
+    """
+    rng = np.random.default_rng(3)
+    knots = np.array([0.25, 0.5, 0.75])
+    basis = CubicSplineBasis(knots, boundary_knots=(0.0, 1.0))
+
+    beta = rng.normal(size=basis.n_basis_)
+
+    h = 1e-4
+    for xb in (0.0, 1.0):
+        # Second derivative at the boundary via one-sided finite difference
+        # from inside the domain
+        f_pp = (
+            (
+                basis.basis_matrix(np.array([xb]))[0]
+                - 2 * basis.basis_matrix(np.array([xb + h]))[0]
+                + basis.basis_matrix(np.array([xb + 2 * h]))[0]
+            )
+            / h**2
+            @ beta
+        )
+        # f'' is piecewise linear and exactly 0 at the boundary; the
+        # one-sided difference picks up O(h) error
+        assert abs(f_pp) < 1e-2
+
+    # Analytic check: second derivative of each basis function at the
+    # boundaries is exactly zero.  For N_{j+2} = d_j - d_{K-1},
+    # N''(a) = 0 (all truncated powers vanish below their knots) and
+    # N''(b) = 6 - 6 = 0.
+    a, b = basis.boundary_knots_
+    all_knots = np.concatenate([[a], basis.knots_, [b]])
+    K = len(all_knots)
+
+    def d_pp(x, knot):
+        return 6.0 * (max(x - knot, 0.0) - max(x - all_knots[-1], 0.0)) / (all_knots[-1] - knot)
+
+    for xb in (a, b):
+        for j in range(K - 2):
+            n_pp = d_pp(xb, all_knots[j]) - d_pp(xb, all_knots[K - 2])
+            assert abs(n_pp) < 1e-12
+
+
+def test_cubic_basis_penalty_matches_numeric_integral():
+    """beta' S beta must equal the integrated squared second derivative."""
+    rng = np.random.default_rng(5)
+    knots = np.array([0.2, 0.4, 0.6, 0.8])
+    basis = CubicSplineBasis(knots, boundary_knots=(0.0, 1.0))
+
+    beta = rng.normal(size=basis.n_basis_)
+    S = basis.penalty_matrix()
+
+    # Numeric integral of (f'')^2 over [0, 1] via finite differences
+    xs = np.linspace(0.0, 1.0, 20001)
+    h = 1e-4
+    f_pp = (
+        (basis.basis_matrix(xs + h) - 2 * basis.basis_matrix(xs) + basis.basis_matrix(xs - h))
+        / h**2
+    ) @ beta
+    numeric = np.trapezoid(f_pp**2, xs)
+
+    np.testing.assert_allclose(beta @ S @ beta, numeric, rtol=1e-6)

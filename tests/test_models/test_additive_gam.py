@@ -559,3 +559,52 @@ def test_fit_additive_gam_invalid_method():
     # Invalid method should raise error
     with pytest.raises(ValueError, match="method must be"):
         fit_additive_gam(X, y, smooth_terms=[SmoothTerm(variable=0)], method="invalid")
+
+
+def test_fit_additive_gam_identifiability_constraints():
+    """Sum-to-zero constraints must make the penalized system full rank.
+
+    Regression test: without absorbing the identifiability constraints
+    (Wood 2017, §4.3), the design [1 | X_s1 | X_s2] is rank-deficient
+    (each B-spline basis spans the constant), X'WX + λS is singular for
+    every λ, and coefficients show catastrophic sensitivity to tiny
+    perturbations of y.
+    """
+    rng = np.random.default_rng(0)
+    n = 200
+    X = rng.uniform(0, 1, (n, 2))
+    y = np.sin(2 * np.pi * X[:, 0]) + X[:, 1] ** 2 + 0.1 * rng.normal(size=n)
+
+    terms = [SmoothTerm(variable=0, n_basis=10), SmoothTerm(variable=1, n_basis=10)]
+    result = fit_additive_gam(X, y, smooth_terms=terms)
+
+    # Full-rank design: reasonable condition number (was ~1e17 unconstrained)
+    XtX = result.X_train.T @ result.X_train
+    assert np.linalg.cond(XtX) < 1e8
+
+    # Stability: perturbing y by 1e-8 must perturb coefficients by O(1e-8),
+    # i.e. sensitivity O(1) (was ~1e10 unconstrained)
+    y_pert = y + 1e-8 * rng.normal(size=n)
+    result_pert = fit_additive_gam(X, y_pert, smooth_terms=terms)
+
+    def _flat(res):
+        return np.concatenate(
+            [res.parametric_coef, *[res.smooth_coef[k] for k in sorted(res.smooth_coef)]]
+        )
+
+    sensitivity = np.linalg.norm(_flat(result_pert) - _flat(result)) / 1e-8
+    assert sensitivity < 100.0
+
+    # Each smooth is exactly centered: sum_i f_j(x_ij) = 0
+    for term_name, basis in result.smooth_bases.items():
+        var_idx = int(term_name[2])
+        f_j = basis.basis_matrix(X[:, var_idx]) @ result.smooth_coef[term_name]
+        assert abs(f_j.sum()) < 1e-8
+
+    # Sensible EDFs (no fallback to 0) and good fit
+    for edf in result.edf_values.values():
+        assert edf > 1.0
+    assert result.r_squared > 0.9
+
+    # Predictions are consistent with the fitted values
+    np.testing.assert_allclose(result.predict(X), result.fitted_values, atol=1e-8)

@@ -59,7 +59,7 @@ def gcv_score(
     """Compute GCV score for given smoothing parameter.
 
     The GCV score is:
-        GCV(λ) = (n * RSS) / (n - tr(H))²
+        GCV(λ) = (n_eff * RSS) / (n_eff - tr(H))²
 
     where RSS is residual sum of squares and H is the hat matrix.
 
@@ -92,6 +92,11 @@ def gcv_score(
     GCV approximates leave-one-out CV by:
         GCV = RSS / (1 - tr(H)/n)²
 
+    With observation weights, n is replaced by the *effective* sample size
+    n_eff = #{i : w_i > 0} (Wood 2017, §4.5): zero-weight observations
+    contribute neither to RSS nor to tr(H), so counting them in n would
+    bias the score towards undersmoothing.
+
     References
     ----------
     Craven, P. & Wahba, G. (1978). Smoothing noisy data with spline functions.
@@ -109,6 +114,10 @@ def gcv_score(
         if w.shape != (n,):
             raise ValueError(f"weights must have shape ({n},), got {w.shape}")
         W = np.diag(w)
+
+    # Effective sample size: zero-weight observations contribute neither to
+    # RSS nor to tr(H), so they must not be counted (Wood 2017, §4.5)
+    n_eff = float(np.sum(w > 0))
 
     # Compute penalized solution
     # β̂ = (X'WX + λS)⁻¹ X'Wy
@@ -143,11 +152,11 @@ def gcv_score(
         return 1e10
 
     # GCV score
-    if n - edf <= 0:
+    if n_eff - edf <= 0:
         # Model is too complex
         return 1e10
 
-    gcv = (n * rss) / (n - edf) ** 2
+    gcv = (n_eff * rss) / (n_eff - edf) ** 2
 
     return float(gcv)
 

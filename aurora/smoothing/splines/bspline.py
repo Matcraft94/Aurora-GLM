@@ -283,9 +283,10 @@ Implementation Notes
    - Standard convention from de Boor (1978)
    - Compatible with scipy.interpolate
 
-3. **Boundary handling**: Left-closed, right-closed intervals
-   - B_{i,0}(x) = 1 for x ∈ [tᵢ, tᵢ₊₁]
-   - Special case at rightmost knot
+3. **Boundary handling**: Half-open intervals, left-closed only
+   - B_{i,0}(x) = 1 for x ∈ [tᵢ, tᵢ₊₁)
+   - Rightmost knot included via de Boor (2001) convention (last
+     non-degenerate interval is closed at x = t_max)
 
 References
 ----------
@@ -672,9 +673,16 @@ class BSplineBasis:
         """
         # Base case: degree 0 (piecewise constant)
         if p == 0:
-            # B_i^0(x) = 1 if t_i ≤ x < t_{i+1}, else 0
-            # Use slightly loose comparison to handle boundary
-            in_interval = (knots[i] <= x) & (x <= knots[i + 1])
+            # B_i^0(x) = 1 if t_i ≤ x < t_{i+1}, else 0.
+            # Half-open intervals guarantee the partition of unity: at an
+            # interior knot exactly one degree-0 basis function is active.
+            in_interval = (knots[i] <= x) & (x < knots[i + 1])
+            # de Boor (2001) convention: at the rightmost knot value the last
+            # non-degenerate interval is closed, so x == t_max stays covered.
+            at_right_end = (
+                (x == knots[-1]) & (knots[i + 1] == knots[-1]) & (knots[i] < knots[i + 1])
+            )
+            in_interval = in_interval | at_right_end
             return xp.where(in_interval, xp.ones_like(x), xp.zeros_like(x))
 
         # Recursive case

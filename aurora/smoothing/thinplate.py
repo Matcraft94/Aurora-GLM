@@ -18,14 +18,79 @@ Duchon, J. (1977). Splines minimizing rotation-invariant semi-norms in
 
 from __future__ import annotations
 
+from itertools import combinations_with_replacement
+
 import numpy as np
 from scipy.spatial.distance import cdist
+
+
+def _resolve_m(d: int, m: int | None) -> int:
+    """Resolve the Duchon smoothness order m for dimension d.
+
+    Duchon (1977) requires 2m > d.  The default keeps the classical
+    thin plate spline (m = 2) for d <= 3 and uses the minimal valid
+    order for d >= 4.
+    """
+    if m is None:
+        m = 2 if d <= 3 else d // 2 + 1
+    if m < 1:
+        raise ValueError(f"m must be at least 1, got {m}")
+    if 2 * m <= d:
+        raise ValueError(
+            f"Duchon (1977) requires 2m > d; got m={m}, d={d}. "
+            f"Use m >= {d // 2 + 1} for dimension {d}."
+        )
+    return m
+
+
+def _tps_radial(distances: np.ndarray, d: int, m: int) -> np.ndarray:
+    """Duchon (1977) radial function eta(r) evaluated on a distance matrix.
+
+    With smoothness order m (2m > d):
+
+    * d even: eta(r) = c r^(2m-d) log(r)   (0 at r = 0)
+    * d odd:  eta(r) = c r^(2m-d)
+
+    where the parity is on the *dimension* d, not on the exponent, and the
+    sign c = (-1)^(m - ceil(d/2) + 1) makes the radial energy matrix
+    conditionally positive semi-definite of order m (equivalently, the sign
+    of the Gamma(d/2 - m) factor in Duchon's formula; positive constants
+    are absorbed into the smoothing parameter).  For example: +r^3 (d=1,
+    m=2), +r^2 log(r) (d=2, m=2), -r (d=3, m=2), -r^4 log(r) (d=2, m=3).
+    """
+    exponent = 2 * m - d
+    sign = -1.0 if (m - (d + 1) // 2 + 1) % 2 == 1 else 1.0
+    if d % 2 == 0:
+        eta = np.zeros_like(distances)
+        nonzero = distances > 0
+        r_pow = distances[nonzero] ** exponent
+        eta[nonzero] = r_pow * np.log(distances[nonzero])
+        return sign * eta
+    return sign * distances**exponent
+
+
+def _tps_polynomial(X: np.ndarray, d: int, m: int) -> np.ndarray:
+    """Polynomial terms of total degree <= m - 1 (the penalty null space).
+
+    Returns an (n, M) matrix with M = C(m - 1 + d, d) columns: the constant,
+    then all monomials of total degree 1, 2, ..., m-1.
+    """
+    n = X.shape[0]
+    columns = [np.ones(n)]
+    for degree in range(1, m):
+        for multi_index in combinations_with_replacement(range(d), degree):
+            term = np.ones(n)
+            for idx in multi_index:
+                term = term * X[:, idx]
+            columns.append(term)
+    return np.column_stack(columns)
 
 
 def tps_basis(
     X: np.ndarray,
     knots: np.ndarray,
     d: int = 2,
+    m: int | None = None,
 ) -> np.ndarray:
     """Compute thin plate spline basis functions.
 
@@ -37,21 +102,30 @@ def tps_basis(
         Knot locations (typically a subset of data points).
     d : int, default=2
         Dimensionality (number of variables).
+    m : int, optional
+        Duchon smoothness order. Must satisfy 2m > d. Default is m = 2
+        for d <= 3 and the minimal valid order (d//2 + 1) for d >= 4.
 
     Returns
     -------
-    B : ndarray, shape (n, k + d + 1)
-        Basis matrix including radial basis functions and polynomial terms.
+    B : ndarray, shape (n, k + M)
+        Basis matrix with k radial basis functions followed by the M
+        polynomial terms spanning the penalty null space, where
+        M = C(m - 1 + d, d) (for m = 2: M = d + 1, i.e. 1, x_1, ..., x_d).
 
     Notes
     -----
     The thin plate spline basis consists of:
-    - k radial basis functions: η(||x - x_j||) where η(r) = r²log(r) for d=2
-    - d + 1 polynomial terms: 1, x₁, x₂, ..., x_d
+    - k radial basis functions: eta(||x - x_j||) with the Duchon (1977)
+      radial function (c = (-1)^(m - ceil(d/2) + 1) is the sign that makes
+      the radial energy matrix conditionally positive semi-definite):
+        * d even: eta(r) = c r^(2m-d) log(r)
+        * d odd:  eta(r) = c r^(2m-d)
+    - M polynomial terms of total degree <= m - 1.
 
-    For d=2: η(r) = r²log(r) if r > 0, else 0
-    For d=3: η(r) = r if r > 0, else 0
-    For d≥4: η(r) = r^(d-2) if r > 0, else 0 (for even d)
+    Classical choices (m = 2): eta(r) = r^3 for d = 1, r^2 log(r) for
+    d = 2, -r for d = 3.  For d = 4 the minimal valid order is m = 3,
+    giving eta(r) = r^2 log(r).
 
     Examples
     --------
@@ -64,48 +138,41 @@ def tps_basis(
     >>> B.shape
     (100, 23)  # 20 radial + 3 polynomial (1, x, y)
     """
-    n = X.shape[0]
-    knots.shape[0]
+    m = _resolve_m(d, m)
 
     # Compute pairwise distances
     distances = cdist(X, knots, metric="euclidean")
 
-    # Radial basis functions
-    if d == 1:
-        # For d=1: η(r) = r³
-        eta = distances**3
-    elif d == 2:
-        # For d=2: η(r) = r²log(r)
-        # Handle r=0 case
-        eta = np.zeros_like(distances)
-        nonzero = distances > 0
-        r2 = distances**2
-        eta[nonzero] = r2[nonzero] * np.log(distances[nonzero])
-    elif d == 3:
-        # For d=3: η(r) = r
-        eta = distances
-    else:
-        # For d≥4: η(r) = r^(d-2) for even d, or r^(d-2)log(r) for odd d
-        if d % 2 == 0:
-            eta = distances ** (d - 2)
-        else:
-            eta = np.zeros_like(distances)
-            nonzero = distances > 0
-            r_pow = distances ** (d - 2)
-            eta[nonzero] = r_pow[nonzero] * np.log(distances[nonzero])
+    # Radial basis functions (Duchon 1977)
+    eta = _tps_radial(distances, d, m)
 
-    # Polynomial terms: [1, x₁, x₂, ..., x_d]
-    polynomial = np.column_stack([np.ones(n), X])
+    # Polynomial terms of total degree <= m - 1
+    polynomial = _tps_polynomial(X, d, m)
 
-    # Combine: [η₁, η₂, ..., η_k, 1, x₁, ..., x_d]
+    # Combine: [eta_1, ..., eta_k, polynomials]
     B = np.column_stack([eta, polynomial])
 
     return B
 
 
+def _null_space_of_transpose(T: np.ndarray) -> np.ndarray:
+    """Orthonormal basis Z for null(T') via QR of T.
+
+    T : (k, M).  Returns Z : (k, k - rank(T)) with Z' T = 0, so that
+    delta = Z gamma exactly satisfies the constraint T' delta = 0.
+    """
+    k, _ = T.shape
+    Q, R = np.linalg.qr(T, mode="complete")
+    diag_R = np.abs(np.diag(R))
+    tol = max(T.shape) * np.finfo(float).eps * (diag_R[0] if diag_R.size else 0.0)
+    rank_T = int(np.sum(diag_R > tol))
+    return Q[:, rank_T:]
+
+
 def tps_penalty(
     knots: np.ndarray,
     d: int = 2,
+    m: int | None = None,
 ) -> np.ndarray:
     """Compute thin plate spline penalty matrix.
 
@@ -115,21 +182,31 @@ def tps_penalty(
         Knot locations.
     d : int, default=2
         Dimensionality.
+    m : int, optional
+        Duchon smoothness order (2m > d). See :func:`tps_basis`.
 
     Returns
     -------
-    S : ndarray, shape (k + d + 1, k + d + 1)
-        Penalty matrix. Only the first k×k block is non-zero (radial part).
+    S : ndarray, shape (k + M, k + M)
+        Penalty matrix. Only the first k x k block (radial part) is
+        non-zero.  M = C(m - 1 + d, d) is the number of polynomial terms.
 
     Notes
     -----
-    The penalty is computed on the radial basis functions only.
-    The polynomial part has zero penalty (they span the null space).
+    The raw radial energy matrix E with E[i,j] = eta(||x_i - x_j||) is only
+    *conditionally* positive semi-definite: beta' E beta >= 0 solely for
+    coefficient vectors satisfying the constraints T' delta = 0, where T is
+    the matrix of polynomial terms evaluated at the knots (Wood 2003).
 
-    The penalty matrix E has elements:
-        E[i,j] = η(||x_i - x_j||)
+    This function absorbs the constraints by projection.  With Z an
+    orthonormal basis for null(T'), the returned radial block is
 
-    where x_i and x_j are knot locations.
+        S_radial = Z (Z' E Z) Z'
+
+    which is positive semi-definite (all eigenvalues >= 0) and equals E on
+    the feasible subspace: for any delta with T' delta = 0,
+    delta' S_radial delta = delta' E delta.  This is the standard
+    reparametrization used for thin plate regression splines (Wood 2003).
 
     Examples
     --------
@@ -141,35 +218,30 @@ def tps_penalty(
     (23, 23)  # 20 + 2 + 1
     """
     k = knots.shape[0]
+    m = _resolve_m(d, m)
 
-    # Compute pairwise distances between knots
+    # Polynomial terms at the knots define the constraints T' delta = 0
+    T = _tps_polynomial(knots, d, m)
+    M = T.shape[1]
+
+    if k <= M:
+        raise ValueError(
+            f"Need more knots than polynomial terms for a TPS penalty: "
+            f"got k={k} knots and M={M} polynomial terms (d={d}, m={m})."
+        )
+
+    # Radial energy matrix between knots
     distances = cdist(knots, knots, metric="euclidean")
+    E = _tps_radial(distances, d, m)
 
-    # Radial basis at knots
-    if d == 1:
-        E = distances**3
-    elif d == 2:
-        E = np.zeros_like(distances)
-        nonzero = distances > 0
-        r2 = distances**2
-        E[nonzero] = r2[nonzero] * np.log(distances[nonzero])
-    elif d == 3:
-        E = distances
-    else:
-        if d % 2 == 0:
-            E = distances ** (d - 2)
-        else:
-            E = np.zeros_like(distances)
-            nonzero = distances > 0
-            r_pow = distances ** (d - 2)
-            E[nonzero] = r_pow[nonzero] * np.log(distances[nonzero])
+    # Absorb the constraints T' delta = 0: project E onto null(T')
+    Z = _null_space_of_transpose(T)
+    S_radial = Z @ (Z.T @ E @ Z) @ Z.T
 
     # Full penalty matrix (only radial part is penalized)
-    # S = [E    0  ]
-    #     [0    0  ]
-    p_total = k + d + 1
+    p_total = k + M
     S = np.zeros((p_total, p_total))
-    S[:k, :k] = E
+    S[:k, :k] = S_radial
 
     return S
 
@@ -180,7 +252,8 @@ def fit_tps(
     knots: np.ndarray | None = None,
     lambda_: float = 1.0,
     weights: np.ndarray | None = None,
-) -> dict[str, np.ndarray | float]:
+    m: int | None = None,
+) -> dict[str, np.ndarray | float | int]:
     """Fit a thin plate spline.
 
     Parameters
@@ -195,21 +268,34 @@ def fit_tps(
         Smoothing parameter.
     weights : ndarray, shape (n,), optional
         Observation weights.
+    m : int, optional
+        Duchon smoothness order (2m > d). See :func:`tps_basis`.
 
     Returns
     -------
     result : dict
         Dictionary containing:
-        - 'coefficients': Coefficient estimates
+        - 'coefficients': Coefficient estimates (radial then polynomial)
         - 'fitted_values': Fitted values
         - 'knots': Knot locations used
         - 'edf': Effective degrees of freedom
+        - 'm': Duchon smoothness order used
 
     Notes
     -----
     Minimizes: ||W^(1/2)(y - Bβ)||² + λ β' S β
 
-    Subject to constraints: C' β = 0 where C is the polynomial part.
+    subject to the exact thin plate constraints T'δ = 0 on the radial
+    coefficients, where T is the matrix of polynomial terms at the knots
+    (Duchon 1977; Wood 2003).  The constraints are absorbed by
+    reparametrization: with Z an orthonormal basis for null(T'), write
+    δ = Zγ and solve the unconstrained penalized system in
+    (γ, α).  The effective penalty Z'EZ is positive semi-definite, unlike
+    the raw radial energy matrix E.
+
+    The effective degrees of freedom are computed as
+    ``tr((X_c'WX_c + λS_c)^{-1} X_c'WX_c)`` in the constrained
+    parametrization, without materializing the n x n hat matrix.
 
     For computational efficiency with large datasets, use a subset of
     data points as knots (k << n).
@@ -229,18 +315,40 @@ def fit_tps(
     (200,)
     """
     n, d = X.shape
+    m = _resolve_m(d, m)
 
     # Use all points as knots if not specified (can be slow)
     if knots is None:
         knots = X.copy()
 
-    knots.shape[0]
+    k = knots.shape[0]
 
-    # Compute basis matrix
-    B = tps_basis(X, knots, d=d)
+    # Full basis: radial part K (n x k) and polynomial part T_n (n x M)
+    B = tps_basis(X, knots, d=d, m=m)
+    M = B.shape[1] - k
+    K = B[:, :k]
+    T_n = B[:, k:]
 
-    # Compute penalty matrix
-    S = tps_penalty(knots, d=d)
+    if k <= M:
+        raise ValueError(
+            f"Need more knots than polynomial terms to fit a TPS: "
+            f"got k={k} knots and M={M} polynomial terms (d={d}, m={m})."
+        )
+
+    # Radial energy matrix and constraint matrix at the knots
+    E = _tps_radial(cdist(knots, knots, metric="euclidean"), d, m)
+    T = _tps_polynomial(knots, d, m)
+
+    # Absorb the constraints T'δ = 0: δ = Zγ with Z spanning null(T')
+    Z = _null_space_of_transpose(T)
+
+    # Constrained design: X_c = [K Z | T_n], shape (n, k)
+    X_c = np.column_stack([K @ Z, T_n])
+
+    # Constrained penalty: only the γ block is penalized, with the
+    # positive semi-definite matrix Z'EZ
+    S_c = np.zeros((k, k))
+    S_c[: Z.shape[1], : Z.shape[1]] = Z.T @ E @ Z
 
     # Weight matrix
     if weights is None:
@@ -248,29 +356,28 @@ def fit_tps(
     else:
         W = np.diag(weights)
 
-    # Constrained penalized least squares
-    # We need to enforce C'β = 0 where C are the polynomial columns
-    # However, for practical purposes with proper regularization,
-    # we can use the unconstrained version which gives similar results
-
-    # Standard penalized least squares
-    BtWB = B.T @ W @ B
-    BtWy = B.T @ W @ y
-    A = BtWB + lambda_ * S
+    # Penalized least squares in the constrained parametrization
+    XtWX = X_c.T @ W @ X_c
+    XtWy = X_c.T @ W @ y
+    A = XtWX + lambda_ * S_c
 
     try:
-        coefficients = np.linalg.solve(A, BtWy)
+        theta = np.linalg.solve(A, XtWy)
     except np.linalg.LinAlgError:
         # Use pseudo-inverse if singular
-        coefficients = np.linalg.lstsq(A, BtWy, rcond=None)[0]
+        theta = np.linalg.lstsq(A, XtWy, rcond=None)[0]
+
+    # Map back to the original parametrization: δ = Zγ
+    gamma = theta[: Z.shape[1]]
+    alpha = theta[Z.shape[1] :]
+    coefficients = np.concatenate([Z @ gamma, alpha])
 
     fitted_values = B @ coefficients
 
-    # Compute effective degrees of freedom
+    # Effective degrees of freedom without materializing the hat matrix:
+    # tr(H) = tr((X_c'WX_c + λS_c)^{-1} X_c'WX_c)
     try:
-        A_inv = np.linalg.inv(A)
-        H = B @ A_inv @ B.T @ W
-        edf = float(np.trace(H))
+        edf = float(np.trace(np.linalg.solve(A, XtWX)))
     except np.linalg.LinAlgError:
         edf = float("nan")
 
@@ -279,6 +386,7 @@ def fit_tps(
         "fitted_values": fitted_values,
         "knots": knots,
         "edf": edf,
+        "m": m,
     }
 
 

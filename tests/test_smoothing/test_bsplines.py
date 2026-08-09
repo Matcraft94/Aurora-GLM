@@ -76,6 +76,80 @@ def test_bspline_partition_of_unity():
     np.testing.assert_allclose(row_sums, 1.0, atol=1e-10)
 
 
+def test_bspline_partition_of_unity_at_knots():
+    """Partition of unity must hold when evaluated exactly on knots.
+
+    Regression test: the Cox-de Boor base case previously used a closed
+    interval on both sides, so at an interior knot two degree-0 basis
+    functions were active and rows summed to 2.0.  The correct convention
+    (de Boor 2001) uses half-open intervals [t_i, t_{i+1}), with the last
+    non-degenerate interval closed at the rightmost knot.
+    """
+    knots = np.array([0.0, 0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0])
+    basis = BSplineBasis(knots, degree=3)
+
+    # Evaluate exactly on every knot value, including both boundaries
+    x = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
+    B = basis.basis_matrix(x)
+    np.testing.assert_allclose(B.sum(axis=1), 1.0, atol=1e-12)
+
+    # Sparse route must agree with the dense route
+    B_sparse = basis.basis_matrix(x, sparse=True)
+    np.testing.assert_allclose(np.asarray(B_sparse.sum(axis=1)).ravel(), 1.0, atol=1e-12)
+    np.testing.assert_allclose(B_sparse.toarray(), B, atol=1e-12)
+
+    # Interior knots activate at most degree + 1 basis functions (local support)
+    for row in B[1:4]:
+        n_active = np.sum(row > 1e-12)
+        assert 1 <= n_active <= 4
+
+
+def test_bspline_values_unchanged_off_knots():
+    """Away from knots the basis must match the reference (scipy splev).
+
+    Guards against the half-open-interval fix changing values at generic
+    (non-knot) evaluation points.
+    """
+    from scipy.interpolate import splev
+
+    knots = np.array([0.0, 0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0])
+    basis = BSplineBasis(knots, degree=3)
+
+    # Generic points that never coincide with a knot
+    rng = np.random.default_rng(7)
+    x = rng.uniform(0.0, 1.0, size=200)
+    x = x[~np.isin(x, knots)]
+
+    B = basis.basis_matrix(x)
+    tck = (knots, np.eye(basis.n_basis_), 3)
+    B_ref = np.array(splev(x, tck)).T
+
+    np.testing.assert_allclose(B, B_ref, atol=1e-12)
+    np.testing.assert_allclose(B.sum(axis=1), 1.0, atol=1e-12)
+
+
+def test_bspline_derivative_at_knots_finite_and_consistent():
+    """Derivative basis at interior knots must be finite and match the
+    one-sided (right) limit, consistent with half-open intervals."""
+    knots = np.array([0.0, 0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 1.0])
+    basis = BSplineBasis(knots, degree=3)
+
+    x = np.array([0.25, 0.5, 0.75])
+    dB = basis.derivative_basis_matrix(x)
+
+    assert np.all(np.isfinite(dB))
+
+    # Derivatives of a B-spline series sum to zero (partition of unity
+    # implies the constant function has zero derivative)
+    np.testing.assert_allclose(dB.sum(axis=1), 0.0, atol=1e-10)
+
+    # Right-limit consistency: derivative at the knot equals the limit
+    # from the right (half-open convention)
+    eps = 1e-7
+    dB_right = basis.derivative_basis_matrix(x + eps)
+    np.testing.assert_allclose(dB, dB_right, atol=1e-3)
+
+
 def test_bspline_local_support():
     """B-splines should have local support."""
     knots = np.array([0, 0, 0, 0, 0.25, 0.5, 0.75, 1, 1, 1, 1])
