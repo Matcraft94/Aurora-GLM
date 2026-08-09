@@ -11,7 +11,7 @@ Laplace Approximation
 The Laplace approximation approximates the marginal likelihood by
 integrating out the random effects using a normal approximation:
 
-    L(β, θ) ≈ f(y | b̂, β) p(b̂ | θ) |H|^(-1/2)
+    L(β, θ) ≈ f(y | b̂, β) p(b̂ | θ) (2π)^{q/2} |H|^(-1/2)
 
 Where:
 - b̂ = argmax_b f(y | b, β) p(b | θ) is the conditional mode
@@ -112,7 +112,11 @@ def fit_laplace(
     lambda_ : float, default=0.0
         Smoothing parameter
     psi_init : ndarray, shape (n_effects, n_effects), optional
-        Initial variance-covariance matrix (default: identity)
+        Initial variance-covariance matrix (default: identity).
+        Required for models with more than one random effect per group
+        (e.g. random intercept + slope): its dimension determines how the
+        columns of Z are grouped. Without it, random-intercept structure
+        (one effect per group) is assumed.
     maxiter : int, default=50
         Maximum iterations
     tol : float, default=1e-6
@@ -171,13 +175,24 @@ def fit_laplace(
     if S is None:
         S = np.zeros((p, p))
 
-    # Infer number of effects per group
-    n_effects = 1  # Will be passed from outside in production
-
+    # Infer number of effects per group from the design / initialization.
+    # With psi_init=None we cannot distinguish "q groups × 1 effect" from
+    # "q/2 groups × 2 effects", so random-slope models (n_effects > 1)
+    # require an explicit psi_init of matching dimension.
     if psi_init is None:
+        n_effects = 1
         psi = np.eye(n_effects)
     else:
+        n_effects = psi_init.shape[0]
         psi = psi_init.copy()
+
+    if q % n_effects != 0:
+        raise ValueError(
+            f"Z has q={q} columns, not divisible by n_effects={n_effects} "
+            f"(inferred from psi_init shape {psi_init.shape}). For random "
+            "intercept + slope models, pass psi_init with shape "
+            "(n_effects, n_effects)."
+        )
 
     # Initialize parameters
     beta = np.zeros(p)
@@ -493,7 +508,16 @@ def _update_variance_laplace(
 ) -> np.ndarray:
     """Update variance components using Laplace approximation.
 
-    Uses empirical Bayes estimate corrected for uncertainty in b.
+    Uses the empirical Bayes second-moment estimate corrected for the
+    posterior uncertainty of the random effects:
+
+        Ψ = (1/m) Σᵢ [ b̂ᵢ b̂ᵢᵀ + (H⁻¹)ᵢᵢ ]
+
+    where (H⁻¹)ᵢᵢ is the diagonal block of the inverse Hessian for group
+    i — the Laplace approximation to the posterior covariance of b_i.
+    H = ZᵀWZ + Ψ_full⁻¹ is block-diagonal across groups (both terms are),
+    so the diagonal blocks of H⁻¹ coincide with the per-group marginal
+    blocks.
 
     Parameters
     ----------
@@ -515,19 +539,25 @@ def _update_variance_laplace(
     # Reshape b into groups
     b_matrix = b.reshape(n_groups, n_effects)
 
-    # Empirical covariance
-    psi_emp = (b_matrix.T @ b_matrix) / n_groups
+    # Invert Hessian (posterior precision) once
+    try:
+        H_inv = linalg.inv(hessian)
+    except linalg.LinAlgError:
+        H_inv = linalg.pinv(hessian)
 
-    # Correction for uncertainty (simplified)
-    # In full implementation, would use hessian to adjust
-    # For now, use empirical estimate with regularization
+    # Empirical second moment + posterior covariance correction
+    psi_new = (b_matrix.T @ b_matrix) / n_groups
+    for i in range(n_groups):
+        sl = slice(i * n_effects, (i + 1) * n_effects)
+        psi_new += H_inv[sl, sl] / n_groups
 
-    # Ensure positive definiteness
-    eigvals = np.linalg.eigvalsh(psi_emp)
+    # Symmetrize and ensure positive definiteness
+    psi_new = 0.5 * (psi_new + psi_new.T)
+    eigvals = np.linalg.eigvalsh(psi_new)
     if np.min(eigvals) < 1e-6:
-        psi_emp = psi_emp + 1e-6 * np.eye(n_effects)
+        psi_new = psi_new + (1e-6 - np.min(eigvals)) * np.eye(n_effects)
 
-    return psi_emp
+    return psi_new
 
 
 def _compute_laplace_log_likelihood(
@@ -541,7 +571,7 @@ def _compute_laplace_log_likelihood(
 ) -> float:
     """Compute approximate marginal log-likelihood via Laplace.
 
-    log L(β, θ) ≈ log f(y | b̂, β) + log p(b̂ | θ) - (1/2) log |H|
+    log L(β, θ) ≈ log f(y | b̂, β) + log p(b̂ | θ) + (q/2)log(2π) − (1/2) log |H|
 
     Parameters
     ----------
@@ -584,13 +614,16 @@ def _compute_laplace_log_likelihood(
         n_groups * (n_effects * np.log(2 * np.pi) + log_det_psi) + np.sum(b_matrix * psi_inv_b)
     )
 
-    # Laplace correction (log determinant of Hessian)
+    # Laplace correction: (q/2)·log(2π) − (1/2)·log|H|, where the
+    # (2π)^{q/2} factor comes from the q-dimensional Gaussian integral.
+    # The constant is needed for comparability with lme4's reported
+    # log-likelihoods.
     try:
         _, log_det_hess = np.linalg.slogdet(hessian)
     except np.linalg.LinAlgError:
         log_det_hess = 0.0  # Fallback
 
-    laplace_correction = -0.5 * log_det_hess
+    laplace_correction = 0.5 * len(b) * np.log(2 * np.pi) - 0.5 * log_det_hess
 
     return log_lik_data + log_prior + laplace_correction
 

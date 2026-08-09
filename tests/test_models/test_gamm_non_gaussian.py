@@ -243,6 +243,35 @@ def test_fit_gamm_poisson_random_slope():
     assert result.variance_components[0].shape == (2, 2)  # 2x2 for intercept + slope
 
 
+def test_fit_pql_poisson_strong_effects_stable():
+    """PQL with strong Poisson effects must not diverge (step-halving).
+
+    Regression test: before step-halving on the penalized deviance, this
+    setup diverged to coefficients ~1e294 while reporting converged=True.
+    """
+    from aurora.models.gamm.pql import fit_pql
+
+    rng = np.random.default_rng(0)
+    n_groups, n_per_group = 30, 20
+    n = n_groups * n_per_group
+    groups = np.repeat(np.arange(n_groups), n_per_group)
+    x = rng.normal(size=n)
+    X = np.column_stack([np.ones(n), x])
+    Z = np.zeros((n, n_groups))
+    Z[np.arange(n), groups] = 1.0
+
+    b_true = rng.normal(scale=0.5, size=n_groups)
+    eta = 1.5 + 2.5 * x + b_true[groups]
+    y = rng.poisson(np.exp(np.clip(eta, -20, 20))).astype(float)
+
+    result = fit_pql(X, Z, y, family="poisson")
+
+    assert result.converged
+    assert np.all(np.isfinite(result.beta))
+    assert np.abs(result.beta[0] - 1.5) < 0.2
+    assert np.abs(result.beta[1] - 2.5) < 0.2
+
+
 def test_fit_gamm_convergence_info():
     """Test that non-Gaussian GAMM returns proper convergence info."""
     np.random.seed(42)

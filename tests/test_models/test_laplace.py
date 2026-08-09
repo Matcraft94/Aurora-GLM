@@ -1,6 +1,7 @@
 """Tests for Laplace approximation in GLMM (Phase 5.2)."""
 
 import numpy as np
+import pytest
 
 from aurora.models.gamm.laplace import LaplaceResult, fit_laplace
 
@@ -277,6 +278,48 @@ def test_laplace_result_structure():
     assert isinstance(result.converged, bool)
     assert isinstance(result.n_iter, (int, np.integer))
     assert isinstance(result.log_likelihood, (float, np.floating))
+
+
+def test_laplace_random_slopes_via_psi_init():
+    """Random intercept + slope models work when psi_init sets n_effects."""
+    rng = np.random.default_rng(5)
+    n_groups, n_per_group = 20, 15
+    n = n_groups * n_per_group
+    t = np.tile(np.linspace(0, 1, n_per_group), n_groups)
+    groups = np.repeat(np.arange(n_groups), n_per_group)
+
+    b_int = rng.standard_normal(n_groups) * 0.4
+    b_slo = rng.standard_normal(n_groups) * 0.2
+    eta = 0.8 + 0.5 * t + b_int[groups] + b_slo[groups] * t
+    y = rng.poisson(np.exp(eta))
+
+    X = np.column_stack([np.ones(n), t])
+    Z = np.zeros((n, n_groups * 2))
+    Z[np.arange(n), groups * 2] = 1.0
+    Z[np.arange(n), groups * 2 + 1] = t
+
+    result = fit_laplace(X, Z, y, family="poisson", psi_init=np.eye(2), maxiter=30)
+
+    # 2x2 covariance with sensible entries (no collapse, no explosion)
+    assert result.psi.shape == (2, 2)
+    assert 1e-3 < result.psi[0, 0] < 5.0
+    assert 1e-3 < result.psi[1, 1] < 5.0
+    # Slope fixed effect near the true 0.5
+    assert abs(result.beta[1] - 0.5) < 0.3
+
+
+def test_laplace_psi_init_dimension_mismatch():
+    """psi_init incompatible with Z raises a clear error."""
+    n_groups, n_per_group = 5, 10
+    n = n_groups * n_per_group
+    groups = np.repeat(np.arange(n_groups), n_per_group)
+    X = np.column_stack([np.ones(n), np.random.default_rng(0).standard_normal(n)])
+    Z = np.zeros((n, n_groups * 2))  # 2 effects per group
+    Z[np.arange(n), groups * 2] = 1.0
+    y = np.random.poisson(2.0, size=n)
+
+    with pytest.raises(ValueError, match="not divisible by n_effects"):
+        fit_laplace(X, Z, y, family="poisson", psi_init=np.eye(3))
 
 
 if __name__ == "__main__":

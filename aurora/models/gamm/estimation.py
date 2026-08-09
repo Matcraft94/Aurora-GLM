@@ -252,7 +252,13 @@ def reml_log_likelihood(
     # log|X'V⁻¹X| via Cholesky
     V_inv = linalg.cho_solve((L_V, True), np.eye(n))
     XtV_invX = X.T @ V_inv @ X
-    L_XtV_invX = linalg.cholesky(XtV_invX, lower=True)
+    # Ridge fallback for ill-conditioned matrices (mirrors compute_P_matrix)
+    try:
+        L_XtV_invX = linalg.cholesky(XtV_invX, lower=True)
+    except linalg.LinAlgError:
+        ridge = np.trace(XtV_invX) / XtV_invX.shape[0] * 1e-10
+        XtV_invX = XtV_invX + ridge * np.eye(XtV_invX.shape[0])
+        L_XtV_invX = linalg.cholesky(XtV_invX, lower=True)
     log_det_XtV_invX = 2 * np.sum(np.log(np.diag(L_XtV_invX)))
 
     # y'Py
@@ -456,6 +462,18 @@ def estimate_variance_components(
     n, p = X.shape
     _, q = Z.shape
 
+    # The REML criterion depends on X only through its column space. When X
+    # is rank-deficient (e.g. an intercept column together with a B-spline
+    # basis, whose columns sum to one), X'V⁻¹X is singular and the REML
+    # log-likelihood is degenerate, which makes the optimizer fail. Reduce
+    # X to an orthonormal basis of col(X) so the objective is well-defined;
+    # results are unchanged for full-rank designs.
+    rank_X = np.linalg.matrix_rank(X)
+    if rank_X < p:
+        Q_basis, _, _ = linalg.qr(X, pivoting=True, mode="economic")
+        X = Q_basis[:, :rank_X]
+        p = rank_X
+
     # Number of random effect terms
     n_terms = len(Z_info)
 
@@ -483,7 +501,9 @@ def estimate_variance_components(
         # Use variance of OLS residuals as initial guess
         beta_ols = linalg.lstsq(X, y)[0]
         residuals = y - X @ beta_ols
-        initial_sigma2 = np.var(residuals)
+        # Floor away from zero: a (near-)perfect OLS fit would give
+        # log(0) = -inf for the log-sigma2 parameterization below.
+        initial_sigma2 = max(float(np.var(residuals)), 1e-6)
 
     # Extract initial covariance parameters for all terms
     theta_init_parts = []

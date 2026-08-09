@@ -141,7 +141,8 @@ def fit_pql_with_smooth(
         - 'random_effects': Random effect estimates
         - 'variance_components': List of Ψ matrices
         - 'smoothing_parameters': Dictionary of λ by smooth term
-        - 'fitted_values': Fitted linear predictor
+        - 'fitted_values': Fitted values on the response scale (μ = g⁻¹(η))
+        - 'linear_predictor': Fitted linear predictor (η)
         - 'converged': Whether algorithm converged
         - 'n_iterations_outer': Number of outer iterations
         - 'edf_smooth': EDF by smooth term
@@ -257,6 +258,11 @@ def fit_pql_with_smooth(
     for iter_outer in range(maxiter_outer):
         Psi_old = Psi.copy()
 
+        # Expand per-term Ψ⁻¹ to the full (q × q) block-diagonal penalty:
+        # Ψ_full⁻¹ = block_diag_i( I_{m_i} ⊗ Ψ_i⁻¹ ), where m_i is the
+        # number of levels of term i (same construction as pql.py).
+        Psi_inv_full = _build_psi_inv_full(Psi_list, Z_info)
+
         # Inner loop: Update (beta_para, beta_smooth, b) given Psi and Lambda
         for _iter_inner in range(maxiter_inner):
             # Clamp eta to prevent overflow in link.inverse (exp)
@@ -283,7 +289,9 @@ def fit_pql_with_smooth(
             W = np.diag(W_diag)
 
             # Working response with NaN protection
-            z = eta + (y - mu) * dmu_deta
+            # z = η + (y - μ) / (dμ/dη)  (first-order Taylor expansion,
+            # cf. Breslow & Clayton 1993; same as pql.py)
+            z = eta + (y - mu) / dmu_deta
 
             # Validate finite values and fall back if needed
             if not (np.all(np.isfinite(z)) and np.all(np.isfinite(W_diag))):
@@ -309,13 +317,8 @@ def fit_pql_with_smooth(
             XsWZ = X_smooth.T @ W @ Z
             ZWZ = Z.T @ W @ Z
 
-            # Add random effects penalty
-            try:
-                Psi_inv = np.linalg.inv(Psi + 1e-6 * np.eye(Psi.shape[0]))
-            except np.linalg.LinAlgError:
-                Psi_inv = np.linalg.pinv(Psi + 1e-6 * np.eye(Psi.shape[0]))
-
-            ZWZ_pen = ZWZ + Psi_inv
+            # Add random effects penalty (full q × q block-diagonal Ψ_full⁻¹)
+            ZWZ_pen = ZWZ + Psi_inv_full
 
             # Right-hand side
             Xp_W_z = X_parametric.T @ W @ z
@@ -339,28 +342,62 @@ def fit_pql_with_smooth(
                 # Fallback to least squares
                 coef_new = np.linalg.lstsq(A, b_rhs, rcond=None)[0]
 
-            # Extract components
-            beta_para_new = coef_new[:p_para]
-            beta_smooth_new = coef_new[p_para : p_para + p_smooth_total]
-            b_new = coef_new[p_para + p_smooth_total :]
+            # Step-halving on the penalized deviance (same safeguard as the
+            # GLM IRLS path): without it the Poisson/Gamma fixed-point
+            # iteration can overshoot and diverge.
+            coef_old = np.concatenate([beta_para, beta_smooth, b])
+            pen_dev_old = _penalized_deviance(
+                y,
+                X_parametric,
+                X_smooth,
+                Z,
+                beta_para,
+                beta_smooth,
+                b,
+                family_obj,
+                link,
+                Lambda,
+                S,
+                Psi_inv_full,
+            )
+            step = 1.0
+            for _ in range(10):
+                coef_try = coef_old + step * (coef_new - coef_old)
+                beta_para_try = coef_try[:p_para]
+                beta_smooth_try = coef_try[p_para : p_para + p_smooth_total]
+                b_try = coef_try[p_para + p_smooth_total :]
+                pen_dev_new = _penalized_deviance(
+                    y,
+                    X_parametric,
+                    X_smooth,
+                    Z,
+                    beta_para_try,
+                    beta_smooth_try,
+                    b_try,
+                    family_obj,
+                    link,
+                    Lambda,
+                    S,
+                    Psi_inv_full,
+                )
+                if np.isfinite(pen_dev_new) and pen_dev_new <= pen_dev_old:
+                    break
+                step *= 0.5
 
-            # Update linear predictor
-            eta_new = X_parametric @ beta_para_new + X_smooth @ beta_smooth_new + Z @ b_new
+            # Update coefficients and linear predictor
+            coef_change = np.linalg.norm(coef_try - coef_old)
+            beta_para = beta_para_try
+            beta_smooth = beta_smooth_try
+            b = b_try
+            eta = X_parametric @ beta_para + X_smooth @ beta_smooth + Z @ b
 
             # Check convergence
-            coef_change = np.linalg.norm(coef_new - np.concatenate([beta_para, beta_smooth, b]))
             if coef_change < tol_inner:
                 break
 
-            # Update coefficients
-            beta_para = beta_para_new
-            beta_smooth = beta_smooth_new
-            b = b_new
-            eta = eta_new
-
-        # Update variance components using REML
-        # For simplicity, use method of moments estimate
-        # More sophisticated: use REML optimization
+        # Update variance components (method of moments on the BLUPs, with
+        # shrinkage toward a scaled identity and a positive-definiteness
+        # floor — same update as pql._update_variance_components).
         b_grouped = _split_random_effects(b, Z_info)
         Psi_list_new = []
         for i, b_group in enumerate(b_grouped):
@@ -374,9 +411,22 @@ def fit_pql_with_smooth(
             else:
                 b_mat = b_group.reshape(n_levels, dim)
 
-            # Estimate variance-covariance
-            Psi_new = np.cov(b_mat.T) if dim > 1 else np.array([[np.var(b_group)]])
-            Psi_new = Psi_new + 1e-6 * np.eye(Psi_new.shape[0])  # Regularization
+            # Empirical second moment (uncentred: E[b] = 0 by model)
+            n_lev = b_mat.shape[0]
+            Psi_new = (b_mat.T @ b_mat) / n_lev
+            if not np.all(np.isfinite(Psi_new)):
+                Psi_new = np.eye(dim)
+
+            # Shrinkage toward scaled identity (5%)
+            trace_avg = np.trace(Psi_new) / dim
+            if not np.isfinite(trace_avg) or trace_avg <= 0:
+                trace_avg = 1.0
+            Psi_new = 0.95 * Psi_new + 0.05 * trace_avg * np.eye(dim)
+
+            # Enforce positive definiteness
+            eigvals = np.linalg.eigvalsh(Psi_new)
+            if np.min(eigvals) < 1e-6:
+                Psi_new = Psi_new + (1e-6 - np.min(eigvals)) * np.eye(dim)
             Psi_list_new.append(Psi_new)
 
         # Update Psi
@@ -449,6 +499,11 @@ def fit_pql_with_smooth(
         beta_smooth_dict[name] = beta_smooth[offset : offset + K_j]
         offset += K_j
 
+    # Final fitted values on the response scale (μ = g⁻¹(η)), plus the
+    # linear predictor for diagnostics
+    eta_final = np.clip(eta, -700.0, 700.0)
+    mu_final = link.inverse(eta_final)
+
     # Build result dictionary
     result = {
         "beta_parametric": beta_para,
@@ -456,7 +511,8 @@ def fit_pql_with_smooth(
         "random_effects": b,
         "variance_components": Psi_list_new,
         "smoothing_parameters": lambda_smooth,
-        "fitted_values": eta,
+        "fitted_values": mu_final,
+        "linear_predictor": eta_final,
         "converged": converged_outer,
         "n_iterations_outer": iter_outer + 1,
         "edf_smooth": edf_smooth_dict,
@@ -490,6 +546,69 @@ def _build_lambda_matrix(
     for name, K_j in zip(smooth_names, p_smooth_list, strict=False):
         lambda_j = lambda_smooth[name]
         blocks.append(lambda_j * np.eye(K_j))
+    return linalg.block_diag(*blocks)
+
+
+def _penalized_deviance(
+    y: NDArray[np.floating],
+    X_parametric: NDArray[np.floating],
+    X_smooth: NDArray[np.floating],
+    Z: NDArray[np.floating],
+    beta_para: NDArray[np.floating],
+    beta_smooth: NDArray[np.floating],
+    b: NDArray[np.floating],
+    family_obj,
+    link,
+    Lambda: NDArray[np.floating],
+    S: NDArray[np.floating],
+    Psi_inv_full: NDArray[np.floating],
+) -> float:
+    """Penalized deviance of the working model: D(y; μ) + λβ_sᵀSβ_s + bᵀΨ_full⁻¹b.
+
+    Used as the descent criterion for step-halving in the inner PQL loop.
+    """
+    eta = X_parametric @ beta_para + X_smooth @ beta_smooth + Z @ b
+    eta = np.clip(eta, -700.0, 700.0)
+    mu = np.clip(link.inverse(eta), 1e-10, 1e10)
+    dev = family_obj.deviance(y, mu)
+    pen_smooth = beta_smooth @ (Lambda @ S) @ beta_smooth
+    pen_random = b @ Psi_inv_full @ b
+    return float(dev + pen_smooth + pen_random)
+
+
+def _build_psi_inv_full(
+    Psi_list: list[NDArray[np.floating]],
+    Z_info: list[dict],
+) -> NDArray[np.floating]:
+    """Build the full (q × q) block-diagonal random-effects penalty Ψ_full⁻¹.
+
+    For random effect term i with per-group covariance Ψ_i (dim × dim) and
+    m_i levels, the full covariance is I_{m_i} ⊗ Ψ_i, so the penalty is
+    I_{m_i} ⊗ Ψ_i⁻¹. Terms are combined block-diagonally (same construction
+    as ``pql._solve_pql_equations``).
+
+    Parameters
+    ----------
+    Psi_list : list of ndarray
+        Per-term variance-covariance matrices Ψ_i, each (dim_i, dim_i).
+    Z_info : list of dict
+        Random effects metadata, one dict per term. Each must provide the
+        number of levels via 'n_levels' or 'n_groups'.
+
+    Returns
+    -------
+    psi_inv_full : ndarray, shape (q, q)
+        Block-diagonal inverse covariance over all groups and terms.
+    """
+    blocks = []
+    for i, Psi_i in enumerate(Psi_list):
+        n_levels = Z_info[i].get("n_levels", Z_info[i].get("n_groups", 1))
+        dim = Psi_i.shape[0]
+        try:
+            Psi_i_inv = np.linalg.inv(Psi_i + 1e-6 * np.eye(dim))
+        except np.linalg.LinAlgError:
+            Psi_i_inv = np.linalg.pinv(Psi_i + 1e-6 * np.eye(dim))
+        blocks.append(np.kron(np.eye(n_levels), Psi_i_inv))
     return linalg.block_diag(*blocks)
 
 

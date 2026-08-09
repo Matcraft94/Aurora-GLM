@@ -80,6 +80,10 @@ Statistical Properties
 - PQL estimates are asymptotically unbiased as cluster size n_i → ∞
 - For small clusters or binary data with rare events, bias can be substantial
 - Bias is O(1/n_i) for large n_i
+- This implementation reports **uncorrected** PQL estimates: no bias
+  correction is applied. The corrections of Breslow & Lin (1995) and
+  Lin & Breslow (1996) are *not* implemented; for small clusters or
+  binary data, prefer the Laplace approximation (`fit_laplace`).
 
 **Compared to other methods**:
 
@@ -131,7 +135,7 @@ References
 - Schall, R. (1991). "Estimation in generalized linear models with random effects."
   *Biometrika*, 78(4), 719-727. https://doi.org/10.1093/biomet/78.4.719
 
-**Bias correction**:
+**Bias properties** (not implemented as corrections; see limitations above):
 
 - Breslow, N. E., & Lin, X. (1995). "Bias correction in generalised linear mixed
   models with a single component of dispersion." *Biometrika*, 82(1), 81-91.
@@ -174,6 +178,7 @@ in the repository root.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -293,6 +298,16 @@ def fit_pql(
     2. Updating Ψ given (β, b) via empirical covariance
 
     Convergence is determined by relative change in Ψ falling below tol_outer.
+    With ``update_psi=False`` (fixed Ψ), convergence is determined by the
+    inner (β, b) fixed point instead.
+
+    For the Gamma family, the working weights assume dispersion φ = 1;
+    the estimated dispersion is not propagated into the weighting
+    (documented limitation).
+
+    For the Binomial family, fitted probabilities numerically 0 or 1
+    indicate complete or quasi-complete separation; a warning is issued
+    and the result is reported as not converged.
 
     Examples
     --------
@@ -337,16 +352,15 @@ def fit_pql(
     beta = np.zeros(p)
     b = np.zeros(q)
 
-    # Compute group sizes for bias correction
-    group_sizes = _compute_group_sizes(Z, n_effects)
-
     # Convergence tracking
     converged = False
+    diverged = False
     n_iter_inner_total = 0
 
     # Outer loop: update variance components
     for iter_outer in range(maxiter_outer):  # noqa: B007
         psi_old = psi.copy()
+        inner_converged = False
 
         # Inner loop: update fixed and random effects
         for _iter_inner in range(maxiter_inner):
@@ -381,14 +395,60 @@ def fit_pql(
             w = np.nan_to_num(w, nan=1e-10, posinf=1e10, neginf=1e-10)
 
             # Solve weighted mixed model equations
-            beta, b, sigma2 = _solve_pql_equations(X, Z, z, w, S, lambda_, psi)
+            beta_new, b_new, sigma2 = _solve_pql_equations(X, Z, z, w, S, lambda_, psi)
 
-            # Check for NaN in coefficients - indicates divergence
-            if np.any(np.isnan(beta)) or np.any(np.isnan(b)):
+            # Check for non-finite coefficients - indicates divergence
+            if not (np.all(np.isfinite(beta_new)) and np.all(np.isfinite(b_new))):
                 raise ValueError(
-                    "PQL iteration diverged (NaN in coefficients). "
+                    "PQL iteration diverged (NaN/Inf in coefficients). "
                     "Try different starting values or increase regularization."
                 )
+
+            # Step-halving on the penalized deviance D(y; μ) + λβᵀSβ +
+            # bᵀΨ_full⁻¹b (same safeguard as pql_smooth and the GLM IRLS
+            # path): without it the Poisson/Gamma fixed-point iteration can
+            # overshoot and diverge.
+            n_groups_eff = q // n_effects
+            try:
+                psi_inv = linalg.inv(psi)
+            except linalg.LinAlgError:
+                psi_inv = np.linalg.pinv(psi)
+            if not np.all(np.isfinite(psi_inv)):
+                psi_inv = np.eye(n_effects)
+            psi_inv_full = np.kron(np.eye(n_groups_eff), psi_inv)
+
+            def _penalized_deviance(
+                beta_: np.ndarray, b_: np.ndarray, _pif: np.ndarray = psi_inv_full
+            ) -> float:
+                eta_ = np.clip(X @ beta_ + Z @ b_, -700.0, 700.0)
+                mu_ = np.clip(family_obj.default_link.inverse(eta_), 1e-10, 1e10)
+                dev_ = family_obj.deviance(y, mu_)
+                return float(dev_ + lambda_ * (beta_ @ S @ beta_) + b_ @ _pif @ b_)
+
+            pen_dev_old = _penalized_deviance(beta_old, b_old)
+            step = 1.0
+            for _ in range(10):
+                beta_try = beta_old + step * (beta_new - beta_old)
+                b_try = b_old + step * (b_new - b_old)
+                pen_dev_new = _penalized_deviance(beta_try, b_try)
+                if np.isfinite(pen_dev_new) and pen_dev_new <= pen_dev_old:
+                    break
+                step *= 0.5
+            beta, b = beta_try, b_try
+
+            # Divergence guard: explosive coefficient growth. 1e10 is far
+            # beyond any meaningful effect size on the link scale; past it
+            # the (quasi-)likelihood has no finite maximizer.
+            if np.max(np.abs(beta)) > 1e10 or np.max(np.abs(b)) > 1e10:
+                warnings.warn(
+                    "PQL iteration diverged (|coefficients| > 1e10). "
+                    "Estimates are not reliable; check for separation, "
+                    "extreme covariates, or increase regularization.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                diverged = True
+                break
 
             # Check inner convergence
             beta_change = np.max(np.abs(beta - beta_old))
@@ -396,7 +456,11 @@ def fit_pql(
             n_iter_inner_total += 1
 
             if beta_change < tol_inner and b_change < tol_inner:
+                inner_converged = True
                 break
+
+        if diverged:
+            break
 
         # Update variance components (empirical covariance)
         if update_psi:
@@ -408,17 +472,47 @@ def fit_pql(
                 converged = True
                 break
 
-    # Apply Breslow & Lin (1995) bias correction to final estimates
-    beta = _apply_fixed_effect_correction(beta, group_sizes)
-
-    # Apply bias correction to random effects for final variance estimation
-    b_matrix_final = b.reshape(group_sizes.shape[0], n_effects)
-    b_matrix_corrected = _apply_random_effect_correction(b_matrix_final, group_sizes)
-    b = b_matrix_corrected.ravel()
+            # Boundary convergence: variance components collapsed toward
+            # zero (a legitimate boundary estimate — cf. Stram & Lee 1994)
+            # contract geometrically, so the *relative* change never falls
+            # below tol_outer. Once Ψ is numerically negligible and still
+            # shrinking by less than 1e-5 in absolute terms, further
+            # iterations cannot change any inferential quantity.
+            psi_change_abs = np.max(np.abs(psi - psi_old))
+            if inner_converged and psi_change_abs < 1e-5 and np.max(np.abs(psi)) < 1e-3:
+                warnings.warn(
+                    "PQL variance components converged to the boundary "
+                    "(Ψ ≈ 0). This is a legitimate boundary estimate, but "
+                    "check that the random-effects variance is genuinely "
+                    "near zero (e.g., few groups or weak clustering).",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                converged = True
+                break
+        elif inner_converged:
+            # With fixed Ψ there is no outer update; convergence is
+            # determined by the inner (β, b) fixed point.
+            converged = True
+            break
 
     # Compute final fitted values
     eta = X @ beta + Z @ b
     mu = family_obj.default_link.inverse(eta)
+
+    # Detect complete/quasi-complete separation for binomial fits:
+    # fitted probabilities numerically 0 or 1 (R's glm.fit convention).
+    # Separation means the (quasi-)likelihood has no finite maximizer,
+    # so the fit must not be reported as converged.
+    if isinstance(family_obj, BinomialFamily) and (np.any(mu <= 1e-9) or np.any(mu >= 1.0 - 1e-9)):
+        warnings.warn(
+            "PQL fit: fitted probabilities numerically 0 or 1 occurred "
+            "(possible complete or quasi-complete separation). "
+            "Estimates are not reliable.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        converged = False
 
     # Compute deviance
     deviance = family_obj.deviance(y, mu)
@@ -440,95 +534,6 @@ def fit_pql(
         deviance=deviance,
         log_likelihood=log_likelihood,
     )
-
-
-def _compute_group_sizes(Z: np.ndarray, n_effects: int) -> np.ndarray:
-    """Compute individual group sizes from Z matrix.
-
-    Parameters
-    ----------
-    Z : ndarray, shape (n, q)
-        Random effects design matrix
-    n_effects : int
-        Number of random effects per group
-
-    Returns
-    -------
-    group_sizes : ndarray, shape (n_groups,)
-        Array of group sizes (number of observations per group)
-    """
-    n_groups = Z.shape[1] // n_effects
-    group_sizes = np.zeros(n_groups, dtype=int)
-
-    for g in range(n_groups):
-        start_col = g * n_effects
-        end_col = (g + 1) * n_effects
-        # Count rows with non-zero entries in this group's block
-        block = Z[:, start_col:end_col]
-        group_sizes[g] = int(np.sum(np.any(block != 0, axis=1)))
-
-    # Ensure all groups have at least 1 observation
-    group_sizes = np.maximum(group_sizes, 1)
-    return group_sizes
-
-
-def _apply_fixed_effect_correction(
-    beta: np.ndarray,
-    group_sizes: np.ndarray,
-) -> np.ndarray:
-    """Apply Breslow & Lin (1995) bias correction to fixed effects.
-
-    The correction inflates estimates by: 1 / (1 - Σ(1/(2*m_i)))
-    where m_i is the group size, correcting O(1/m_i) bias.
-
-    Parameters
-    ----------
-    beta : ndarray, shape (p,)
-        Fixed effect estimates
-    group_sizes : ndarray, shape (n_groups,)
-        Array of group sizes
-
-    Returns
-    -------
-    corrected_beta : ndarray, shape (p,)
-        Bias-corrected fixed effects
-    """
-    # Compute correction factor
-    correction = 1.0 - np.sum(1.0 / (2.0 * group_sizes))
-    if abs(correction) < 1e-10:
-        return beta  # Avoid division by near-zero
-    correction = 1.0 / correction
-
-    return beta * correction
-
-
-def _apply_random_effect_correction(
-    b_matrix: np.ndarray,
-    group_sizes: np.ndarray,
-) -> np.ndarray:
-    """Apply bias correction to random effects before variance estimation.
-
-    Inflates random effects for small groups to counteract shrinkage bias.
-
-    Parameters
-    ----------
-    b_matrix : ndarray, shape (n_groups, n_effects)
-        Random effects matrix
-    group_sizes : ndarray, shape (n_groups,)
-        Array of group sizes
-
-    Returns
-    -------
-    corrected_b : ndarray, shape (n_groups, n_effects)
-        Bias-corrected random effects
-    """
-    b_corrected = b_matrix.copy()
-    for i, m in enumerate(group_sizes):
-        if m > 1:
-            inflation = m / (m - 1)
-            b_corrected[i] = b_matrix[i] * inflation
-
-    return b_corrected
 
 
 def _solve_pql_equations(
@@ -821,7 +826,9 @@ def fit_pql_gamm(
     lambda_smooth : dict[str, float], optional
         Smoothing parameters (Phase 2)
     covariance : str, default='unstructured'
-        Covariance structure for random effects
+        Covariance structure for random effects. Note: the PQL path always
+        estimates Ψ as unstructured; any other value only affects
+        initialization and triggers a warning.
     maxiter_outer : int, default=20
         Maximum outer iterations (variance updates)
     maxiter_inner : int, default=10
@@ -925,6 +932,19 @@ def fit_pql_gamm(
     from aurora.models.gamm.covariance import get_covariance_structure
 
     get_covariance_structure(covariance)
+
+    # Structured covariances are not propagated to the PQL variance update:
+    # Ψ is always estimated as unstructured. Warn instead of silently
+    # ignoring the requested structure.
+    if covariance != "unstructured":
+        warnings.warn(
+            f"covariance='{covariance}' is not implemented in the PQL path; "
+            "the random-effects covariance is always estimated as "
+            "unstructured. The requested structure only affects "
+            "initialization (identity).",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Initialize Ψ based on covariance structure
     if covariance == "identity":

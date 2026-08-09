@@ -17,6 +17,7 @@ def test_pisa_low_level_gamm():
     import numpy as np
     import pandas as pd
 
+    from aurora.models.gamm.design import construct_Z_matrix
     from aurora.models.gamm.fitting import fit_gamm_gaussian
     from aurora.models.gamm.random_effects import RandomEffect
 
@@ -26,13 +27,12 @@ def test_pisa_low_level_gamm():
 
     school_ids = df["schoolid"].values
     unique_schools = np.unique(school_ids)
-    school_map = {sid: i for i, sid in enumerate(unique_schools)}
-    school_indices = np.array([school_map[sid] for sid in school_ids])
 
     re = RandomEffect(grouping="schoolid", include_intercept=True, covariance="identity")
-    groups_data = {"schoolid": school_indices}
+    groups_data = {"schoolid": school_ids}
+    Z, Z_info = construct_Z_matrix(X, [re], groups_data)
 
-    result = fit_gamm_gaussian(y=y, X=X, random_effects=[re], groups_data=groups_data, reml=True)
+    result = fit_gamm_gaussian(X_parametric=X, X_smooth=None, Z=Z, Z_info=Z_info, y=y)
 
     assert result.converged, "Model should converge"
 
@@ -44,8 +44,8 @@ def test_pisa_low_level_gamm():
     assert 0 < icc < 1, f"ICC should be between 0 and 1, got {icc}"
     assert sigma_squared > 0, "Residual variance should be positive"
 
-    # Random effects should be present
+    # Random effects should be present (mapping group -> coefficients)
     assert result.random_effects is not None
     assert len(result.random_effects) > 0
-    school_effects = result.random_effects[0]
-    assert school_effects.shape[0] == len(unique_schools)
+    school_effects = result.random_effects["schoolid"]
+    assert len(school_effects) == len(unique_schools)

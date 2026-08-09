@@ -245,6 +245,42 @@ def test_gamm_smooth_validation():
         )
 
 
+def test_gamm_smooth_conditional_likelihood_and_aic():
+    """Non-Gaussian smooth GAMM reports the family conditional likelihood.
+
+    fitted_values are on the response scale, residuals are response
+    residuals, and the conditional AIC ranks the model with the true
+    predictor above one with an irrelevant smooth.
+    """
+    np.random.seed(21)
+    rng = np.random.default_rng(21)
+    n, n_groups = 400, 20
+    x = np.linspace(0, 1, n)
+    groups = np.repeat(np.arange(n_groups), n // n_groups)
+    b = rng.standard_normal(n_groups) * 0.3
+    eta = 1.0 + 1.2 * np.sin(2 * np.pi * x) + b[groups]
+    y = rng.poisson(np.exp(eta))
+    data = pd.DataFrame({"y": y, "x": x, "xjunk": rng.standard_normal(n), "subject": groups})
+
+    from aurora.models.gamm import fit_gamm
+
+    r_true = fit_gamm(formula="y ~ s(x) + (1 | subject)", data=data, family="poisson", maxiter=15)
+    r_junk = fit_gamm(
+        formula="y ~ s(xjunk) + (1 | subject)", data=data, family="poisson", maxiter=15
+    )
+
+    # Response scale: fitted means positive, residuals = y - μ̂
+    assert np.all(r_true.fitted_values > 0)
+    np.testing.assert_allclose(r_true.residuals, y - r_true.fitted_values)
+
+    # Conditional log-likelihood must be finite and rank the true model higher
+    assert np.isfinite(r_true.log_likelihood)
+    assert r_true.log_likelihood > r_junk.log_likelihood
+    # Conditional AIC coherent within the same family
+    assert r_true.aic < r_junk.aic
+    assert r_true.bic < r_junk.bic
+
+
 if __name__ == "__main__":
     # Run tests
     test_gamm_poisson_smooth_formula()

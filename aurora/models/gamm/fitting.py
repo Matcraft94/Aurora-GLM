@@ -435,11 +435,14 @@ class GAMMResult:
     edf_smooth : dict[str, float]
         EDF by smooth term.
     fitted_values : ndarray
-        Fitted values η̂ = Xβ + Zb.
+        Fitted values on the response scale (μ̂; for the Gaussian identity
+        link this equals η̂ = Xβ + Zb).
     residuals : ndarray
-        Residuals y - η̂.
+        Response residuals y − μ̂.
     log_likelihood : float
-        Log-likelihood (or REML log-likelihood).
+        Log-likelihood (or REML log-likelihood). For non-Gaussian PQL fits
+        this is the conditional log-likelihood at the BLUPs, not the
+        marginal likelihood.
     aic : float
         Akaike Information Criterion.
     bic : float

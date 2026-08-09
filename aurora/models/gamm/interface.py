@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
 
 from aurora.models.gamm.design import construct_Z_matrix
 from aurora.models.gamm.fitting import GAMMResult, fit_gamm_gaussian, predict_gamm
@@ -63,7 +62,9 @@ def fit_gamm(
         Grouping variables for random effects (matrix mode).
         Keys should match RandomEffect.grouping names.
     family : str, default='gaussian'
-        Distribution family. Currently only 'gaussian' supported.
+        Distribution family. Gaussian uses exact REML estimation;
+        non-Gaussian families (e.g. 'poisson', 'binomial') are fitted
+        with Penalized Quasi-Likelihood (PQL).
     covariance : str, default='unstructured'
         Covariance structure for random effects. Options:
         - 'identity': Independent random effects (default)
@@ -101,7 +102,6 @@ def fit_gamm(
     Raises
     ------
     ValueError
-        If family is not 'gaussian'.
         If random_effects provided but groups_data is None.
         If group variables not found in groups_data.
 
@@ -170,7 +170,19 @@ def fit_gamm(
     fitting function based on the family.
 
     For Gaussian family, uses exact REML estimation.
-    For other families (future implementation), will use PQL or Laplace.
+    For non-Gaussian families, uses Penalized Quasi-Likelihood (PQL;
+    Breslow & Clayton 1993) with uncorrected estimates.
+
+    **Non-Gaussian likelihood quantities.** For non-Gaussian families,
+    ``log_likelihood`` is the *conditional* log-likelihood
+    Σᵢ ℓ(yᵢ; μ̂ᵢ) evaluated at the BLUPs, not the marginal likelihood;
+    ``aic``/``bic`` are conditional information criteria derived from it.
+    Likelihood-ratio tests on fixed effects based on these quantities are
+    not valid (the anova module issues a warning).
+
+    **Limitations.** ``offset`` and prior ``weights`` are not currently
+    supported by ``fit_gamm``; for models requiring them, use ``fit_glm``
+    (no random effects) instead.
 
     Formula mode supports:
     - R-style formula syntax with lme4-style random effects
@@ -443,9 +455,31 @@ def fit_gamm(
             )
 
             # Convert to GAMMResult format
-            # Calculate residuals and other diagnostics
+            # fitted_values are on the response scale (μ = g⁻¹(η)); residuals
+            # are response residuals y − μ̂.
             mu = result_dict["fitted_values"]
             residuals = y - mu
+
+            # Conditional log-likelihood of the fitted GLMM:
+            # Σᵢ ℓ(yᵢ; μ̂ᵢ) with μ̂ evaluated at the BLUPs. This is the
+            # family likelihood conditional on the estimated random effects
+            # — NOT the marginal likelihood — so likelihood-ratio tests on
+            # fixed effects based on it are not valid (see anova warnings).
+            # AIC/BIC below are conditional AIC/BIC (Vaida & Blanchard 2005
+            # style, with the plug-in conditional likelihood).
+            from aurora.models.gamm.pql import _get_family
+
+            family_obj = _get_family(family)
+            log_likelihood = float(np.sum(family_obj.log_likelihood(y, mu)))
+
+            edf_total = (
+                sum(result_dict["edf_smooth"].values())
+                + len(result_dict["beta_parametric"])
+                + len(result_dict["variance_components"])
+            )
+            n_obs = len(y)
+            aic = -2 * log_likelihood + 2 * edf_total
+            bic = -2 * log_likelihood + np.log(n_obs) * edf_total
 
             result = GAMMResult(
                 coefficients=np.concatenate(
@@ -472,36 +506,18 @@ def fit_gamm(
                 ),  # May be None for PQL smooth
                 residual_variance=np.var(residuals),  # Approximate for non-Gaussian
                 smoothing_parameters=result_dict["smoothing_parameters"],
-                edf_total=sum(result_dict["edf_smooth"].values())
-                + len(result_dict["beta_parametric"]),
+                edf_total=edf_total,
                 edf_parametric=float(len(result_dict["beta_parametric"])),
                 edf_smooth=result_dict["edf_smooth"],
-                fitted_values=result_dict["fitted_values"],
+                fitted_values=mu,
                 residuals=residuals,
-                log_likelihood=_compute_gaussian_gamm_loglik(
-                    y,
-                    result_dict["fitted_values"],
-                    residuals,
-                    len(result_dict["variance_components"]),
-                ),
-                aic=_compute_aic(
-                    residuals,
-                    len(y),
-                    result_dict["edf_smooth"],
-                    len(result_dict["beta_parametric"]),
-                    len(result_dict["variance_components"]),
-                ),
-                bic=_compute_bic(
-                    residuals,
-                    len(y),
-                    result_dict["edf_smooth"],
-                    len(result_dict["beta_parametric"]),
-                    len(result_dict["variance_components"]),
-                ),
+                log_likelihood=log_likelihood,
+                aic=aic,
+                bic=bic,
                 converged=result_dict["converged"],
                 n_iterations=result_dict["n_iterations_outer"],
-                n_obs=len(y),
-                n_groups=len(set(result_dict["random_effects"])),
+                n_obs=n_obs,
+                n_groups=Z_info[0]["n_groups"] if Z_info else 0,
                 family=family,
             )
 
@@ -787,138 +803,3 @@ def predict_from_gamm(
     )
 
     return predictions
-
-
-def _compute_gaussian_gamm_loglik(
-    y: NDArray, fitted_values: NDArray, residuals: NDArray, n_variance_components: int
-) -> float:
-    """Compute log-likelihood for Gaussian GAMM.
-
-    Parameters
-    ----------
-    y : NDArray
-        Response variable
-    fitted_values : NDArray
-        Fitted values from the model
-    residuals : NDArray
-        Residuals (y - fitted_values)
-    n_variance_components : int
-        Number of variance components (for penalty)
-
-    Returns
-    -------
-    log_likelihood : float
-        Log-likelihood value
-
-    Notes
-    -----
-    For Gaussian GAMM, the log-likelihood is:
-        ll = -0.5 * n * log(2π * σ²) - 0.5 * Σ(residuals²) / σ²
-
-    This is a simplified version that does not account for the random effects
-    contribution to the likelihood. For full likelihood including random effects,
-    use Laplace approximation or REML.
-    """
-    n = len(y)
-    sigma2 = float(np.var(residuals))
-
-    # Avoid log(0) if residuals are perfect
-    if sigma2 < 1e-10:
-        sigma2 = 1e-10
-
-    ll = -0.5 * n * np.log(2 * np.pi * sigma2) - 0.5 * np.sum(residuals**2) / sigma2
-    return float(ll)
-
-
-def _compute_aic(
-    residuals: NDArray,
-    n_obs: int,
-    edf_smooth: dict,
-    n_parametric: int,
-    n_variance_components: int,
-) -> float:
-    """Compute AIC for GAMM.
-
-    Parameters
-    ----------
-    residuals : NDArray
-        Model residuals
-    n_obs : int
-        Number of observations
-    edf_smooth : dict
-        Effective degrees of freedom for each smooth term
-    n_parametric : int
-        Number of parametric coefficients
-    n_variance_components : int
-        Number of variance components
-
-    Returns
-    -------
-    aic : float
-        Akaike Information Criterion
-
-    Notes
-    -----
-    AIC = -2 * log_likelihood + 2 * edf_total
-    where edf_total = sum(edf_smooth) + n_parametric + n_variance_components
-    """
-    sigma2 = float(np.var(residuals))
-
-    # Avoid log(0)
-    if sigma2 < 1e-10:
-        sigma2 = 1e-10
-
-    ll = -0.5 * n_obs * np.log(2 * np.pi * sigma2) - 0.5 * np.sum(residuals**2) / sigma2
-
-    # Total effective degrees of freedom
-    edf_total = sum(edf_smooth.values()) + n_parametric + n_variance_components
-
-    aic = -2 * ll + 2 * edf_total
-    return float(aic)
-
-
-def _compute_bic(
-    residuals: NDArray,
-    n_obs: int,
-    edf_smooth: dict,
-    n_parametric: int,
-    n_variance_components: int,
-) -> float:
-    """Compute BIC for GAMM.
-
-    Parameters
-    ----------
-    residuals : NDArray
-        Model residuals
-    n_obs : int
-        Number of observations
-    edf_smooth : dict
-        Effective degrees of freedom for each smooth term
-    n_parametric : int
-        Number of parametric coefficients
-    n_variance_components : int
-        Number of variance components
-
-    Returns
-    -------
-    bic : float
-        Bayesian Information Criterion
-
-    Notes
-    -----
-    BIC = -2 * log_likelihood + log(n) * edf_total
-    where edf_total = sum(edf_smooth) + n_parametric + n_variance_components
-    """
-    sigma2 = float(np.var(residuals))
-
-    # Avoid log(0)
-    if sigma2 < 1e-10:
-        sigma2 = 1e-10
-
-    ll = -0.5 * n_obs * np.log(2 * np.pi * sigma2) - 0.5 * np.sum(residuals**2) / sigma2
-
-    # Total effective degrees of freedom
-    edf_total = sum(edf_smooth.values()) + n_parametric + n_variance_components
-
-    bic = -2 * ll + np.log(n_obs) * edf_total
-    return float(bic)
