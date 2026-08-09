@@ -10,7 +10,6 @@ __pycache__/
 # Cython generated files
 *.c
 *.cpp
-*.html
 
 # Distribution / packaging
 .Python
@@ -57,7 +56,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
-revn/
+renv/
 
 # IDEs
 .vscode/
@@ -95,6 +94,9 @@ review/
 benchmarks/results/
 benchmarks/results/*.json
 .pytest_cache/*.json
+coverage.json
+entities.json
+mempalace.yaml
 
 # Production audit report (local only)
 docs/PRODUCTION-AUDIT.md
@@ -102,6 +104,8 @@ docs/PRODUCTION-AUDIT.md
 # Data files
 *.csv
 *.tsv
+# ...but keep the example dataset required by the notebooks
+!examples/data/insurance.csv
 
 # PDFs
 *.pdf

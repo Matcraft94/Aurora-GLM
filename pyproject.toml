@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools>=70", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "aurora-glm"
 version = "1.0.0"
 description = "A modular, extensible, and high-performance Python framework for generalized linear models (GLM), generalized additive models (GAM), and generalized additive mixed models (GAMM)"
-authors = [{name = "Lucy E. Arias", email = "mat.eduardo.arias@outlook.com"}]
+authors = [{name = "Lucy Eduardo Arias", email = "mat.eduardo.arias@outlook.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 keywords = [
   "glm",
   "gam",
@@ -35,7 +35,6 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
@@ -130,12 +129,17 @@ markers = [
 [tool.coverage.run]
 source = ["aurora"]
 omit = [
-  "tests/*",
+  "*/tests/*",
+  "*/test_*.py",
+  "*/__pycache__/*",
   "benchmarks/*",
   "aurora/__init__.py",
 ]
 
 [tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
 exclude_lines = [
   "pragma: no cover",
   "def __repr__",
@@ -145,11 +149,23 @@ exclude_lines = [
   "if TYPE_CHECKING:",
   "class .*\\bProtocol\\):",
   "@(abc\\.)?abstractmethod",
+  "pass",
 ]
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# Out of the strict gate: Jupyter case-study notebooks (teaching material,
+# not library code), R-comparison/benchmark scripts, and the ad-hoc
+# reference-verification script. aurora/ and tests/ stay fully gated.
+extend-exclude = [
+  "examples",
+  "benchmarks",
+  "verify_references.py",
+]
 
 [tool.ruff.lint]
 select = [
@@ -172,7 +188,8 @@ ignore = [
 "tests/*" = ["B011"]
 
 [tool.mypy]
-python_version = "3.10"
+# 3.12 minimum: modern numpy stubs use 3.12+ syntax and fail to parse under 3.10
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
