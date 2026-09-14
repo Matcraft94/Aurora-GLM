@@ -104,8 +104,15 @@ docs/PRODUCTION-AUDIT.md
 # Data files
 *.csv
 *.tsv
-# ...but keep the example dataset required by the notebooks
+# ...but keep the small example datasets required by the notebooks
+# (see examples/06_case_studies/data/SOURCES.md for provenance)
 !examples/data/insurance.csv
+!examples/06_case_studies/data/airquality.csv
+!examples/06_case_studies/data/sleepstudy.csv
+!examples/06_case_studies/data/insurance.csv
+!examples/06_case_studies/data/pisaUK.csv
+!examples/06_case_studies/data/telco_churn.csv
+!examples/06_case_studies/data/bike_sharing_hourly.csv
 
 # PDFs
 *.pdf

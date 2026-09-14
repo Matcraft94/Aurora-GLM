@@ -326,6 +326,7 @@ MIT License — see [LICENSE](LICENSE).
 
 ## Authors
 
-Maintained by Lucy Eduardo Arias ([@Matcraft94](https://github.com/Matcraft94)).
+Maintained by Lucy Eduardo Arias ([@Matcraft94](https://github.com/Matcraft94))
+— ORCID: [0009-0003-1905-7138](https://orcid.org/0009-0003-1905-7138).
 Aurora-GLM draws inspiration from R's **mgcv** and **lme4** packages and
 from Python's **statsmodels**.
