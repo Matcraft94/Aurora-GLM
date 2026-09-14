@@ -15,14 +15,23 @@ Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
 
 from __future__ import annotations
 
+from typing import Any, Protocol
+
 import numpy as np
+
+
+class _BasisLike(Protocol):
+    """Spline basis objects usable in tensor products (BSplineBasis,
+    CubicSplineBasis, PSplineBasis all satisfy this)."""
+
+    def basis_matrix(self, x: Any) -> Any: ...
 
 
 def tensor_product_basis(
     X1: np.ndarray,
     X2: np.ndarray,
-    basis1: object,
-    basis2: object,
+    basis1: _BasisLike,
+    basis2: _BasisLike,
 ) -> np.ndarray:
     """Compute tensor product basis matrix.
 
@@ -162,8 +171,8 @@ def fit_tensor_product(
     X1: np.ndarray,
     X2: np.ndarray,
     y: np.ndarray,
-    basis1: object,
-    basis2: object,
+    basis1: _BasisLike,
+    basis2: _BasisLike,
     S1: np.ndarray,
     S2: np.ndarray,
     lambda1: float = 1.0,

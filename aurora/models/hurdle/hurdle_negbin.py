@@ -294,7 +294,7 @@ def _update_theta_truncnb(y: NDArray, mu: NDArray, theta_init: float) -> float:
         )
         log_trunc = np.log(1 - p0 + 1e-10)
 
-        return -np.sum(log_nb - log_trunc)
+        return float(-np.sum(log_nb - log_trunc))
 
     # Grid search + refinement
     from scipy.optimize import minimize_scalar
@@ -305,7 +305,7 @@ def _update_theta_truncnb(y: NDArray, mu: NDArray, theta_init: float) -> float:
         method="bounded",
     )
 
-    return np.exp(result.x)
+    return float(np.exp(result.x))
 
 
 @dataclass
@@ -380,15 +380,15 @@ class HurdleNegBinResult:
         trunc_mean = mu / (1 - p0)
 
         if type == "response":
-            return pi * trunc_mean
+            return np.asarray(pi * trunc_mean)
         elif type == "prob_positive":
-            return pi
+            return np.asarray(pi)
         elif type == "prob_zero":
-            return 1 - pi
+            return np.asarray(1 - pi)
         elif type == "count":
-            return trunc_mean
+            return np.asarray(trunc_mean)
         elif type == "mu":
-            return mu
+            return np.asarray(mu)
         else:
             raise ValueError(f"Unknown type: {type}")
 

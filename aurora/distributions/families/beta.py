@@ -141,7 +141,7 @@ class BetaFamily(Family):
         if isinstance(phi, str):
             if phi != "estimate":
                 raise ValueError("phi must be a positive float or 'estimate'")
-            self._phi = phi
+            self._phi: float | str = phi
         else:
             if phi <= 0:
                 raise ValueError("phi must be positive")

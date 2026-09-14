@@ -24,6 +24,8 @@ Examples
 
 from __future__ import annotations
 
+from typing import cast
+
 from ...core.types import ArrayLike
 from ..base.result import GLMResult
 
@@ -78,7 +80,7 @@ def predict_glm(
     fit_glm : Fit a Generalized Linear Model
     GLMResult.predict : Instance method for predictions
     """
-    return model.predict(design_matrix, backend=backend, type=type)
+    return cast(ArrayLike, model.predict(design_matrix, backend=backend, type=type))
 
 
 __all__ = ["predict_glm"]

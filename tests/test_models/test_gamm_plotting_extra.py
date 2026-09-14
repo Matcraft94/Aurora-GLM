@@ -119,6 +119,32 @@ class TestPlotDiagnosticsPanel:
 
 
 class TestPlotSmoothEffect:
+    def test_uses_bspline_basis_not_polynomial_fallback(self, monkeypatch):
+        """Regression: plot_smooth_effect called ``basis.design_matrix()``,
+        which BSplineBasis does not have — the AttributeError was swallowed
+        by ``except Exception`` and the plot silently used a polynomial
+        fallback. The real method is ``basis_matrix()``."""
+        import aurora.smoothing.splines.bspline as bspline_mod
+
+        calls = []
+
+        class RecordingBasis:
+            def __init__(self, knots, degree):
+                self.n_cols = len(knots) - degree - 1
+
+            def basis_matrix(self, x):
+                calls.append("basis_matrix")
+                x = np.asarray(x, dtype=float)
+                return np.ones((len(x), self.n_cols))
+
+        monkeypatch.setattr(bspline_mod, "BSplineBasis", RecordingBasis)
+
+        result = _make_mock_gamm_result()
+        fig, ax = plot_smooth_effect(result, term_name="x")
+        plt.close("all")
+
+        assert calls == ["basis_matrix"]
+
     def test_basic_smooth(self):
         result = _make_mock_gamm_result()
         data = pd.DataFrame({"x": np.linspace(0, 10, 50)})

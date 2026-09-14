@@ -14,6 +14,7 @@ References
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 import numpy as np
 
@@ -292,7 +293,7 @@ class IdentityCovariance(CovarianceStructure):
         # Transform from log scale
         variance = np.exp(params[0])
         psi = variance * np.eye(n_effects)
-        return psi
+        return np.asarray(psi)
 
     def extract_params(self, psi: np.ndarray) -> np.ndarray:
         """Extract log(σ²) from Ψ = σ²I."""
@@ -381,7 +382,7 @@ class AR1Covariance(CovarianceStructure):
         i, j = np.ogrid[:n_effects, :n_effects]
         psi = sigma2 * (rho ** np.abs(i - j))
 
-        return psi
+        return np.asarray(psi)
 
     def extract_params(self, psi: np.ndarray) -> np.ndarray:
         """Extract parameters from AR(1) covariance matrix.
@@ -520,7 +521,7 @@ class CompoundSymmetryCovariance(CovarianceStructure):
         # Build compound symmetry structure
         psi = sigma2 * (rho * np.ones((n_effects, n_effects)) + (1 - rho) * np.eye(n_effects))
 
-        return psi
+        return np.asarray(psi)
 
     def extract_params(self, psi: np.ndarray) -> np.ndarray:
         """Extract parameters from compound symmetry matrix."""
@@ -600,7 +601,7 @@ class ExponentialSpatialCovariance(CovarianceStructure):
             If not provided, assumes 1D equally-spaced locations.
         """
         self.coordinates = coordinates
-        self._distance_matrix = None
+        self._distance_matrix: np.ndarray | None = None
 
     def _compute_distances(self, n_effects: int) -> np.ndarray:
         """Compute pairwise distance matrix."""
@@ -656,7 +657,7 @@ class ExponentialSpatialCovariance(CovarianceStructure):
         # Exponential covariance: σ² exp(-d/φ)
         psi = sigma2 * np.exp(-D / phi)
 
-        return psi
+        return np.asarray(psi)
 
     def extract_params(self, psi: np.ndarray) -> np.ndarray:
         """Extract parameters from spatial covariance matrix.
@@ -739,7 +740,7 @@ class MaternCovariance(CovarianceStructure):
         """
         self.coordinates = coordinates
         self.nu = nu
-        self._distance_matrix = None
+        self._distance_matrix: np.ndarray | None = None
 
     def _compute_distances(self, n_effects: int) -> np.ndarray:
         """Compute pairwise distance matrix."""
@@ -810,7 +811,7 @@ class MaternCovariance(CovarianceStructure):
         # Ensure symmetry
         psi = (psi + psi.T) / 2
 
-        return psi
+        return np.asarray(psi)
 
     def extract_params(self, psi: np.ndarray) -> np.ndarray:
         """Extract parameters from Matérn covariance matrix."""
@@ -963,7 +964,7 @@ class ToeplitzCovariance(CovarianceStructure):
             # Add regularization to make positive definite
             psi += (1e-8 - np.min(eigvals) + 1e-10) * np.eye(n_effects)
 
-        return psi
+        return np.asarray(psi)
 
     def extract_params(self, psi: np.ndarray) -> np.ndarray:
         """Extract parameters from Toeplitz covariance matrix.
@@ -1039,7 +1040,7 @@ def get_covariance_structure(structure: str, **kwargs) -> CovarianceStructure:
     2.5
     """
     # Structures without extra arguments
-    simple_structures = {
+    simple_structures: dict[str, Callable[[], CovarianceStructure]] = {
         "unstructured": UnstructuredCovariance,
         "diagonal": DiagonalCovariance,
         "identity": IdentityCovariance,

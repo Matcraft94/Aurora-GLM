@@ -105,7 +105,7 @@ def _full_covariance(result: GLMResult, *, include_intercept: bool) -> np.ndarra
 
 def _symmetrise_matrix(matrix: np.ndarray) -> np.ndarray:
     matrix = np.asarray(matrix, dtype=float)
-    return 0.5 * (matrix + matrix.T)
+    return np.asarray(0.5 * (matrix + matrix.T))
 
 
 def _quadratic_form(diff: np.ndarray, covariance: np.ndarray) -> float:

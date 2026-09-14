@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from importlib import import_module
 from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from ...utils import BackendNotAvailableError
 
@@ -109,7 +109,7 @@ def _load_builtin_backend(name: str) -> Backend:
             f"does not expose create_backend()."
         )
 
-    return module.create_backend()
+    return cast("Backend", module.create_backend())
 
 
 # NumPy is always available — register eagerly
@@ -150,7 +150,7 @@ def get_backend(name: str = "numpy") -> Backend:
 
     # Register built-in backends on first access (lazy loading)
     if normalized not in _BACKENDS and normalized in _BUILTIN_BACKENDS:
-        register_backend(normalized, lambda n=normalized: _load_builtin_backend(n))
+        register_backend(normalized, lambda: _load_builtin_backend(normalized))
 
     if normalized not in _BACKENDS:
         available = ", ".join(sorted(available_backends()))

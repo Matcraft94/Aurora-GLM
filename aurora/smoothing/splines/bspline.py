@@ -588,12 +588,14 @@ class BSplineBasis:
             indptr.append(len(data))
 
         # Convert to numpy arrays
-        data = np.array(data, dtype=x_arr.dtype)
-        indices = np.array(indices, dtype=np.int32)
-        indptr = np.array(indptr, dtype=np.int32)
+        data_arr = np.array(data, dtype=x_arr.dtype)
+        indices_arr = np.array(indices, dtype=np.int32)
+        indptr_arr = np.array(indptr, dtype=np.int32)
 
         # Create CSR matrix
-        B_sparse = csr_matrix((data, indices, indptr), shape=(n, self.n_basis_), dtype=x_arr.dtype)
+        B_sparse = csr_matrix(
+            (data_arr, indices_arr, indptr_arr), shape=(n, self.n_basis_), dtype=x_arr.dtype
+        )
 
         return B_sparse
 

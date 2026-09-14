@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -69,7 +70,7 @@ def test_glm_coefficients_match_r(tmp_path):
     output_json = tmp_path / "comparison_results.json"
 
     cmd = [
-        "python",
+        sys.executable,
         str(COMPARE_SCRIPT),
         "--output",
         str(output_json),

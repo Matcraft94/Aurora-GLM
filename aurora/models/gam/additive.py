@@ -106,7 +106,7 @@ class AdditiveGAMResult:
             rss = np.sum(self.weights * self.residuals**2)
 
         tss = np.sum((self.y - np.mean(self.y)) ** 2)
-        return 1 - rss / tss
+        return float(1 - rss / tss)
 
     def predict(self, X_new: np.ndarray) -> np.ndarray:
         """Predict at new data points.
@@ -140,7 +140,7 @@ class AdditiveGAMResult:
         X_param_new = np.column_stack(
             [
                 np.ones(n_new),  # Intercept
-                *[X_new_arr[:, t.variable] for t in self.parametric_terms],
+                *[X_new_arr[:, int(t.variable)] for t in self.parametric_terms],
             ]
         )
         y_pred = X_param_new @ self.parametric_coef
@@ -150,10 +150,7 @@ class AdditiveGAMResult:
             term_name = f"s({term.variable})"
 
             # Get predictor values
-            if isinstance(term.variable, int):
-                x_smooth = X_new_arr[:, term.variable]
-            else:
-                x_smooth = X_new_arr[:, term.variable]
+            x_smooth = X_new_arr[:, int(term.variable)]
 
             # Evaluate basis
             basis = self.smooth_bases[term_name]
@@ -162,7 +159,7 @@ class AdditiveGAMResult:
             # Add contribution
             y_pred += X_smooth_new @ self.smooth_coef[term_name]
 
-        return y_pred
+        return np.asarray(y_pred)
 
     def summary(self) -> str:
         """Generate summary string of additive GAM fit.
@@ -198,11 +195,11 @@ class AdditiveGAMResult:
 
         # Smooth terms
         lines.append("Smooth Terms:")
-        for term in self.smooth_terms:
-            term_name = f"s({term.variable})"
+        for sterm in self.smooth_terms:
+            term_name = f"s({sterm.variable})"
             lines.append(f"  {term_name}:")
-            lines.append(f"    Basis:             {term.basis_type}")
-            lines.append(f"    n_basis:           {term.n_basis}")
+            lines.append(f"    Basis:             {sterm.basis_type}")
+            lines.append(f"    n_basis:           {sterm.n_basis}")
             lines.append(f"    Lambda:            {self.lambda_values[term_name]:.6e}")
             lines.append(f"    EDF:               {self.edf_values[term_name]:.2f}")
         lines.append("")
@@ -369,7 +366,7 @@ def fit_additive_gam(
             knots = BSplineBasis.create_knots(
                 x_smooth, n_basis=term.n_basis, degree=3, method=term.knot_method
             )
-            basis = BSplineBasis(knots, degree=3)
+            basis: BSplineBasis | CubicSplineBasis = BSplineBasis(knots, degree=3)
         elif term.basis_type == "cubic":
             knots_interior = CubicSplineBasis.create_knots(
                 x_smooth, n_knots=term.n_basis - 2, method=term.knot_method
@@ -381,7 +378,7 @@ def fit_additive_gam(
         # Compute basis matrix and penalty
         X_smooth = basis.basis_matrix(x_smooth)
 
-        if term.basis_type == "bspline":
+        if isinstance(basis, BSplineBasis):
             S_smooth = basis.penalty_matrix(order=term.penalty_order)
         else:  # cubic
             S_smooth = basis.penalty_matrix()
@@ -421,11 +418,11 @@ def fit_additive_gam(
     # Build parametric design matrix (intercept + parametric terms)
     X_parametric_list = [np.ones(n)]  # Intercept
 
-    for term in parametric_terms:
-        if isinstance(term.variable, int):
-            if term.variable >= p:
-                raise ValueError(f"Variable index {term.variable} out of range (0-{p - 1})")
-            X_parametric_list.append(X_arr[:, term.variable])
+    for pterm in parametric_terms:
+        if isinstance(pterm.variable, int):
+            if pterm.variable >= p:
+                raise ValueError(f"Variable index {pterm.variable} out of range (0-{p - 1})")
+            X_parametric_list.append(X_arr[:, pterm.variable])
         else:
             raise NotImplementedError("Named variables require DataFrame support")
 
@@ -465,7 +462,8 @@ def fit_additive_gam(
             lambda_min=1e-6,
             lambda_max=1e6,
         )
-        gcv_score = selection_result.get("reml_score")
+        reml_score = selection_result.get("reml_score")
+        gcv_score = float(reml_score) if reml_score is not None else None
     else:
         # GCV selection
         selection_result = select_smoothing_parameter(
@@ -476,11 +474,11 @@ def fit_additive_gam(
             lambda_min=1e-6,
             lambda_max=1e6,
         )
-        gcv_score = selection_result["gcv_score"]
+        gcv_score = float(selection_result["gcv_score"])
 
-    lambda_opt = selection_result["lambda_opt"]
-    coefficients = selection_result["coefficients"]
-    fitted_values = selection_result["fitted_values"]
+    lambda_opt = float(selection_result["lambda_opt"])
+    coefficients = np.asarray(selection_result["coefficients"], dtype=np.float64)
+    fitted_values = np.asarray(selection_result["fitted_values"], dtype=np.float64)
 
     # All terms use same lambda (no per-term optimization yet)
 
@@ -651,9 +649,9 @@ def fit_gam_formula(
         for term in spec.smooth_terms:
             if isinstance(term.variable, str):
                 variable_names.add(term.variable)
-        for term in spec.parametric_terms:
-            if isinstance(term.variable, str):
-                variable_names.add(term.variable)
+        for pterm in spec.parametric_terms:
+            if isinstance(pterm.variable, str):
+                variable_names.add(pterm.variable)
 
         # Build mapping from name to column index
         var_to_idx = {name: i for i, name in enumerate(sorted(variable_names))}
@@ -681,12 +679,12 @@ def fit_gam_formula(
                 updated_smooth_terms.append(term)
 
         updated_parametric_terms = []
-        for term in spec.parametric_terms:
-            if isinstance(term.variable, str):
-                new_var = var_to_idx[term.variable]
+        for pterm in spec.parametric_terms:
+            if isinstance(pterm.variable, str):
+                new_var = var_to_idx[pterm.variable]
                 updated_parametric_terms.append(ParametricTerm(variable=new_var))
             else:
-                updated_parametric_terms.append(term)
+                updated_parametric_terms.append(pterm)
 
         smooth_terms = updated_smooth_terms
         parametric_terms = updated_parametric_terms
@@ -721,13 +719,13 @@ def fit_gam_formula(
                 )
             predictor_indices.add(term.variable)
 
-        for term in spec.parametric_terms:
-            if not isinstance(term.variable, int):
+        for pterm in spec.parametric_terms:
+            if not isinstance(pterm.variable, int):
                 raise ValueError(
                     f"When using array data, all variables must be column indices, "
-                    f"got '{term.variable}'"
+                    f"got '{pterm.variable}'"
                 )
-            predictor_indices.add(term.variable)
+            predictor_indices.add(pterm.variable)
 
         # Extract predictor columns
         predictor_indices_sorted = sorted(predictor_indices)
@@ -738,7 +736,7 @@ def fit_gam_formula(
 
         smooth_terms = [
             SmoothTerm(
-                variable=idx_map[term.variable],
+                variable=idx_map[int(term.variable)],
                 basis_type=term.basis_type,
                 n_basis=term.n_basis,
                 penalty_order=term.penalty_order,
@@ -749,7 +747,7 @@ def fit_gam_formula(
         ]
 
         parametric_terms = [
-            ParametricTerm(variable=idx_map[term.variable]) for term in spec.parametric_terms
+            ParametricTerm(variable=idx_map[int(term.variable)]) for term in spec.parametric_terms
         ]
 
     # Fit GAM

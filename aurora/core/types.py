@@ -6,23 +6,29 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 import numpy as np
 
-try:  # pragma: no cover - optional dependency
-    import jax.numpy as jnp  # type: ignore
+if TYPE_CHECKING:  # pragma: no cover
+    # mypy cannot follow the try/except optional-import pattern; the
+    # type-checking view treats optional backend arrays as Any.
+    JAXArray: TypeAlias = Any
+    TorchTensor: TypeAlias = Any
+else:
+    try:  # pragma: no cover - optional dependency
+        import jax.numpy as jnp
 
-    JAXArray = jnp.ndarray  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover - optional dependency
-    JAXArray = Any
+        JAXArray = jnp.ndarray
+    except ImportError:  # pragma: no cover - optional dependency
+        JAXArray = Any
 
-try:  # pragma: no cover - optional dependency
-    import torch  # type: ignore
+    try:  # pragma: no cover - optional dependency
+        import torch
 
-    TorchTensor = torch.Tensor  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover - optional dependency
-    TorchTensor = Any
+        TorchTensor = torch.Tensor
+    except ImportError:  # pragma: no cover - optional dependency
+        TorchTensor = Any
 
 # Type aliases for arrays
 Array: TypeAlias = np.ndarray | JAXArray | TorchTensor

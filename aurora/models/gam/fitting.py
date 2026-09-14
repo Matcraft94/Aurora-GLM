@@ -249,7 +249,7 @@ Wood (2017).
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -400,7 +400,7 @@ def fit_gam(
     # Create basis
     if basis_type == "bspline":
         knots = BSplineBasis.create_knots(x_arr, n_basis=n_basis, degree=degree, method=knot_method)
-        basis = BSplineBasis(knots, degree=degree)
+        basis: BSplineBasis | CubicSplineBasis = BSplineBasis(knots, degree=degree)
     elif basis_type == "cubic":
         knots_interior = CubicSplineBasis.create_knots(
             x_arr, n_knots=n_basis - 2, method=knot_method
@@ -411,13 +411,14 @@ def fit_gam(
 
     # Compute basis matrix (sparse if requested)
     if use_sparse:
-        X = basis.basis_matrix(x_arr, sparse=True)
+        # use_sparse=True is only valid with basis_type="bspline" (validated above)
+        X = cast(BSplineBasis, basis).basis_matrix(x_arr, sparse=True)
     else:
         X = basis.basis_matrix(x_arr)
 
     # Create penalty matrix
     if basis_type == "bspline":
-        S = basis.penalty_matrix(order=penalty_order)
+        S = cast(BSplineBasis, basis).penalty_matrix(order=penalty_order)
     else:  # cubic
         # Cubic splines use analytical integrated squared second derivative
         # (no order parameter)

@@ -319,7 +319,7 @@ class LinearModelResult(BaseResult):
         ss_tot = np.sum((self._y - np.mean(self._y)) ** 2)
         if ss_tot == 0:
             return 1.0 if ss_res == 0 else 0.0
-        return 1.0 - ss_res / ss_tot
+        return float(1.0 - ss_res / ss_tot)
 
     @property
     def adj_r_squared(self) -> float:
@@ -352,7 +352,7 @@ class LinearModelResult(BaseResult):
         eta = X @ self.coef_
         if self.intercept_ is not None:
             eta = eta + self.intercept_
-        return eta
+        return np.asarray(eta)
 
     def summary(self) -> str:
         """Return formatted summary table."""
@@ -488,7 +488,7 @@ class MixedModelResultBase(BaseResult):
         """Response residuals."""
         if self._y is None:
             raise ValueError("Response y not stored; cannot compute residuals")
-        return self._y - self._fitted_values
+        return np.asarray(self._y - self._fitted_values)
 
     @property
     def n_random_effects(self) -> int:
@@ -530,7 +530,7 @@ class MixedModelResultBase(BaseResult):
             Z = np.atleast_2d(Z)
             eta = eta + Z @ self.random_effects_
 
-        return eta
+        return np.asarray(eta)
 
     def summary(self) -> str:
         """Return formatted summary table."""

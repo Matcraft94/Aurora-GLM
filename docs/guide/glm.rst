@@ -105,6 +105,26 @@ Families can be specified by string or instance:
    # Instance form (uses default link)
    result = fit_glm(X, y, family=PoissonFamily())
 
+**Negative Binomial with estimated dispersion.** For overdispersed count
+data where the dispersion ``theta`` is unknown, pass
+``NegativeBinomialFamily(theta="estimate")``. ``fit_glm`` then runs the
+two-step ``MASS::glm.nb`` flow: a provisional Poisson-style fit with
+``theta = 1``, maximum-likelihood estimation of ``theta`` from the fitted
+means (Lawless 1987), and a final refit with the estimated ``theta``. The
+estimate is exposed as ``result.theta_``:
+
+.. code-block:: python
+
+   from aurora.distributions.families import NegativeBinomialFamily
+   from aurora.models.glm import fit_glm
+
+   # theta estimated from the data (glm.nb flow)
+   result = fit_glm(X, y, family=NegativeBinomialFamily(theta="estimate"))
+   print(result.theta_)  # estimated dispersion
+
+   # Fixed theta behaves as a standard GLM family (result.theta_ is None)
+   result = fit_glm(X, y, family=NegativeBinomialFamily(theta=2.0))
+
 .. _glm-links:
 
 Link functions

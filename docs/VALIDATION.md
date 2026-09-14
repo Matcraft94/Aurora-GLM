@@ -150,6 +150,18 @@ This matches **R `dgamma(y, shape=alpha, rate=alpha/mu, log=TRUE)`** exactly.
 > Use the **R** formula (above) as the authoritative reference. Aurora's
 > Gamma AIC/BIC are valid for model comparison within Aurora and against R.
 
+> **Dispersion-estimator note (AIC vs R)**: Aurora plugs the moment
+> estimator `phi = D/(n - rank)` into the Gamma log-likelihood
+> (statsmodels' `llf` convention), while R's `logLik.glm`/`AIC` for Gamma
+> uses the ML dispersion `phi = D/n` (`Gamma()$aic` convention) and counts
+> the dispersion as an extra parameter (`k + 1`). Consequently Aurora's
+> `result.aic_` and R's `AIC()` differ by a small, phi-dependent amount —
+> not a constant. The R-validation harness
+> (`benchmarks/compare_with_r.py`) recomputes Aurora's Gamma log-likelihood
+> under R's `phi = D/n` before comparing AIC, so the 1e-6 gate tests the
+> likelihood agreement itself. Verified: all 20 family × replicate
+> comparisons match R to ≤ 1.4e-13.
+
 ### 3.5 Other families
 
 - **Negative Binomial, Inverse Gaussian, Beta, Student-t, Tweedie**: each

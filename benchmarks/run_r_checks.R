@@ -157,7 +157,7 @@ if (!is.null(output_file)) {
     r
   })
 
-  json_output <- toJSON(results_json, pretty = TRUE, auto_unbox = TRUE, na = "null")
+  json_output <- toJSON(results_json, pretty = TRUE, auto_unbox = TRUE, na = "null", digits = 15)
   write(json_output, file = output_file)
   cat(sprintf("\nWrote results to %s\n", output_file))
 }

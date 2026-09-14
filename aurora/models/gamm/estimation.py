@@ -135,7 +135,7 @@ def compute_V_matrix(
         psi_full = psi
 
     V = Z @ psi_full @ Z.T + sigma2 * np.eye(n)
-    return V
+    return np.asarray(V)
 
 
 def compute_P_matrix(
@@ -192,7 +192,7 @@ def compute_P_matrix(
     # P = V⁻¹ - V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹
     P = V_inv - V_inv @ X @ XtV_invX_inv @ XtV_inv
 
-    return P
+    return np.asarray(P)
 
 
 def reml_log_likelihood(
@@ -270,7 +270,7 @@ def reml_log_likelihood(
     # Add constant term
     log_lik -= 0.5 * (n - p) * np.log(2 * np.pi)
 
-    return log_lik
+    return float(log_lik)
 
 
 def reml_objective(
@@ -368,6 +368,7 @@ def reml_objective(
 
         else:
             # Single random effect (backward compatibility)
+            assert isinstance(n_effects, int)
             n_psi_params = cov_structure.n_parameters(n_effects)
             psi_params = theta[:n_psi_params]
             log_sigma2 = theta[n_psi_params]
@@ -694,4 +695,4 @@ def estimate_random_effects(
     # b = Ψ_full Z'V⁻¹(y - Xβ)
     b = psi_full @ Z.T @ V_inv @ residuals
 
-    return b
+    return np.asarray(b)

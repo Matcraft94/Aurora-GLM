@@ -89,14 +89,14 @@ def _gradient_torch(func: ScalarFunc, argnums: int, *args, **kwargs) -> ArrayLik
     """Compute gradient using PyTorch autograd."""
     import torch
 
-    args = list(args)
-    x = args[argnums]
+    args_list: list[Any] = list(args)
+    x = args_list[argnums]
 
     if not x.requires_grad:
         x = x.clone().detach().requires_grad_(True)
-        args[argnums] = x
+        args_list[argnums] = x
 
-    loss = func(*args, **kwargs)
+    loss = func(*args_list, **kwargs)
 
     if isinstance(loss, torch.Tensor):
         loss.backward()
@@ -118,8 +118,8 @@ def _gradient_numerical(func: ScalarFunc, argnums: int, *args, **kwargs) -> np.n
 
     Error: O(h²) (second-order accurate)
     """
-    args = list(args)
-    x = np.asarray(args[argnums], dtype=np.float64)
+    args_list: list[Any] = list(args)
+    x = np.asarray(args_list[argnums], dtype=np.float64)
     n = x.size
     x_flat = x.ravel()
 
@@ -133,15 +133,15 @@ def _gradient_numerical(func: ScalarFunc, argnums: int, *args, **kwargs) -> np.n
 
         x_plus = x_flat.copy()
         x_plus[i] += h
-        args[argnums] = x_plus.reshape(x.shape)
-        f_plus = func(*args, **kwargs)
+        args_list[argnums] = x_plus.reshape(x.shape)
+        f_plus = func(*args_list, **kwargs)
 
         x_minus = x_flat.copy()
         x_minus[i] -= h
-        args[argnums] = x_minus.reshape(x.shape)
-        f_minus = func(*args, **kwargs)
+        args_list[argnums] = x_minus.reshape(x.shape)
+        f_minus = func(*args_list, **kwargs)
 
         grad[i] = (f_plus - f_minus) / (2 * h)
 
-    args[argnums] = x
+    args_list[argnums] = x
     return grad.reshape(x.shape)

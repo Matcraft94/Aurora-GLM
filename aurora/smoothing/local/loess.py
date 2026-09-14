@@ -269,7 +269,7 @@ class LOESSSmoother:
         h = d_local.max()
         if h == 0:
             # All points at same location, return mean
-            return np.average(y_local, weights=rw_local)
+            return float(np.average(y_local, weights=rw_local))
 
         # Tricube kernel weights
         u = d_local / h
@@ -278,7 +278,7 @@ class LOESSSmoother:
 
         # Check for degenerate case
         if np.sum(w) == 0:
-            return np.mean(y_local)
+            return float(np.mean(y_local))
 
         # Design matrix for local polynomial
         dx = x_local - x0
@@ -300,10 +300,10 @@ class LOESSSmoother:
             XtWX += 1e-10 * np.eye(XtWX.shape[0])
 
             beta = np.linalg.solve(XtWX, XtWy)
-            return beta[0]  # Intercept = fitted value at x0
+            return float(beta[0])  # Intercept = fitted value at x0
         except np.linalg.LinAlgError:
             # Fallback to weighted mean
-            return np.average(y_local, weights=w)
+            return float(np.average(y_local, weights=w))
 
     def _tricube_weights(self, u: NDArray) -> NDArray:
         """Tricube kernel: (1 - |u|³)³ for |u| < 1, else 0.
@@ -390,7 +390,7 @@ class LOESSResult:
             fill_value="extrapolate",
             bounds_error=False,
         )
-        return f(x_new)
+        return np.asarray(f(x_new))
 
     def predict_exact(self, x_new: NDArray) -> NDArray:
         """Predict at new points using exact LOESS computation.
@@ -431,7 +431,7 @@ class LOESSResult:
         resid : ndarray
             Residuals at training points
         """
-        return self.y_ - self.fitted_values_
+        return np.asarray(self.y_ - self.fitted_values_)
 
     def summary(self) -> dict:
         """Return summary statistics.

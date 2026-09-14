@@ -75,11 +75,11 @@ def _jacobian_torch(func: VectorFunc, argnums: int, *args, **kwargs) -> ArrayLik
     """Compute Jacobian using PyTorch autograd."""
     from torch.autograd.functional import jacobian as torch_jacobian
 
-    args = list(args)
-    x = args[argnums]
+    args_list: list[Any] = list(args)
+    x = args_list[argnums]
 
     def wrapped_func(x_inner):
-        args_inner = list(args)
+        args_inner = list(args_list)
         args_inner[argnums] = x_inner
         return func(*args_inner, **kwargs)
 
@@ -88,13 +88,13 @@ def _jacobian_torch(func: VectorFunc, argnums: int, *args, **kwargs) -> ArrayLik
 
 def _jacobian_numerical(func: VectorFunc, argnums: int, *args, **kwargs) -> np.ndarray:
     """Compute Jacobian using central finite differences."""
-    args = list(args)
-    x = np.asarray(args[argnums], dtype=np.float64)
+    args_list: list[Any] = list(args)
+    x = np.asarray(args_list[argnums], dtype=np.float64)
     n = x.size
     x_flat = x.ravel()
 
-    args[argnums] = x
-    f0 = np.asarray(func(*args, **kwargs)).ravel()
+    args_list[argnums] = x
+    f0 = np.asarray(func(*args_list, **kwargs)).ravel()
     m = f0.size
 
     eps = np.finfo(np.float64).eps
@@ -107,13 +107,13 @@ def _jacobian_numerical(func: VectorFunc, argnums: int, *args, **kwargs) -> np.n
 
         x_plus = x_flat.copy()
         x_plus[j] += h
-        args[argnums] = x_plus.reshape(x.shape)
-        f_plus = np.asarray(func(*args, **kwargs)).ravel()
+        args_list[argnums] = x_plus.reshape(x.shape)
+        f_plus = np.asarray(func(*args_list, **kwargs)).ravel()
 
         x_minus = x_flat.copy()
         x_minus[j] -= h
-        args[argnums] = x_minus.reshape(x.shape)
-        f_minus = np.asarray(func(*args, **kwargs)).ravel()
+        args_list[argnums] = x_minus.reshape(x.shape)
+        f_minus = np.asarray(func(*args_list, **kwargs)).ravel()
 
         J[:, j] = (f_plus - f_minus) / (2 * h)
 

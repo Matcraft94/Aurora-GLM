@@ -74,11 +74,11 @@ def _hessian_torch(func: ScalarFunc, argnums: int, *args, **kwargs) -> ArrayLike
     """Compute Hessian using PyTorch autograd."""
     from torch.autograd.functional import hessian as torch_hessian
 
-    args = list(args)
-    x = args[argnums]
+    args_list: list[Any] = list(args)
+    x = args_list[argnums]
 
     def wrapped_func(x_inner):
-        args_inner = list(args)
+        args_inner = list(args_list)
         args_inner[argnums] = x_inner
         return func(*args_inner, **kwargs)
 
@@ -90,13 +90,13 @@ def _hessian_numerical(func: ScalarFunc, argnums: int, *args, **kwargs) -> np.nd
 
     Uses central differences on the gradient to get second derivatives.
     """
-    args = list(args)
-    x = np.asarray(args[argnums], dtype=np.float64)
+    args_list: list[Any] = list(args)
+    x = np.asarray(args_list[argnums], dtype=np.float64)
     n = x.size
 
     grad_fn = gradient(func, argnums=argnums, backend="numpy")
 
-    args[argnums] = x
+    args_list[argnums] = x
 
     eps = np.finfo(np.float64).eps
     h_base = eps ** (1 / 3)
@@ -109,13 +109,13 @@ def _hessian_numerical(func: ScalarFunc, argnums: int, *args, **kwargs) -> np.nd
 
         x_plus = x_flat.copy()
         x_plus[j] += h
-        args[argnums] = x_plus.reshape(x.shape)
-        g_plus = grad_fn(*args, **kwargs).ravel()
+        args_list[argnums] = x_plus.reshape(x.shape)
+        g_plus = grad_fn(*args_list, **kwargs).ravel()
 
         x_minus = x_flat.copy()
         x_minus[j] -= h
-        args[argnums] = x_minus.reshape(x.shape)
-        g_minus = grad_fn(*args, **kwargs).ravel()
+        args_list[argnums] = x_minus.reshape(x.shape)
+        g_minus = grad_fn(*args_list, **kwargs).ravel()
 
         H[:, j] = (g_plus - g_minus) / (2 * h)
 

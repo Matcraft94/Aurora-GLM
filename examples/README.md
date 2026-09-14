@@ -1,294 +1,165 @@
 # Aurora-GLM Examples and Case Studies
 
-Complete collection of production-ready examples demonstrating Aurora-GLM capabilities for statistical modeling across diverse domains.
+Collection of executable Jupyter notebooks demonstrating Aurora-GLM across
+GLM, GAM, and GAMM workflows. Every notebook runs end-to-end against the
+installed package, and every model mentioned in the text is actually fitted.
 
 **Aurora-GLM Version**: 1.0.0
-**Total Case Studies**: 17
+**Total Case Studies**: 16
 **Last Updated**: August 2026
 
 ---
 
 ## Overview
 
-The examples directory contains comprehensive Jupyter notebooks and datasets for learning Aurora-GLM through realistic, domain-specific applications. Each case study follows a consistent 8-part structure:
-
-1. **Problem Statement** - Research questions and domain context
-2. **Data Exploration** - Summary statistics and visualizations
-3. **Model Selection** - Justification for chosen family/link functions
-4. **Model Specification** - Formula syntax and parameter setup
-5. **Model Fitting** - Convergence diagnostics and numerical details
-6. **Results & Interpretation** - Coefficient estimates with practical meaning
-7. **Model Diagnostics** - Residual analysis and goodness-of-fit
-8. **Conclusions** - Key findings and business implications
-
----
-
-## Getting Started
-
-### Installation
-
-```bash
-# Install Aurora-GLM from source
-pip install -e /path/to/Aurora-GLM
-
-# Or from PyPI (when available)
-pip install aurora-glm
-
-# Install Jupyter for running notebooks
-pip install jupyter jupyterlab
-```
+The case studies in `06_case_studies/` follow a consistent structure:
+research questions, data description, EDA, mathematical specification
+(family, link, likelihood), model fitting, residual diagnostics,
+interpretation on the response scale, and conclusions with limitations and
+references. Notebooks are ordered as a learning path: GLM first, then GAM,
+then GAMM — real datasets before synthetic ones.
 
 ### Running Notebooks
 
 ```bash
-# Start Jupyter
-jupyter notebook
-
-# Navigate to examples/06_case_studies and open any notebook
-# Example: 01_insurance_pricing.ipynb
+pip install -e .          # from the repository root
+pip install jupyter
+jupyter notebook examples/06_case_studies/
 ```
 
-### Quick Start Path
+### Suggested learning path
 
-If you're new to Aurora-GLM, follow this learning sequence:
-
-1. **Case 01**: Insurance Pricing (Gamma GLM)
-   - Classic regression with GLM
-   - Introduction to model families and link functions
-
-2. **Case 02**: Air Quality (GAM)
-   - Smooth terms and additive models
-   - Non-linear relationship discovery
-
-3. **Case 04**: Sleep Study (GAMM)
-   - Random effects for clustered data
-   - Mixed models with temporal structure
-
-4. **Case 06**: Clinical Trial Longitudinal (GAMM with AR1)
-   - Temporal covariance structures
-   - Longitudinal data analysis
+1. **01** Insurance Pricing (Gamma GLM) — families, links, weights
+2. **05** Air Quality (GAM) — smooth terms and GCV
+3. **11** Sleep Study (GAMM) — random intercepts and slopes
+4. **12** Longitudinal Clinical Trial (GAMM) — covariance structures
 
 ---
 
-## Case Studies by Domain
+## The 16 Case Studies
 
-### Finance & Insurance (5 cases)
+### GLM foundations
 
-**01. Insurance Pricing with Gamma GLM**
-- Model: Gamma family, log link
-- Focus: Cost prediction for medical insurance
-- Techniques: GLM, log link, risk segmentation
-- Key Result: Smokers pay 3-4× more than non-smokers
+**01. Insurance Pricing — Gamma GLM** (`01_insurance_gamma_glm.ipynb`)
+- Gamma family with log vs identity link comparison; age × BMI interaction
+- Real dataset (`insurance.csv`); weights and offset conventions
+- Key result: smokers pay ~4.5× more; identity link preferred by AIC
 
-**09. French Motor Claims (Poisson/Negative Binomial)**
-- Model: Poisson GLM, Negative Binomial GLM
-- Focus: Insurance claim frequency modeling
-- Techniques: Overdispersion detection, count data
-- Key Result: Negative Binomial reduces AIC by 200+ points
+**02. French Motor Claims — Poisson & Negative Binomial** (`02_french_motor_poisson_nb.ipynb`)
+- Poisson GLM with exposure offset, then Negative Binomial with
+  ML-estimated θ (Lawless 1987) once overdispersion is detected (φ̂ ≈ 2.8)
+- Real dataset (freMTPL2freq, 678,013 policies; sampled to 100k in-notebook)
+- Key result: NB improves AIC by ~128 points over Poisson
 
-**10. Medical Insurance Costs (Gamma GLM)**
-- Model: Gamma GLM with interactions
-- Focus: Healthcare cost prediction
-- Techniques: Feature engineering, interaction terms
-- Key Result: Age × BMI interaction significant
+**03. Telco Customer Churn — Binomial GLM** (`03_telco_churn_binomial_glm.ipynb`)
+- Logistic regression with odds ratios, ROC and calibration analysis
+- Real dataset (`telco_churn.csv`)
+- Key result: AUC ≈ 0.83; contract type and tenure dominate churn risk
 
-**12. Telco Customer Churn (Binomial GLM)**
-- Model: Binomial GLM with logit link
-- Focus: Customer retention and churn prediction
-- Techniques: Logistic regression, odds ratios, ROC analysis
-- Key Result: Month-to-month customers churn 5× more
+**04. Restaurant Health Scores — Beta GLM** (`04_restaurant_health_beta_glm.ipynb`)
+- Beta family for bounded (0, 1) scores; spline regression for the
+  non-linear age effect (not a penalized GAM — the notebook explains why:
+  the additive-GAM fitting API is Gaussian-only)
+- Synthetic dataset
+- Key result: inspection frequency inversely related to violations
 
-**16. E-Commerce Conversion Rate Optimization**
-- Model: Binomial GAM with logit link
-- Focus: Dynamic conversion rate modeling
-- Techniques: Smooth terms for price effect, additive model
-- Key Result: Non-linear relationship between price and conversion
+### GAM
 
----
+**05. Air Quality — Gaussian GAM** (`05_air_quality_gam.ipynb`)
+- `fit_additive_gam` with GCV smoothing-parameter selection and
+  identifiability constraints
+- Real dataset (`airquality.csv`)
+- Key result: R² 0.74 vs 0.61 linear; clearly non-linear pollutant effects
 
-### Environmental & Ecological (5 cases)
+**06. Bike-Sharing Demand — GAM** (`06_bike_sharing_gam.ipynb`)
+- Additive GAM on log(count + 1) with smooths for temperature, humidity
+  and time-of-day; honest discussion of the quasi-Poisson approximation
+- Real dataset (`bike_sharing_hourly.csv`)
 
-**02. Air Quality Assessment (GAM)**
-- Model: Gaussian GAM
-- Focus: PM2.5 prediction from meteorological variables
-- Techniques: Multiple smooth terms, non-parametric regression
-- Key Result: Non-linear relationships between weather and pollution
+**07. Wind Power Forecasting — Gamma GLM → GAM** (`07_wind_power_gam.ipynb`)
+- Gamma GLM baseline vs Gaussian GAM on log(power); power-curve analysis
+- Synthetic dataset (17,520 hourly records)
+- Key result: R² 0.70 → 0.87 with smooth terms
 
-**03. Species Distribution Modeling**
-- Model: Binomial GAM (presence/absence)
-- Focus: Spatial prediction of species presence
-- Techniques: Thin plate splines, spatial smoothing
-- Key Result: Habitat predictors identified via smooth terms
+**08. E-Commerce Conversion — Binomial GAMM with smooths** (`08_ecommerce_conversion_gam.ipynb`)
+- `fit_gamm` with `s()` terms (PQL) for price, duration and hour effects;
+  random intercept per day-of-week; partial-dependence visualizations
+- Synthetic dataset
+- Key result: smooth terms improve Brier score and log-loss over the GLM
 
-**11. Bike Sharing Demand (Gaussian GAM)**
-- Model: Gaussian GAM with multiple smooths
-- Focus: Time-series prediction of bike share usage
-- Techniques: Temporal patterns, additive decomposition
-- Key Result: Strong day-of-week and temperature effects
+**09. Species Distribution — Poisson GLM** (`09_species_distribution_glm.ipynb`)
+- Multi-model Poisson regression with rate ratios and nested-model
+  comparison; zero-inflation discussed as a limitation
+- Synthetic dataset
 
-**14. Wind Power Forecasting (GAM)**
-- Model: GAM with smooths of wind speed and direction
-- Focus: Renewable energy output prediction
-- Techniques: Multiple smooth terms, non-linear relationships
-- Key Result: Power curve is strongly non-linear in wind speed
+**10. US Traffic Accidents — Binomial GLM at scale** (`10_us_accidents_binomial_glm.ipynb`)
+- Large-n binary severity classification with class-imbalance caveats
+  (sensitivity at the default threshold)
+- Synthetic dataset (150k records)
+- Key result: AUC ≈ 0.79; night and fog are the strongest risk factors
 
-**15. US Traffic Accidents Severity (Ordinal GAMM)**
-- Model: Mixed models for ordinal outcomes
-- Focus: Road safety and accident severity factors
-- Techniques: Random intercepts by location
-- Key Result: Location and weather interact strongly
+### GAMM
 
----
+**11. Sleep Study — random intercepts and slopes** (`11_sleep_study_gamm.ipynb`)
+- `(1 + days | subject)` on the real sleepstudy dataset; marginal vs
+  conditional R²; BLUP diagnostics
+- Real dataset (`sleepstudy.csv`)
 
-### Healthcare & Medicine (5 cases)
+**12. Longitudinal Clinical Trial — covariance structures** (`12_clinical_trial_longitudinal_gamm.ipynb`)
+- Identity vs AR(1) covariance comparison on a balanced subsample;
+  boundary estimate (ρ̂ → 1) explained; effect sizes (Cohen's d)
+- Synthetic dataset
 
-**04. Sleep Study with Random Effects (GAMM)**
-- Model: Linear mixed model (GAMM)
-- Focus: Sleep efficiency across individuals
-- Techniques: Random intercepts by subject, random slopes
-- Key Result: Significant individual variation in response
+**13. Clinical Trial — multilevel LMM and the binary-outcome caveat** (`13_clinical_trial_multilevel.ipynb`)
+- Patients nested in clinics, treatment crossed with clinic; linear
+  probability model with random effects vs PQL attempt under separation
+  (documented, with the library's separation warning shown)
+- Synthetic dataset
 
-**05. Clinical Trial (Gaussian GLM)**
-- Model: Gaussian GLM with group structure
-- Focus: Treatment effect estimation
-- Techniques: Contrast coding, confidence intervals
-- Key Result: Treatment shows significant improvement
+**14. Psychometric Crossed Effects** (`14_psychometric_crossed_gamm.ipynb`)
+- Crossed random effects for subjects and items (3,200 observations)
+- Synthetic dataset
 
-**06. Clinical Trial Longitudinal (GAMM with AR1)**
-- Model: GAMM with AR1 temporal covariance
-- Focus: Repeated measurements over time
-- Techniques: Autoregressive covariance structure
-- Key Result: AR1 improves fit vs independence assumption
+**15. Educational Multilevel (PISA UK)** (`15_educational_multilevel_gamm.ipynb`)
+- Eight models from null to random slopes on real PISA UK data; variance
+  partitioning; notes on the absence of tensor-product smooths
+- Real dataset (`pisaUK.csv`)
 
-**07. Psychometric Measurement (GAMM, crossed effects)**
-- Model: Linear mixed model with crossed random effects
-- Focus: Item response theory and measurement
-- Techniques: Crossed random effects (items × subjects)
-- Key Result: Item and subject effects orthogonal
-
-**13. Breast Cancer Survival (Survival analysis)**
-- Model: Cox proportional hazards (Gaussian approximation)
-- Focus: Time-to-event prediction
-- Techniques: Censoring handling, survival curves
-- Key Result: Tumor characteristics strong predictors
-
----
-
-### Education (1 case)
-
-**08. Educational Multilevel Data (GAMM, nested effects)**
-- Model: Nested random effects GAMM
-- Focus: Student achievement across schools and districts
-- Techniques: Nested random effects (students within schools within districts)
-- Key Result: District explains 30% of variance
-
----
-
-### Business & Retail (2 cases)
-
-**17. Restaurant Health Inspection (Beta GLM)**
-- Model: Beta GLM for [0,1] bounded outcomes
-- Focus: Restaurant health scores and violations
-- Techniques: Beta family for proportions, feature importance
-- Key Result: Inspection frequency inversely related to violations
-
-**Data**: Various industry datasets (see details below)
+**16. Breast Cancer Outcomes — Binomial GAMM (PQL)** (`16_breast_cancer_binomial_gamm.ipynb`)
+- Bernoulli + logit fitted by Penalized Quasi-Likelihood (Breslow &
+  Clayton 1993); random intercept per hospital; odds ratios; latent-scale
+  ICC; honest PQL limitations (attenuation with few clusters)
+- Synthetic dataset (30 hospitals × 50 patients)
+- Key result: between-hospital ICC ≈ 11%; ER+ raises survival odds
 
 ---
 
 ## Data Files
 
-Datasets live in `06_case_studies/data/` (notebooks reference them as
-`data/<name>.csv` or `../data/<name>.csv`). Several notebooks also generate
-synthetic data inline. Versioned datasets include:
+Datasets live in `06_case_studies/data/` (referenced as `data/<name>.csv`).
+Notebooks that use them download or fall back to the local cache:
 
-- `insurance.csv` - Medical insurance costs (Cases 01, 10; also in `examples/data/`)
-- `airquality.csv` - Air pollution measurements (Case 02)
-- `sleepstudy.csv` - Reaction times across subjects (Case 04)
-- `pisaUK.csv` - Educational achievement (Case 08)
-- `freMTPL2freq.csv` - French motor third-party liability claim frequencies (Case 09)
-- `bike_sharing_hourly.csv` - Hourly bike rental demand (Case 11)
-- `telco_churn.csv` - Customer churn data (Case 12)
+- `insurance.csv` — medical insurance costs (01; also in `examples/data/`)
+- `freMTPL2freq.csv` — French motor claim frequencies (02). **Not tracked
+  in git** (36 MB); the notebook downloads it from OpenML
+  (`openml.org/data/get_csv/20649148/freMTPL2freq.csv`) when missing
+- `airquality.csv` (05), `bike_sharing_hourly.csv` (06),
+  `telco_churn.csv` (03), `sleepstudy.csv` (11), `pisaUK.csv` (15)
 
----
-
-## Model Types by Case
-
-### GLM (Generalized Linear Models)
-
-- **Case 01**: Gamma GLM (insurance costs)
-- **Case 05**: Gaussian GLM (clinical trial)
-- **Case 09**: Poisson, Negative Binomial (count data)
-- **Case 10**: Gamma GLM (medical costs)
-- **Case 12**: Binomial GLM (logistic regression)
-- **Case 17**: Beta GLM (proportion outcomes)
-
-### GAM (Generalized Additive Models)
-
-- **Case 02**: Gaussian GAM (air quality)
-- **Case 03**: Binomial GAM (species distribution)
-- **Case 11**: Gaussian GAM (bike sharing)
-- **Case 16**: Binomial GAM (e-commerce conversion)
-
-### GAMM (Generalized Additive Mixed Models)
-
-- **Case 04**: Linear mixed model (sleep study)
-- **Case 06**: GAMM with AR1 covariance (clinical longitudinal)
-- **Case 07**: GAMM with crossed effects (psychometric)
-- **Case 08**: GAMM with nested effects (education)
-- **Case 13**: Cox model approximation (survival)
-- **Case 15**: Ordinal GAMM (accident severity)
+Cases 04, 07, 08, 09, 10, 12, 13, 14, 16 generate synthetic data inline
+with fixed seeds.
 
 ---
 
-## Key Features Demonstrated
+## Model Coverage Matrix
 
-### Model Families
-- Gaussian, Binomial, Poisson, Gamma, Negative Binomial, Beta
-
-### Link Functions
-- Identity, Log, Logit, Probit, Log-log, Inverse
-
-### Smooth Terms
-- B-splines, Natural cubic splines, Thin plate splines, Tensor products
-
-### Random Effects
-- Random intercepts, Random slopes, Nested effects, Crossed effects
-
-### Covariance Structures
-- Identity, Unstructured, Diagonal, AR1, Compound symmetry, Exponential, Matérn, Toeplitz
-
-### Backend Support
-- NumPy, PyTorch, JAX (all notebooks demonstrate multi-backend usage)
-
----
-
-## Workflow Template
-
-Each notebook follows this workflow:
-
-```python
-# 1. Load and explore data
-import pandas as pd
-data = pd.read_csv('data/example.csv')
-
-# 2. Create formula specification
-formula = "y ~ s(x1) + x2 + (1 | group)"
-
-# 3. Fit model
-from aurora.models.gamm import fit_gamm
-result = fit_gamm(formula=formula, data=data)
-
-# 4. Interpret results
-print(result.summary())
-print(result.beta_parametric)        # Fixed effects
-print(result.variance_components)    # Random-effect variances
-
-# 5. Diagnostics
-from aurora.visualization import plot_gamm_diagnostics, plot_gamm_random_effects
-plot_gamm_diagnostics(result)
-plot_gamm_random_effects(result)
-```
+| | GLM | GAM | GAMM |
+|---|---|---|---|
+| Gaussian | — | 05, 06, 07 | 11, 12, 13, 14, 15 |
+| Binomial | 03, 10 | 08 (via PQL) | 16 |
+| Poisson / NB | 02, 09 | — | — |
+| Gamma | 01 | 07 (baseline) | — |
+| Beta | 04 | — | — |
 
 ---
 
@@ -296,85 +167,24 @@ plot_gamm_random_effects(result)
 
 To add a new case study:
 
-1. Create a Jupyter notebook following the 8-part structure
-2. Include publication-quality visualizations
-3. Document all assumptions and limitations
-4. Compare alternative models when appropriate
-5. Add to this README with brief description
-6. Test across NumPy, PyTorch, JAX backends
-
----
-
-## Troubleshooting
-
-### Jupyter kernel not found
-```bash
-python -m ipykernel install --user
-```
-
-### Import errors for Aurora-GLM
-```bash
-# Verify installation
-python -c "import aurora; print(aurora.__version__)"
-
-# Reinstall if needed
-pip install -e /path/to/Aurora-GLM
-```
-
-### GPU/backend issues
-- PyTorch: `pip install torch`
-- JAX: `pip install jax jaxlib`
-- NumPy (default): included with pandas
-
-### Slow notebook execution
-- Reduce data size for exploration
-- Use `use_sparse=True` for large datasets
-- Consider desktop GPU for PyTorch/JAX backend
-
----
-
-## References
-
-### Aurora-GLM Documentation
-- GitHub: https://github.com/Matcraft94/Aurora-GLM
-- Main module: `import aurora`
-
-### Background Reading
-- GLM Theory: McCullagh & Nelder (1989)
-- GAM Theory: Wood (2017) "Generalized Additive Models: An Introduction with R"
-- GAMM Theory: Bates et al. (2015) lme4 paper
-- Splines: de Boor (2001) "A Practical Guide to Splines"
-
----
-
-## Version History
-
-**0.6.1** (December 2024)
-- All 17 case studies implemented with 8-part structure
-- Enhanced sparse matrix support (6-8× memory reduction)
-- Temporal covariance structures (AR1, compound symmetry, etc.)
-- Multi-backend validation (NumPy, PyTorch, JAX)
-- Comprehensive diagnostics and plotting
+1. Follow the common structure (RQs → data → EDA → specification → fit →
+   diagnostics → interpretation → conclusions with limitations/references)
+2. Every model mentioned in the text must be fitted in the notebook
+3. Execute the full notebook and keep clean outputs
+4. Update this README and `06_case_studies/README.md`
 
 ---
 
 ## Citation
 
-If you use these examples in your research, please cite Aurora-GLM:
-
 ```bibtex
 @software{aurora_glm2025,
   title = {Aurora-GLM: Generalized Linear and Additive Models},
-  author = {Arias, Lucy E.},
+  author = {Arias, Lucy Eduardo},
   year = {2025},
   url = {https://github.com/Matcraft94/Aurora-GLM},
   version = {1.0.0}
 }
 ```
 
----
-
-**Questions?** Open an issue on GitHub or consult the case study READMEs for domain-specific guidance.
-
-**Last Updated**: August 9, 2026
-**Maintainer**: Lucy E. Arias
+**Questions?** Open an issue at https://github.com/Matcraft94/Aurora-GLM/issues

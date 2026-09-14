@@ -360,6 +360,46 @@ def fit_glm(
             offset_arr = offset_arr.reshape(-1)
 
     family_obj = _coerce_family(family)
+
+    # Negative binomial with theta='estimate': two-step fit in the style of
+    # MASS::glm.nb — provisional fit, ML estimation of theta from the fitted
+    # means (Lawless 1987), then final refit with the estimated theta.
+    if isinstance(family_obj, NegativeBinomialFamily) and family_obj._estimate_theta:
+        provisional_family = NegativeBinomialFamily(theta=1.0)
+        provisional = fit_glm(
+            X_arr,
+            y_arr,
+            family=provisional_family,
+            link=link,
+            weights=weights_arr,
+            offset=offset_arr,
+            backend=backend,
+            device=device,
+            max_iter=max_iter,
+            tol=tol,
+            fit_intercept=fit_intercept,
+        )
+        theta_hat = provisional_family.estimate_theta(
+            np.asarray(_as_numpy(y_arr), dtype=np.float64),
+            np.asarray(_as_numpy(provisional.mu_), dtype=np.float64),
+            method="ml",
+        )
+        result = fit_glm(
+            X_arr,
+            y_arr,
+            family=NegativeBinomialFamily(theta=theta_hat),
+            link=link,
+            weights=weights_arr,
+            offset=offset_arr,
+            backend=backend,
+            device=device,
+            max_iter=max_iter,
+            tol=tol,
+            fit_intercept=fit_intercept,
+        )
+        result.theta_ = theta_hat
+        return result
+
     link_obj = _coerce_link(link, family_obj)
 
     # Domain validation of the response (clear errors instead of silent
@@ -799,7 +839,7 @@ def _as_numpy(array: Any) -> np.ndarray:
     if isinstance(array, np.ndarray):
         return array
     if hasattr(array, "detach"):  # PyTorch
-        return array.detach().cpu().numpy()
+        return np.asarray(array.detach().cpu().numpy())
     return np.asarray(array)  # JAX and array-likes
 
 

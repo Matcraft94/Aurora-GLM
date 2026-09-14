@@ -22,7 +22,7 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -31,7 +31,7 @@ from aurora.distributions._utils import (
     log_gamma,
     namespace,
 )
-from aurora.distributions.base import Family
+from aurora.distributions.base import Family, LinkFunction
 from aurora.distributions.links import IdentityLink, LogLink, SqrtLink
 
 if TYPE_CHECKING:
@@ -94,13 +94,13 @@ class NegativeBinomialFamily(Family):
     Examples
     --------
     >>> from aurora.models.glm import fit_glm
+    >>> from aurora.distributions.families import NegativeBinomialFamily
     >>> # Fixed dispersion
-    >>> result = fit_glm(X, y, family='negativebinomial',
-    ...                  family_params={'theta': 2.0})
+    >>> result = fit_glm(X, y, family=NegativeBinomialFamily(theta=2.0))
 
-    >>> # Estimate dispersion from data
-    >>> result = fit_glm(X, y, family='negativebinomial',
-    ...                  family_params={'theta': 'estimate'})
+    >>> # Estimate dispersion from data (glm.nb two-step flow)
+    >>> result = fit_glm(X, y, family=NegativeBinomialFamily(theta='estimate'))
+    >>> result.theta_  # estimated dispersion
 
     References
     ----------
@@ -135,7 +135,7 @@ class NegativeBinomialFamily(Family):
             self._estimate_theta = False
 
         if link == "log":
-            self._link = LogLink()
+            self._link: LinkFunction = LogLink()
         elif link == "identity":
             self._link = IdentityLink()
         elif link == "sqrt":
@@ -183,7 +183,7 @@ class NegativeBinomialFamily(Family):
 
         xp = namespace(mu)
         mu_arr = as_namespace_array(mu, xp, like=mu)
-        return mu_arr + mu_arr**2 / theta
+        return cast("NDArray", mu_arr + mu_arr**2 / theta)
 
     def initialize(self, y: NDArray) -> NDArray:
         """Initialize mean with sample mean + small constant.
@@ -205,10 +205,10 @@ class NegativeBinomialFamily(Family):
         # Convert mu to scalar for max comparison
         if xp is torch:  # type: ignore[comparison-overlap]
             mu_val = max(float(mu.item() if hasattr(mu, "item") else mu), 0.1)
-            return torch.full_like(y_arr, mu_val)
+            return cast("NDArray", torch.full_like(y_arr, mu_val))
         elif xp is jnp:  # type: ignore[comparison-overlap]
             mu_val = max(float(mu), 0.1)
-            return jnp.full_like(y_arr, mu_val)
+            return cast("NDArray", jnp.full_like(y_arr, mu_val))
         else:
             mu_val = max(float(mu), 0.1)
             return np.full_like(y_arr, mu_val, dtype=float)
@@ -456,7 +456,7 @@ class NegativeBinomialFamily(Family):
         # d/dμ log L = y/μ - (y+θ)/(μ+θ)
         grad = y_arr / mu_arr - (y_arr + theta) / (mu_arr + theta)
 
-        return grad
+        return cast("NDArray", grad)
 
     def d2_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Second derivative of log-likelihood w.r.t. μ.
@@ -492,7 +492,7 @@ class NegativeBinomialFamily(Family):
         # d²/dμ² log L = -y/μ² + (y+θ)/(μ+θ)²
         hess = -y_arr / mu_arr**2 + (y_arr + theta) / (mu_arr + theta) ** 2
 
-        return hess
+        return cast("NDArray", hess)
 
     def __repr__(self) -> str:
         """String representation."""

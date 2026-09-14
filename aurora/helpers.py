@@ -126,7 +126,7 @@ def summary(
     if print_output:
         print(summary_str)
 
-    return summary_str
+    return str(summary_str)
 
 
 def _brief_summary(result: Any) -> str:
@@ -320,7 +320,11 @@ def plot(
     )
 
     if kind == "diagnostics":
-        return plot_diagnostics_panel(result, ax=ax, **kwargs)
+        # GLM-family results carry their own panel method; the GAMM-only
+        # plot_diagnostics_panel accepts (result, figsize) — no `ax`.
+        if hasattr(result, "plot_diagnostics"):
+            return result.plot_diagnostics(**kwargs)
+        return plot_diagnostics_panel(result, **kwargs)
 
     elif kind == "residuals":
         return _plot_residuals(result, ax=ax, **kwargs)
@@ -337,7 +341,10 @@ def plot(
 
     elif kind == "all":
         figs = []
-        figs.append(plot_diagnostics_panel(result, **kwargs))
+        if hasattr(result, "plot_diagnostics"):
+            figs.append(result.plot_diagnostics(**kwargs))
+        else:
+            figs.append(plot_diagnostics_panel(result, **kwargs))
         if hasattr(result, "smooth_terms") or hasattr(result, "smooth_info"):
             figs.append(plot_all_smooths(result, **kwargs))
         return figs
@@ -619,7 +626,7 @@ def _get_aic(result: Any) -> float:
         The AIC value, or ``np.nan`` if it cannot be computed.
     """
     if hasattr(result, "aic"):
-        return result.aic
+        return float(result.aic)
 
     # Try to compute from log-likelihood
     ll = _get_loglik(result)
@@ -633,7 +640,7 @@ def _get_aic(result: Any) -> float:
     else:
         return np.nan
 
-    return -2 * ll + 2 * k
+    return float(-2 * ll + 2 * k)
 
 
 def _get_bic(result: Any) -> float:
@@ -654,7 +661,7 @@ def _get_bic(result: Any) -> float:
         The BIC value, or ``np.nan`` if it cannot be computed.
     """
     if hasattr(result, "bic"):
-        return result.bic
+        return float(result.bic)
 
     # Try to compute from log-likelihood
     ll = _get_loglik(result)
@@ -675,7 +682,7 @@ def _get_bic(result: Any) -> float:
     else:
         return np.nan
 
-    return -2 * ll + k * np.log(n)
+    return float(-2 * ll + k * np.log(n))
 
 
 def _get_loglik(result: Any) -> float:
@@ -695,11 +702,11 @@ def _get_loglik(result: Any) -> float:
         The log-likelihood value, or ``np.nan`` if unavailable.
     """
     if hasattr(result, "log_likelihood_"):
-        return result.log_likelihood_
+        return float(result.log_likelihood_)
     if hasattr(result, "loglik"):
-        return result.loglik
+        return float(result.loglik)
     if hasattr(result, "llf"):
-        return result.llf
+        return float(result.llf)
     return np.nan
 
 

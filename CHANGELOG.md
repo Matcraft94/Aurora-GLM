@@ -173,6 +173,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   setuptools>=77); `.gitignore` fixed (`revn/` → `renv/`, removed stale
   global `*.html`, added `coverage.json`/`entities.json`/`mempalace.yaml`,
   kept `examples/data/insurance.csv` tracked)
+- docs(examples): case-study notebooks restructured — all 16 execute
+  end-to-end (pandas 3 / NumPy 2 / matplotlib 3.9 breakages fixed);
+  content now matches the text (real Negative Binomial in French motor,
+  AR(1) comparison in the longitudinal trial, Binomial GAMM via PQL for
+  breast cancer outcomes, real additive-GAM API in air quality and
+  e-commerce); duplicate insurance notebooks merged; notebooks renumbered
+  as a GLM → GAM → GAMM learning path; both example READMEs and
+  `docs/examples/index.rst` rewritten with truthful descriptions
 
 ## [1.0.0] - 2026-04-01
 

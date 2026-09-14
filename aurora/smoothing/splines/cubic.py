@@ -201,8 +201,9 @@ class CubicSplineBasis:
 
         def _D(p: int, q: int) -> float:
             """Integral of d_p''(x) d_q''(x) over the real line."""
-            return self._integrate_second_derivatives(all_knots[p], all_knots[q], upper) / (
-                (upper - all_knots[p]) * (upper - all_knots[q])
+            return float(
+                self._integrate_second_derivatives(all_knots[p], all_knots[q], upper)
+                / ((upper - all_knots[p]) * (upper - all_knots[q]))
             )
 
         # For cubic terms: S[i+2, j+2] = D(i,j) - D(i,K-1) - D(K-1,j) + D(K-1,K-1)

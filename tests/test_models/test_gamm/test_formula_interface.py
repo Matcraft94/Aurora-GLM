@@ -455,3 +455,34 @@ def test_formula_comparison_with_matrix_mode():
         result_matrix.residual_variance,
         rtol=1e-6,
     )
+
+
+def test_formula_global_covariance_applies_to_random_effect():
+    """fit_gamm(covariance='ar1') in formula mode must reach the random effect.
+
+    Regression test: the global covariance parameter was silently ignored in
+    formula mode (the parsed RandomEffect always carried 'unstructured').
+    """
+    rng = np.random.default_rng(7)
+    n_subjects, n_times = 40, 5
+    n = n_subjects * n_times
+    subject = np.repeat(np.arange(n_subjects), n_times)
+    time = np.tile(np.arange(n_times), n_subjects).astype(float)
+
+    # AR(1) errors within subject (rho = 0.6) plus random intercepts
+    b = rng.normal(scale=0.5, size=n_subjects)
+    eps = np.zeros(n)
+    for s in range(n_subjects):
+        e = rng.normal(scale=0.8)
+        for t in range(n_times):
+            if t:
+                e = 0.6 * e + rng.normal(scale=0.8 * np.sqrt(1 - 0.36))
+            eps[s * n_times + t] = e
+    y = 2.0 + 0.3 * time + b[subject] + eps
+
+    data = pd.DataFrame({"y": y, "time": time, "subject": subject})
+    result = fit_gamm(formula="y ~ time + (1 | subject)", data=data, covariance="ar1")
+
+    assert result.converged
+    assert result._Z_info[0]["covariance"] == "ar1"
+    assert result.covariance_params is not None

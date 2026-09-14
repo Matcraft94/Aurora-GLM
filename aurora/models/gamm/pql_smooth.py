@@ -233,7 +233,7 @@ def fit_pql_with_smooth(
     # Initialize variance components
     if Psi_init is None:
         # Simple initialization: identity for each random effect
-        Psi_list = []
+        Psi_list: list[NDArray[np.floating]] = []
         for info in Z_info:
             dim = info.get("dim", 1)  # Dimension of random effect (1 for intercept)
             Psi_list.append(np.eye(dim))
@@ -546,7 +546,7 @@ def _build_lambda_matrix(
     for name, K_j in zip(smooth_names, p_smooth_list, strict=False):
         lambda_j = lambda_smooth[name]
         blocks.append(lambda_j * np.eye(K_j))
-    return linalg.block_diag(*blocks)
+    return np.asarray(linalg.block_diag(*blocks))
 
 
 def _penalized_deviance(
@@ -609,7 +609,7 @@ def _build_psi_inv_full(
         except np.linalg.LinAlgError:
             Psi_i_inv = np.linalg.pinv(Psi_i + 1e-6 * np.eye(dim))
         blocks.append(np.kron(np.eye(n_levels), Psi_i_inv))
-    return linalg.block_diag(*blocks)
+    return np.asarray(linalg.block_diag(*blocks))
 
 
 def _split_random_effects(

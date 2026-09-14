@@ -357,15 +357,15 @@ class HurdlePoissonResult:
         trunc_mean = mu / (1 - np.exp(-mu))
 
         if type == "response":
-            return pi * trunc_mean
+            return np.asarray(pi * trunc_mean)
         elif type == "prob_positive":
-            return pi
+            return np.asarray(pi)
         elif type == "prob_zero":
-            return 1 - pi
+            return np.asarray(1 - pi)
         elif type == "count":
-            return trunc_mean
+            return np.asarray(trunc_mean)
         elif type == "mu":
-            return mu
+            return np.asarray(mu)
         else:
             raise ValueError(f"Unknown type: {type}")
 

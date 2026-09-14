@@ -351,7 +351,7 @@ def _to_binary_labels(labels: np.ndarray) -> np.ndarray:
     if unique.size != 2:
         raise ValueError("Binary labels required for concordance index")
     positive = unique.max()
-    return (labels == positive).astype(np.float64)
+    return np.asarray((labels == positive).astype(np.float64))
 
 
 def _weighted_sum(values: np.ndarray, sample_weight: Any | None) -> float:
@@ -373,7 +373,7 @@ def _weighted_mean(values: np.ndarray, sample_weight: Any | None) -> float:
     weight_sum = np.sum(weights)
     if weight_sum <= 0.0:
         raise ValueError("sample weights must have positive sum")
-    return total / weight_sum
+    return float(total / weight_sum)
 
 
 def _validate_shape(a: np.ndarray, b: np.ndarray) -> None:
@@ -385,9 +385,9 @@ def _to_numpy(value: Any) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value.astype(np.float64, copy=False)
     if hasattr(value, "detach"):
-        return value.detach().cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.detach().cpu().numpy().astype(np.float64, copy=False))
     if hasattr(value, "cpu") and hasattr(value, "numpy"):
-        return value.cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.cpu().numpy().astype(np.float64, copy=False))
     return np.asarray(value, dtype=np.float64)
 
 

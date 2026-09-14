@@ -234,13 +234,36 @@ def _compare_single(
     deviance_diff = abs(aurora_deviance - r_deviance)
 
     # R's AIC() counts the estimated dispersion parameter for Gaussian-like
-    # families (Gaussian, Gamma, InverseGaussian), adding 2 to the AIC.
-    # Aurora follows the statsmodels convention (mean parameters only), see
-    # aurora/models/glm/fitting.py. Adjust by the known +2 offset so the
-    # comparison tests the actual likelihood agreement, not the convention.
+    # families (Gaussian, Gamma, InverseGaussian), adding 2 to the AIC, and
+    # for Gamma/InverseGaussian its logLik uses the ML dispersion φ = D/n
+    # (R's Gamma()$aic convention: denominator n, not n − rank). Aurora
+    # follows the statsmodels convention: mean parameters only, φ̂ = D/(n−p)
+    # (see aurora/models/glm/fitting.py). To compare the actual likelihood
+    # agreement rather than the dispersion-estimator convention, recompute
+    # Aurora's Gamma log-likelihood under R's φ = D/n and add the +2 offset.
     dispersion_families = {"gaussian", "gamma", "inversegaussian"}
     aic_offset = 2.0 if family.lower() in dispersion_families else 0.0
-    aic_diff = abs(aurora_aic + aic_offset - r_aic)
+    aurora_aic_for_r = aurora_aic
+    if family.lower() == "gamma":
+        from scipy.special import gammaln
+
+        n_obs_i = aurora_result.mu_.shape[0] if hasattr(aurora_result.mu_, "shape") else len(
+            aurora_result.mu_
+        )
+        phi_r = aurora_result.deviance_ / n_obs_i  # R's denominator: n
+        k = 1.0 / phi_r
+        mu_i = np.asarray(aurora_result.mu_, dtype=np.float64)
+        y_i = y
+        ll_r = float(
+            np.sum(
+                k * (np.log(k) - np.log(mu_i))
+                + (k - 1.0) * np.log(y_i)
+                - k * y_i / mu_i
+                - gammaln(k)
+            )
+        )
+        aurora_aic_for_r = -2.0 * ll_r + 2.0 * (len(aurora_coef) + 1)
+    aic_diff = abs(aurora_aic_for_r + aic_offset - r_aic)
 
     fitted_diff = np.abs(aurora_fitted - r_fitted)
     mean_fitted_diff = float(np.mean(fitted_diff))

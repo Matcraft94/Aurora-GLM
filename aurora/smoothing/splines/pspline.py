@@ -235,6 +235,7 @@ class PSplineBasis:
 
         if self._bspline_basis is None:
             self._setup(x)
+        assert self._bspline_basis is not None  # set by _setup()
 
         return self._bspline_basis.basis_matrix(x, sparse=sparse)
 
@@ -429,7 +430,7 @@ class PSplineBasis:
                     return np.inf
 
                 rss = np.sum(weights * (y - fitted) ** 2)
-                return n_eff * rss / (n_eff - edf) ** 2
+                return float(n_eff * rss / (n_eff - edf) ** 2)
             except np.linalg.LinAlgError:
                 return np.inf
 
@@ -437,7 +438,7 @@ class PSplineBasis:
         log_range = (np.log(lambda_range[0]), np.log(lambda_range[1]))
         result = minimize_scalar(gcv_score, bounds=log_range, method="bounded")
 
-        return np.exp(result.x)
+        return float(np.exp(result.x))
 
     def _select_lambda_aic(
         self,
@@ -492,14 +493,14 @@ class PSplineBasis:
                 rss = np.sum(weights * (y - fitted) ** 2)
                 if rss <= 0:
                     return np.inf
-                return n * np.log(rss / n) + 2 * edf
+                return float(n * np.log(rss / n) + 2 * edf)
             except np.linalg.LinAlgError:
                 return np.inf
 
         log_range = (np.log(lambda_range[0]), np.log(lambda_range[1]))
         result = minimize_scalar(aic_score, bounds=log_range, method="bounded")
 
-        return np.exp(result.x)
+        return float(np.exp(result.x))
 
     def _select_lambda_reml(
         self,
@@ -550,7 +551,7 @@ class PSplineBasis:
         log_range = (np.log(lambda_range[0]), np.log(lambda_range[1]))
         result = minimize_scalar(neg_reml, bounds=log_range, method="bounded")
 
-        return np.exp(result.x)
+        return float(np.exp(result.x))
 
     def derivative_matrix(self, x: NDArray, order: int = 1) -> NDArray:
         """Compute derivative basis matrix.
@@ -569,8 +570,9 @@ class PSplineBasis:
         """
         if self._bspline_basis is None:
             self._setup(x)
+        assert self._bspline_basis is not None  # set by _setup()
 
-        return self._bspline_basis.derivative_basis_matrix(x, order=order)
+        return np.asarray(self._bspline_basis.derivative_basis_matrix(x, order=order))
 
 
 @dataclass
@@ -627,7 +629,7 @@ class PSplineResult:
         """
         x_new = np.asarray(x_new).ravel()
         B_new = self.basis.basis_matrix(x_new)
-        return B_new @ self.coef_
+        return np.asarray(B_new @ self.coef_)
 
     def derivative(self, x: NDArray | None = None, order: int = 1) -> NDArray:
         """Evaluate derivative of fitted spline.
@@ -648,7 +650,7 @@ class PSplineResult:
             x = self.x_
         x = np.asarray(x).ravel()
         dB = self.basis.derivative_matrix(x, order=order)
-        return dB @ self.coef_
+        return np.asarray(dB @ self.coef_)
 
     def confidence_band(
         self, x: NDArray | None = None, level: float = 0.95

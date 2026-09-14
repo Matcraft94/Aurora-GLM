@@ -9,7 +9,7 @@ functions from GAMs, including confidence bands and partial residuals.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -122,7 +122,7 @@ def plot_smooth(
 
     is_additive = isinstance(result, AdditiveGAMResult)
 
-    if is_additive:
+    if isinstance(result, AdditiveGAMResult):
         if term is None:
             raise ValueError(
                 "For AdditiveGAMResult, must specify which term to plot "
@@ -150,7 +150,8 @@ def plot_smooth(
             raise ValueError(f"Could not find smooth term for '{term_name}'")
 
         # Extract data for this term
-        x_data = result.X_train[:, smooth_term.variable]
+        # smooth_term.variable is a column index into the ndarray X_train
+        x_data = result.X_train[:, cast(int, smooth_term.variable)]
         basis = result.smooth_bases[term_name]
         coef = result.smooth_coef[term_name]
         lambda_ = result.lambda_values[term_name]
@@ -182,7 +183,7 @@ def plot_smooth(
 
     residuals = np.asarray(result.residuals, dtype=np.float64)
     n_obs = residuals.size
-    edf = result.total_edf_ if is_additive else result.edf
+    edf = result.total_edf_ if isinstance(result, AdditiveGAMResult) else result.edf
     residual_var = float(residuals @ residuals) / max(n_obs - edf, 1.0)
 
     # Build X'X + λS for this term
@@ -293,6 +294,7 @@ def plot_smooth(
 
     if xlabel is None:
         if is_additive:
+            assert smooth_term is not None  # guaranteed by validation above
             xlabel = f"x{smooth_term.variable}"
         else:
             xlabel = "x"

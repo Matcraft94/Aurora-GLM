@@ -363,3 +363,34 @@ class TestZINBVsZIP:
 
         # theta should be large (approaching Poisson limit)
         assert result.theta_ > 1.0
+
+
+class TestZINBInitialization:
+    """Regression tests for the ZINB NB-initialization path."""
+
+    def test_nb_init_calls_fit_glm_with_family_object(self, monkeypatch):
+        """fit_glm has no ``family_params`` parameter; the old call passed it,
+        raised TypeError, and the NB init silently never ran (swallowed by
+        ``except Exception``). The init must pass a NegativeBinomialFamily
+        instance with theta=1.0 instead."""
+        calls = {}
+
+        class _FakeResult:
+            coef_ = np.zeros(2)
+
+        def fake_fit_glm(X, y, **kwargs):
+            calls.update(kwargs)
+            return _FakeResult()
+
+        monkeypatch.setattr("aurora.models.glm.fit_glm", fake_fit_glm)
+
+        rng = np.random.default_rng(0)
+        n = 100
+        X = np.column_stack([np.ones(n), rng.normal(size=n)])
+        y = rng.poisson(2.0, size=n).astype(float)
+
+        fit_zinb(X, y, max_iter=1)
+
+        assert "family_params" not in calls
+        family = calls.get("family")
+        assert getattr(family, "theta", None) == 1.0

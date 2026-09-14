@@ -71,10 +71,11 @@ def build_pymc_model(
 
         # Prior on coefficients
         coef_prior = priors.coef_prior
-        if hasattr(coef_prior, "mu"):
+        from ..priors import Cauchy, Normal
+
+        if isinstance(coef_prior, Normal):
             beta = pm.Normal("beta", mu=coef_prior.mu, sigma=coef_prior.sigma, shape=p)
-        elif hasattr(coef_prior, "loc") and hasattr(coef_prior, "scale"):
-            # Cauchy or similar
+        elif isinstance(coef_prior, Cauchy):
             beta = pm.Cauchy("beta", alpha=coef_prior.loc, beta=coef_prior.scale, shape=p)
         else:
             # Default to Normal

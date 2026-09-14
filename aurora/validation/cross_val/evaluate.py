@@ -145,9 +145,9 @@ def _to_numpy(value: Sequence[Any] | Any) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value.astype(np.float64, copy=False)
     if hasattr(value, "detach"):
-        return value.detach().cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.detach().cpu().numpy().astype(np.float64, copy=False))
     if hasattr(value, "cpu") and hasattr(value, "numpy"):
-        return value.cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.cpu().numpy().astype(np.float64, copy=False))
     return np.asarray(value, dtype=np.float64)
 
 
@@ -178,7 +178,7 @@ def _resolve_splitter(
 
 
 def _clone_splitter(splitter: Any) -> Any:
-    if is_dataclass(splitter):
+    if is_dataclass(splitter) and not isinstance(splitter, type):
         return replace(splitter)
     try:
         return copy.deepcopy(splitter)

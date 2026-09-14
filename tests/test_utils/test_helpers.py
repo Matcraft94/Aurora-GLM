@@ -110,6 +110,24 @@ class TestSummaryFunction:
 class TestPlotFunction:
     """Tests for plot() function."""
 
+    def test_plot_diagnostics_default_kind(self):
+        """Regression: plot(result) with default kind='diagnostics' must work
+        for GLM results — it previously forwarded ax= to the GAMM-only
+        plot_diagnostics_panel and raised TypeError."""
+        import matplotlib.pyplot as plt
+
+        from aurora.models.glm import fit_glm
+
+        rng = np.random.default_rng(42)
+        n = 100
+        X = rng.normal(size=(n, 2))
+        y = 1.0 + X @ np.array([0.5, -0.3]) + rng.normal(scale=0.5, size=n)
+        result = fit_glm(X, y, family="gaussian")
+
+        fig = plot(result)
+        assert fig is not None
+        plt.close(fig)
+
     def test_plot_residuals(self, sample_glm_result):
         """Test residuals plot."""
         fig = plot(sample_glm_result, kind="residuals")

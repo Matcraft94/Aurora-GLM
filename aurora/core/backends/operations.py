@@ -95,7 +95,7 @@ def to_backend_array(data: Any, xp, device=None, dtype=None):
 
     # Convert to target backend
     if xp is np:
-        result = np.asarray(data, dtype=dtype)
+        result: Any = np.asarray(data, dtype=dtype)
     elif xp is torch:
         if dtype is None:
             dtype = torch.float64
@@ -126,7 +126,7 @@ def to_numpy(data: Any) -> np.ndarray:
     if isinstance(data, np.ndarray):
         return data
     elif torch is not None and isinstance(data, torch.Tensor):
-        return data.detach().cpu().numpy()
+        return np.asarray(data.detach().cpu().numpy())
     elif jax is not None and hasattr(data, "device_buffer"):
         return np.asarray(data)
     else:

@@ -392,7 +392,7 @@ def _compute_gcv_score(
 
     gcv = (n * RSS) / (n - edf) ** 2
 
-    return gcv
+    return float(gcv)
 
 
 def select_smoothing_performance_iter(

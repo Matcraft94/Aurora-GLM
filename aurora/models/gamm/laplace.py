@@ -189,7 +189,8 @@ def fit_laplace(
     if q % n_effects != 0:
         raise ValueError(
             f"Z has q={q} columns, not divisible by n_effects={n_effects} "
-            f"(inferred from psi_init shape {psi_init.shape}). For random "
+            f"(inferred from psi_init shape "
+            f"{psi_init.shape if psi_init is not None else None}). For random "
             "intercept + slope models, pass psi_init with shape "
             "(n_effects, n_effects)."
         )
@@ -412,7 +413,7 @@ def _compute_hessian(
     # Total Hessian
     hessian = hess_lik + psi_inv_block
 
-    return hessian
+    return np.asarray(hessian)
 
 
 def _update_fixed_effects(
@@ -557,7 +558,7 @@ def _update_variance_laplace(
     if np.min(eigvals) < 1e-6:
         psi_new = psi_new + (1e-6 - np.min(eigvals)) * np.eye(n_effects)
 
-    return psi_new
+    return np.asarray(psi_new)
 
 
 def _compute_laplace_log_likelihood(
@@ -596,7 +597,7 @@ def _compute_laplace_log_likelihood(
         Approximate marginal log-likelihood
     """
     # Log-likelihood at mode
-    log_lik_data = family.log_likelihood(y, mu).sum()
+    log_lik_data = np.sum(family.log_likelihood(y, mu))
 
     # Log prior density at mode
     n_groups = len(b) // n_effects
@@ -625,7 +626,7 @@ def _compute_laplace_log_likelihood(
 
     laplace_correction = 0.5 * len(b) * np.log(2 * np.pi) - 0.5 * log_det_hess
 
-    return log_lik_data + log_prior + laplace_correction
+    return float(log_lik_data + log_prior + laplace_correction)
 
 
 def _get_family(family_name: str) -> Family:
@@ -646,7 +647,7 @@ def _get_family(family_name: str) -> Family:
     ValueError
         If family name not recognized
     """
-    families = {
+    families: dict[str, type[Family]] = {
         "gaussian": GaussianFamily,
         "poisson": PoissonFamily,
         "binomial": BinomialFamily,

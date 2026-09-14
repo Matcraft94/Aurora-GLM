@@ -271,7 +271,7 @@ def _is_sparse(X) -> bool:
     try:
         from scipy import sparse
 
-        return sparse.issparse(X)
+        return bool(sparse.issparse(X))
     except ImportError:
         return False
 

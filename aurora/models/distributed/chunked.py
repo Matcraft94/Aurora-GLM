@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -92,7 +92,7 @@ class ChunkedDataLoader:
             # Use .copy() to materialize memory-mapped chunks
             yield X[idx].copy(), y[idx].copy()
 
-    def _load_array_streaming(self, path: Path) -> NDArray:
+    def _load_array_streaming(self, path: str | Path) -> NDArray:
         """Load array with streaming support (memory mapping for .npy).
 
         For .npy files, uses memory mapping to enable true streaming
@@ -101,7 +101,7 @@ class ChunkedDataLoader:
 
         Parameters
         ----------
-        path : Path
+        path : str or Path
             Path to array file
 
         Returns
@@ -114,27 +114,28 @@ class ChunkedDataLoader:
         Memory-mapped arrays are read-only and lazily loaded. Only the
         accessed chunks are loaded into RAM. Use .copy() to materialize.
         """
+        path = Path(path)
         suffix = path.suffix.lower()
 
         if suffix == ".npy":
             # Use memory mapping for streaming
-            return np.load(path, mmap_mode="r")
+            return cast("NDArray", np.load(path, mmap_mode="r"))
         elif suffix == ".npz":
             # NPZ doesn't support mmap, load fully
             data = np.load(path)
-            return data[list(data.keys())[0]]
+            return cast("NDArray", data[list(data.keys())[0]])
         elif suffix == ".csv":
             # CSV requires full load (could use pandas chunking in future)
             return np.loadtxt(path, delimiter=",", skiprows=1)
         else:
             # Try numpy load with mmap if possible
             try:
-                return np.load(path, mmap_mode="r")
+                return cast("NDArray", np.load(path, mmap_mode="r"))
             except (ValueError, OSError):
                 # Fall back to regular load
-                return np.load(path)
+                return cast("NDArray", np.load(path))
 
-    def _load_array(self, path: Path) -> NDArray:
+    def _load_array(self, path: str | Path) -> NDArray:
         """Load array from file (legacy method, loads fully into memory).
 
         This method is kept for compatibility and for cases where
@@ -143,7 +144,7 @@ class ChunkedDataLoader:
 
         Parameters
         ----------
-        path : Path
+        path : str or Path
             Path to array file
 
         Returns
@@ -151,19 +152,20 @@ class ChunkedDataLoader:
         array : ndarray
             Loaded array in memory
         """
+        path = Path(path)
         suffix = path.suffix.lower()
 
         if suffix == ".npy":
-            return np.load(path)
+            return cast("NDArray", np.load(path))
         elif suffix == ".npz":
             data = np.load(path)
             # Return first array
-            return data[list(data.keys())[0]]
+            return cast("NDArray", data[list(data.keys())[0]])
         elif suffix == ".csv":
             return np.loadtxt(path, delimiter=",", skiprows=1)
         else:
             # Try numpy load
-            return np.load(path)
+            return cast("NDArray", np.load(path))
 
     @property
     def n_chunks(self) -> int:

@@ -331,7 +331,7 @@ def cooks_distance(
     # Cook's distance
     D = (residuals**2 / (p * mse)) * (h / (1 - h) ** 2)
 
-    return D
+    return np.asarray(D)
 
 
 def studentized_residuals(
@@ -392,7 +392,7 @@ def studentized_residuals(
         # Internal studentization
         r = residuals / (np.sqrt(mse) * np.sqrt(1 - h))
 
-    return r
+    return np.asarray(r)
 
 
 def dffits(
@@ -433,7 +433,7 @@ def dffits(
     h = leverage(result, X=X)
     r = studentized_residuals(result, X=X, external=True)
 
-    return r * np.sqrt(h / (1 - h))
+    return np.asarray(r * np.sqrt(h / (1 - h)))
 
 
 def dfbetas(
@@ -534,7 +534,7 @@ def loo_residuals(
     residuals = result.residuals
     h = leverage(result, X=X)
 
-    return residuals / (1 - h)
+    return np.asarray(residuals / (1 - h))
 
 
 def press_statistic(
@@ -562,7 +562,7 @@ def press_statistic(
     Lower values indicate better predictive ability.
     """
     loo = loo_residuals(result, X=X)
-    return np.sum(loo**2)
+    return float(np.sum(loo**2))
 
 
 __all__ = [

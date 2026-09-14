@@ -188,6 +188,26 @@ class TestAnovaCompareEdgeCases:
             tab = anova_glm(reduced, full, test="F")
         assert tab.test == "Chisq"
 
+    def test_model_without_deviance_falls_back_to_loglik(self):
+        """A nested model lacking deviance info must not crash the deviance
+        comparison with TypeError (prev_dev - curr_dev on None); it should
+        fall back to the log-likelihood-ratio comparison."""
+
+        class _Stub:
+            def __init__(self, coef, llf, n, deviance=None):
+                self.coef_ = np.asarray(coef, dtype=float)
+                self.intercept_ = None
+                self.log_likelihood_ = llf
+                self.n_obs_ = n
+                if deviance is not None:
+                    self.deviance_ = deviance
+
+        reduced = _Stub([1.0], llf=-50.0, n=30)
+        full = _Stub([1.0, 0.5], llf=-45.0, n=30, deviance=12.0)
+
+        tab = anova_glm(reduced, full, test="Chisq")
+        assert tab is not None
+
     def test_invalid_test_raises(self, gaussian_data):
         X, y, _ = gaussian_data
         result = fit_glm(X[:, 1:], y, family="gaussian")

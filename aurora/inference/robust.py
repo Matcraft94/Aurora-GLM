@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -241,7 +241,7 @@ def bootstrap_inference(
     n_bootstrap: int = 1000,
     alpha: float = 0.05,
     seed: int | None = None,
-) -> dict[str, np.ndarray]:
+) -> dict[str, Any]:
     """Compute bootstrap standard errors and confidence intervals.
 
     Uses case resampling (pairs bootstrap) to estimate the sampling

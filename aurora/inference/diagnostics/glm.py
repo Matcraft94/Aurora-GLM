@@ -112,9 +112,9 @@ def _to_numpy(value: Any | None) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value.astype(np.float64, copy=False)
     if hasattr(value, "detach"):
-        return value.detach().cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.detach().cpu().numpy(), dtype=np.float64)
     if hasattr(value, "cpu") and hasattr(value, "numpy"):
-        return value.cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.cpu().numpy(), dtype=np.float64)
     return np.asarray(value, dtype=np.float64)
 
 
@@ -132,7 +132,7 @@ def _prepare_weights(result: GLMResult, deriv: np.ndarray, variance: np.ndarray)
         if obs_weights.shape != base_weights.shape:
             obs_weights = obs_weights.reshape(base_weights.shape)
         base_weights = base_weights * obs_weights
-    return np.clip(base_weights, 1e-12, None)
+    return np.asarray(np.clip(base_weights, 1e-12, None))
 
 
 def _deviance_residuals(family: Any, y: np.ndarray, mu: np.ndarray) -> np.ndarray:
@@ -142,13 +142,13 @@ def _deviance_residuals(family: Any, y: np.ndarray, mu: np.ndarray) -> np.ndarra
         # uses variance 1.0 (R convention).
         variance = getattr(family, "_variance", None)
         variance = 1.0 if variance is None else float(variance)
-        return residual / np.sqrt(np.clip(variance, 1e-12, None))
+        return np.asarray(residual / np.sqrt(np.clip(variance, 1e-12, None)))
     if isinstance(family, PoissonFamily):
         mu_safe = np.clip(mu, 1e-12, None)
         ratio = np.where(y == 0.0, 1.0, y / mu_safe)
         log_term = np.log(np.clip(ratio, 1e-12, None))
         contrib = 2.0 * (y * log_term - (y - mu_safe))
-        return np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None))
+        return np.asarray(np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None)))
     if isinstance(family, BinomialFamily):
         n_param = float(getattr(family, "_n", 1.0))
         n_arr = np.full_like(mu, n_param)
@@ -158,12 +158,12 @@ def _deviance_residuals(family: Any, y: np.ndarray, mu: np.ndarray) -> np.ndarra
         term1 = y * np.log(y_safe / mu_safe)
         term2 = (n_arr - y) * np.log((n_arr - y_safe) / (n_arr - mu_safe))
         contrib = 2.0 * (term1 + term2)
-        return np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None))
+        return np.asarray(np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None)))
     if isinstance(family, GammaFamily):
         mu_safe = np.clip(mu, 1e-12, None)
         ratio = np.clip(y / mu_safe, 1e-12, None)
         contrib = 2.0 * ((y - mu_safe) / mu_safe - np.log(ratio))
-        return np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None))
+        return np.asarray(np.sign(residual) * np.sqrt(np.clip(contrib, 0.0, None)))
     raise NotImplementedError(f"Unsupported family for diagnostics: {type(family).__name__}")
 
 

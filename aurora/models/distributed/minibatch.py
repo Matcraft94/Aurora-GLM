@@ -134,7 +134,7 @@ def fit_glm_sgd(
     loss_history = []
 
     # Collect first pass data for re-iteration
-    first_pass_data = []
+    first_pass_data: list[tuple[np.ndarray, np.ndarray]] = []
 
     for epoch in range(max_epochs):
         epoch_loss = 0.0
@@ -203,7 +203,7 @@ def fit_glm_sgd(
     mu_all = np.concatenate(all_mu)
 
     return SGDResult(
-        coef_=beta,
+        coef_=np.asarray(beta),
         mu_=mu_all,
         family=family,
         link=link,
@@ -266,7 +266,7 @@ class SGDResult:
         eta = X @ self.coef_
 
         if type == "link":
-            return eta
+            return np.asarray(eta)
         else:
             return _apply_inverse_link(eta, self.link)
 
@@ -315,17 +315,17 @@ def _apply_inverse_link(eta: NDArray, link: str) -> NDArray:
     if link == "identity":
         return eta
     elif link == "log":
-        return np.exp(np.clip(eta, -20, 20))
+        return np.asarray(np.exp(np.clip(eta, -20, 20)))
     elif link == "logit":
-        return 1 / (1 + np.exp(-np.clip(eta, -20, 20)))
+        return np.asarray(1 / (1 + np.exp(-np.clip(eta, -20, 20))))
     elif link == "probit":
         from scipy.stats import norm
 
-        return norm.cdf(eta)
+        return np.asarray(norm.cdf(eta))
     elif link == "inverse":
-        return 1 / np.maximum(eta, 1e-10)
+        return np.asarray(1 / np.maximum(eta, 1e-10))
     elif link == "sqrt":
-        return np.maximum(eta, 0) ** 2
+        return np.asarray(np.maximum(eta, 0) ** 2)
     else:
         raise ValueError(f"Unknown link: {link}")
 
@@ -335,12 +335,12 @@ def _link_derivative(mu: NDArray, link: str) -> NDArray:
     if link == "identity":
         return np.ones_like(mu)
     elif link == "log":
-        return 1 / np.maximum(mu, 1e-10)
+        return np.asarray(1 / np.maximum(mu, 1e-10))
     elif link == "logit":
         mu = np.clip(mu, 1e-10, 1 - 1e-10)
-        return 1 / (mu * (1 - mu))
+        return np.asarray(1 / (mu * (1 - mu)))
     elif link == "inverse":
-        return -1 / np.maximum(mu**2, 1e-10)
+        return np.asarray(-1 / np.maximum(mu**2, 1e-10))
     elif link == "sqrt":
         return 0.5 / np.maximum(np.sqrt(mu), 1e-10)
     else:
@@ -352,14 +352,14 @@ def _variance_function(mu: NDArray, family: str) -> NDArray:
     if family == "gaussian":
         return np.ones_like(mu)
     elif family == "poisson":
-        return np.maximum(mu, 1e-10)
+        return np.asarray(np.maximum(mu, 1e-10))
     elif family == "binomial":
         mu = np.clip(mu, 1e-10, 1 - 1e-10)
-        return mu * (1 - mu)
+        return np.asarray(mu * (1 - mu))
     elif family == "gamma":
-        return np.maximum(mu**2, 1e-10)
+        return np.asarray(np.maximum(mu**2, 1e-10))
     elif family == "negative_binomial":
-        return np.maximum(mu, 1e-10)  # Simplified
+        return np.asarray(np.maximum(mu, 1e-10))  # Simplified
     else:
         return np.ones_like(mu)
 
@@ -399,7 +399,7 @@ def _compute_gradient(
         working_residual = residual / np.maximum(V, 1e-10) * dmu_deta
         grad = -X.T @ working_residual / n
 
-    return grad
+    return np.asarray(grad)
 
 
 def _compute_loss(y: NDArray, mu: NDArray, family: str) -> float:

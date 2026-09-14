@@ -57,7 +57,7 @@ class ParallelResult:
         eta = X @ self.coef_
 
         if type == "link":
-            return eta
+            return np.asarray(eta)
         else:
             return _apply_inverse_link(eta, self.link)
 
@@ -296,11 +296,11 @@ def fit_glm_parallel(
     >>> print(f"Coefficients: {result.coef_}")
     """
     # Convert to numpy arrays
-    X_chunks = [np.asarray(X, dtype=np.float64) for X in X_chunks]
-    y_chunks = [np.asarray(y, dtype=np.float64).ravel() for y in y_chunks]
+    X_arrays: list[NDArray] = [np.asarray(X, dtype=np.float64) for X in X_chunks]
+    y_arrays: list[NDArray] = [np.asarray(y, dtype=np.float64).ravel() for y in y_chunks]
 
     irls = DataParallelIRLS(family=family, link=link, max_iter=max_iter, tol=tol)
-    return irls.fit(X_chunks, y_chunks)
+    return irls.fit(X_arrays, y_arrays)
 
 
 def _canonical_link(family: str) -> str:
@@ -319,11 +319,11 @@ def _apply_inverse_link(eta: NDArray, link: str) -> NDArray:
     if link == "identity":
         return eta
     elif link == "log":
-        return np.exp(np.clip(eta, -20, 20))
+        return np.asarray(np.exp(np.clip(eta, -20, 20)))
     elif link == "logit":
-        return 1 / (1 + np.exp(-np.clip(eta, -20, 20)))
+        return np.asarray(1 / (1 + np.exp(-np.clip(eta, -20, 20))))
     elif link == "inverse":
-        return 1 / np.maximum(np.abs(eta), 1e-10)
+        return np.asarray(1 / np.maximum(np.abs(eta), 1e-10))
     else:
         return eta
 
@@ -331,28 +331,28 @@ def _apply_inverse_link(eta: NDArray, link: str) -> NDArray:
 def _variance_function(mu: NDArray, family: str) -> NDArray:
     """Compute variance function V(mu)."""
     if family == "gaussian":
-        return np.ones_like(mu)
+        return np.asarray(np.ones_like(mu))
     elif family == "poisson":
-        return np.maximum(mu, 1e-10)
+        return np.asarray(np.maximum(mu, 1e-10))
     elif family == "binomial":
         mu = np.clip(mu, 1e-10, 1 - 1e-10)
-        return mu * (1 - mu)
+        return np.asarray(mu * (1 - mu))
     elif family == "gamma":
-        return np.maximum(mu**2, 1e-10)
+        return np.asarray(np.maximum(mu**2, 1e-10))
     else:
-        return np.ones_like(mu)
+        return np.asarray(np.ones_like(mu))
 
 
 def _link_derivative(mu: NDArray, link: str) -> NDArray:
     """Compute derivative deta/dmu = g'(mu)."""
     if link == "identity":
-        return np.ones_like(mu)
+        return np.asarray(np.ones_like(mu))
     elif link == "log":
-        return 1 / np.maximum(mu, 1e-10)
+        return np.asarray(1 / np.maximum(mu, 1e-10))
     elif link == "logit":
         mu = np.clip(mu, 1e-10, 1 - 1e-10)
-        return 1 / (mu * (1 - mu))
+        return np.asarray(1 / (mu * (1 - mu)))
     elif link == "inverse":
-        return -1 / np.maximum(mu**2, 1e-10)
+        return np.asarray(-1 / np.maximum(mu**2, 1e-10))
     else:
-        return np.ones_like(mu)
+        return np.asarray(np.ones_like(mu))

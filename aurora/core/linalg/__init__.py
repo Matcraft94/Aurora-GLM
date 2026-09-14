@@ -42,7 +42,7 @@ Examples
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -101,7 +101,10 @@ def qr_decomposition(
         Q, R, P = scipy_qr(A, mode="economic", pivoting=True)
         return Q, R, P
     else:
-        return np.linalg.qr(A, mode=mode)
+        return cast(
+            "tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]",
+            np.linalg.qr(A, mode=mode),
+        )
 
 
 def safe_cholesky(
@@ -206,7 +209,10 @@ def svd(
     >>> np.allclose(A, U @ np.diag(S) @ Vh)
     True
     """
-    return np.linalg.svd(A, full_matrices=full_matrices, compute_uv=compute_uv)
+    if compute_uv:
+        U, S, Vh = np.linalg.svd(A, full_matrices=full_matrices, compute_uv=True)
+        return U, S, Vh
+    return np.asarray(np.linalg.svd(A, full_matrices=full_matrices, compute_uv=False))
 
 
 def eigh(
@@ -240,9 +246,11 @@ def eigh(
     if subset_by_index is not None:
         from scipy.linalg import eigh as scipy_eigh
 
-        return scipy_eigh(A, subset_by_index=subset_by_index)
+        w, v = scipy_eigh(A, subset_by_index=subset_by_index)
+        return np.asarray(w), np.asarray(v)
     else:
-        return np.linalg.eigh(A)
+        w, v = np.linalg.eigh(A)
+        return np.asarray(w), np.asarray(v)
 
 
 # =============================================================================
@@ -278,7 +286,7 @@ def solve_triangular(
     from scipy.linalg import solve_triangular as scipy_solve_tri
 
     trans_arg = "T" if trans else "N"
-    return scipy_solve_tri(A, b, lower=lower, trans=trans_arg)
+    return np.asarray(scipy_solve_tri(A, b, lower=lower, trans=trans_arg))
 
 
 def solve_cholesky(
@@ -468,7 +476,7 @@ def woodbury_inverse(
     inner_inv = np.linalg.inv(inner)
 
     # A^{-1} - A^{-1}U(...)VA^{-1}
-    return A_inv - AiU @ inner_inv @ VAi
+    return np.asarray(A_inv - AiU @ inner_inv @ VAi)
 
 
 def quadratic_form(
@@ -494,7 +502,7 @@ def quadratic_form(
     """
     if y is None:
         y = x
-    return x @ A @ y
+    return cast("float | np.ndarray", x @ A @ y)
 
 
 def log_determinant(
@@ -526,7 +534,7 @@ def log_determinant(
     if method == "cholesky" or method == "auto":
         try:
             L = np.linalg.cholesky(A)
-            return 2 * np.sum(np.log(np.diag(L)))
+            return float(2 * np.sum(np.log(np.diag(L))))
         except np.linalg.LinAlgError:
             if method == "cholesky":
                 raise
@@ -534,7 +542,7 @@ def log_determinant(
 
     # SVD method
     _, s, _ = np.linalg.svd(A)
-    return np.sum(np.log(s))
+    return float(np.sum(np.log(s)))
 
 
 def matrix_rank(
@@ -562,7 +570,7 @@ def matrix_rank(
 def condition_number(
     A: np.ndarray,
     *,
-    p: int | float | str = 2,
+    p: float | Literal["fro", "nuc"] | None = 2,
 ) -> float:
     """Compute matrix condition number.
 
@@ -578,7 +586,7 @@ def condition_number(
     cond : float
         Condition number of A.
     """
-    return np.linalg.cond(A, p=p)
+    return float(np.linalg.cond(A, p=p))
 
 
 def weighted_condition_number(

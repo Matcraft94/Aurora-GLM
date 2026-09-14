@@ -21,12 +21,12 @@ References
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from scipy import special
 
-from aurora.distributions.base import Family
+from aurora.distributions.base import Family, LinkFunction
 from aurora.distributions.links import IdentityLink, LogLink
 
 if TYPE_CHECKING:
@@ -85,11 +85,12 @@ class StudentTFamily(Family):
     Examples
     --------
     >>> from aurora.models.glm import fit_glm
+    >>> from aurora.distributions.families import StudentTFamily
     >>> # Robust regression with df=5
-    >>> result = fit_glm(X, y, family='student_t', family_params={'df': 5})
+    >>> result = fit_glm(X, y, family=StudentTFamily(df=5))
 
     >>> # Very robust (heavy tails)
-    >>> result = fit_glm(X, y, family='student_t', family_params={'df': 3})
+    >>> result = fit_glm(X, y, family=StudentTFamily(df=3))
 
     References
     ----------
@@ -118,7 +119,7 @@ class StudentTFamily(Family):
         self._scale = 1.0  # Scale parameter (estimated)
 
         if link == "identity":
-            self._link = IdentityLink()
+            self._link: LinkFunction = IdentityLink()
         elif link == "log":
             self._link = LogLink()
         else:
@@ -206,7 +207,7 @@ class StudentTFamily(Family):
 
         log_kernel = -(df + 1) / 2 * np.log(1 + z**2 / df)
 
-        return np.sum(log_const + log_kernel)
+        return float(np.sum(log_const + log_kernel))
 
     def deviance(self, y: NDArray, mu: NDArray, **params) -> float:
         """Deviance for t-distribution.
@@ -264,7 +265,7 @@ class StudentTFamily(Family):
         # Adaptive weights: downweight large residuals
         weights = (df + 1) / (df + z**2)
 
-        return weights
+        return cast("NDArray", weights)
 
     def estimate_scale(self, y: NDArray, mu: NDArray, ddof: int = 1) -> float:
         """Estimate scale parameter robustly.
@@ -301,7 +302,7 @@ class StudentTFamily(Family):
         scale = mad / 0.6745 * correction
 
         # Ensure positive
-        return max(scale, 1e-8)
+        return float(max(scale, 1e-8))
 
     def d_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """First derivative of log-likelihood w.r.t. μ.
@@ -328,7 +329,7 @@ class StudentTFamily(Family):
         # d/dμ log f = (ν+1) × z / (σ(ν + z²))
         grad = (df + 1) * z / (scale * (df + z**2))
 
-        return grad
+        return cast("NDArray", grad)
 
     def d2_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Second derivative of log-likelihood w.r.t. μ.
@@ -356,7 +357,7 @@ class StudentTFamily(Family):
         denom = (df + z**2) ** 2
         hess = -(df + 1) * (df - z**2) / (scale**2 * denom)
 
-        return hess
+        return cast("NDArray", hess)
 
     def __repr__(self) -> str:
         """String representation."""

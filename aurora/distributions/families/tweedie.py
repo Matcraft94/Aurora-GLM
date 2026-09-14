@@ -24,7 +24,7 @@ References
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -32,7 +32,7 @@ from aurora.distributions._utils import (
     as_namespace_array,
     namespace,
 )
-from aurora.distributions.base import Family
+from aurora.distributions.base import Family, LinkFunction
 from aurora.distributions.links import IdentityLink, LogLink, PowerLink
 
 if TYPE_CHECKING:
@@ -113,13 +113,12 @@ class TweedieFamily(Family):
     Examples
     --------
     >>> from aurora.models.glm import fit_glm
+    >>> from aurora.distributions.families import TweedieFamily
     >>> # Insurance claims (many zeros, heavy right tail)
-    >>> result = fit_glm(X, claims, family='tweedie',
-    ...                  family_params={'power': 1.7})
+    >>> result = fit_glm(X, claims, family=TweedieFamily(power=1.7))
 
     >>> # Rainfall amounts (zeros for dry days)
-    >>> result = fit_glm(X, rainfall, family='tweedie',
-    ...                  family_params={'power': 1.5})
+    >>> result = fit_glm(X, rainfall, family=TweedieFamily(power=1.5))
 
     References
     ----------
@@ -154,7 +153,7 @@ class TweedieFamily(Family):
         self.phi = phi
 
         if link == "log":
-            self._link = LogLink()
+            self._link: LinkFunction = LogLink()
         elif link == "identity":
             self._link = IdentityLink()
         elif link.startswith("power"):
@@ -198,7 +197,7 @@ class TweedieFamily(Family):
         else:
             mu_arr = np.clip(mu_arr, 1e-10, None)
 
-        return mu_arr**self.power
+        return cast("NDArray", mu_arr**self.power)
 
     def initialize(self, y: NDArray) -> NDArray:
         """Initialize mean using positive values.
@@ -233,9 +232,9 @@ class TweedieFamily(Family):
 
         # Return with correct backend, preserving the input dtype
         if xp is torch:  # type: ignore[comparison-overlap]
-            return torch.full_like(y_arr, mu_init)
+            return cast("NDArray", torch.full_like(y_arr, mu_init))
         elif xp is jnp:  # type: ignore[comparison-overlap]
-            return jnp.full_like(y_arr, mu_init)
+            return cast("NDArray", jnp.full_like(y_arr, mu_init))
         else:
             return np.full_like(y_arr, mu_init, dtype=float)
 
@@ -347,7 +346,7 @@ class TweedieFamily(Family):
         deviance = self.deviance(y, mu, **params)
 
         # Approximate log-likelihood (ignoring constants)
-        return -0.5 * deviance / phi
+        return float(-0.5 * deviance / phi)
 
     def weights(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """IRLS weights for Tweedie.
@@ -432,7 +431,7 @@ class TweedieFamily(Family):
         best_idx = np.argmin(deviances)
         best_power = powers[best_idx]
 
-        return best_power
+        return float(best_power)
 
     def estimate_phi(self, y: NDArray, mu: NDArray, ddof: int = 1) -> float:
         """Estimate dispersion parameter.
@@ -463,7 +462,7 @@ class TweedieFamily(Family):
         # Estimate phi
         phi = np.sum(resid**2) / (n - ddof)
 
-        return max(phi, 1e-8)
+        return float(max(phi, 1e-8))
 
     def d_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """First derivative of quasi-log-likelihood w.r.t. μ.
@@ -498,7 +497,7 @@ class TweedieFamily(Family):
         # d/dμ (-D/2φ) = (y - μ) / (φ μ^p)
         grad = (y_arr - mu_arr) / (phi * mu_arr**p)
 
-        return grad
+        return cast("NDArray", grad)
 
     def d2_log_likelihood(self, y: NDArray, mu: NDArray, **params) -> NDArray:
         """Second derivative of quasi-log-likelihood w.r.t. μ.
@@ -533,7 +532,7 @@ class TweedieFamily(Family):
         # (using expected information for stability)
         info = -1.0 / (phi * mu_arr**p)
 
-        return info
+        return cast("NDArray", info)
 
     def probability_zero(self, mu: NDArray, **params) -> NDArray:
         """Probability of observing exactly zero.
@@ -570,7 +569,7 @@ class TweedieFamily(Family):
         # Poisson rate parameter
         lambda_ = mu_arr ** (2 - p) / (phi * (2 - p))
 
-        return xp.exp(-lambda_)
+        return cast("NDArray", xp.exp(-lambda_))
 
     def __repr__(self) -> str:
         """String representation."""
@@ -657,7 +656,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
 
         p = self.power
 
-        return mu_arr ** (2 - p) / (phi * (2 - p))
+        return cast("NDArray", mu_arr ** (2 - p) / (phi * (2 - p)))
 
     def get_gamma_shape(self) -> float:
         """Get the Gamma shape parameter α."""
@@ -690,7 +689,7 @@ class CompoundPoissonGammaFamily(TweedieFamily):
 
         p = self.power
 
-        return phi * (p - 1) * mu_arr ** (p - 1)
+        return cast("NDArray", phi * (p - 1) * mu_arr ** (p - 1))
 
 
 __all__ = ["TweedieFamily", "CompoundPoissonGammaFamily"]

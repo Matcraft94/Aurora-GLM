@@ -202,9 +202,9 @@ def _to_numpy(value: Any) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value.astype(np.float64, copy=False)
     if hasattr(value, "detach"):
-        return value.detach().cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.detach().cpu().numpy().astype(np.float64, copy=False))
     if hasattr(value, "cpu") and hasattr(value, "numpy"):
-        return value.cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.cpu().numpy().astype(np.float64, copy=False))
     return np.asarray(value, dtype=np.float64)
 
 

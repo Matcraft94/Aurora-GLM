@@ -10,6 +10,7 @@ of smooth terms with random effects.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -21,6 +22,47 @@ from aurora.models.gamm.random_effects import RandomEffect
 
 if TYPE_CHECKING:
     pass
+
+
+def _apply_global_covariance(
+    random_effects: list[RandomEffect], covariance: str
+) -> list[RandomEffect]:
+    """Apply the global ``covariance`` argument to random effects.
+
+    A random effect that keeps the library default (``'unstructured'``)
+    inherits the global ``covariance=`` argument; an explicit per-effect
+    choice always wins. Conflicting explicit choices emit a warning.
+    """
+    from aurora.models.gamm.random_effects import CovarianceKind
+
+    resolved = []
+    for re in random_effects:
+        effective: CovarianceKind = re.covariance
+        if re.covariance == "unstructured" and covariance != "unstructured":
+            effective = covariance  # type: ignore[assignment]  # runtime-validated string
+        elif (
+            re.covariance != "unstructured"
+            and covariance != "unstructured"
+            and re.covariance != covariance
+        ):
+            warnings.warn(
+                f"RandomEffect covariance '{re.covariance}' overrides the "
+                f"global covariance='{covariance}' for grouping '{re.grouping}'.",
+                UserWarning,
+                stacklevel=3,
+            )
+        if effective == re.covariance:
+            resolved.append(re)
+        else:
+            resolved.append(
+                RandomEffect(
+                    grouping=re.grouping,
+                    variables=re.variables,
+                    include_intercept=re.include_intercept,
+                    covariance=effective,
+                )
+            )
+    return resolved
 
 
 def fit_gamm(
@@ -211,29 +253,34 @@ def fit_gamm(
         # Convert data to DataFrame if dict
         if isinstance(data, dict):
             data = pd.DataFrame(data)
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError("formula mode requires a DataFrame or dict of arrays")
+        df = data
 
         # Extract response
-        if spec.response not in data.columns:
+        if spec.response not in df.columns:
             raise ValueError(f"Response variable '{spec.response}' not found in data")
-        y = data[spec.response].values
+        y = df[spec.response].values
 
         # Build design matrix from parametric terms
         # Always include intercept
         X_cols = [np.ones(len(y))]
-        var_to_col_idx = {"intercept": 0}  # Map variable names to X column indices
+        var_to_col_idx: dict[str | int, int] = {
+            "intercept": 0
+        }  # Map variable names to X column indices
 
         for term in spec.parametric_terms:
             var_name = term.variable
             if isinstance(var_name, int):
                 # Column index in data
-                if var_name >= len(data.columns):
+                if var_name >= len(df.columns):
                     raise ValueError(f"Column index {var_name} out of range")
-                col_name = data.columns[var_name]
-                X_cols.append(data.iloc[:, var_name].values)
+                col_name = df.columns[var_name]
+                X_cols.append(df.iloc[:, var_name].values)
                 var_to_col_idx[col_name] = len(X_cols) - 1
                 var_to_col_idx[var_name] = len(X_cols) - 1  # Also map integer index
-            elif var_name in data.columns:
-                X_cols.append(data[var_name].values)
+            elif var_name in df.columns:
+                X_cols.append(df[var_name].values)
                 var_to_col_idx[var_name] = len(X_cols) - 1
             else:
                 raise ValueError(f"Variable '{var_name}' not found in data")
@@ -244,13 +291,13 @@ def fit_gamm(
                 if var_name not in var_to_col_idx:
                     # Add this variable to X
                     if isinstance(var_name, int):
-                        if var_name >= len(data.columns):
+                        if var_name >= len(df.columns):
                             raise ValueError(f"Variable index {var_name} out of range")
-                        X_cols.append(data.iloc[:, var_name].values)
+                        X_cols.append(df.iloc[:, var_name].values)
                         var_to_col_idx[var_name] = len(X_cols) - 1
-                        var_to_col_idx[data.columns[var_name]] = len(X_cols) - 1
-                    elif var_name in data.columns:
-                        X_cols.append(data[var_name].values)
+                        var_to_col_idx[df.columns[var_name]] = len(X_cols) - 1
+                    elif var_name in df.columns:
+                        X_cols.append(df[var_name].values)
                         var_to_col_idx[var_name] = len(X_cols) - 1
                     else:
                         raise ValueError(f"Variable '{var_name}' not found in data")
@@ -274,17 +321,18 @@ def fit_gamm(
 
         random_effects = random_effects_converted
 
-        # Build groups_data dict
-        groups_data = {}
+        # Build groups_data dict (str or int grouping keys)
+        groups: dict[str | int, np.ndarray] = {}
+        groups_data = groups
         for re in spec.random_effects:  # Use original spec for grouping names
             group_var = re.grouping
             if isinstance(group_var, int):
                 # Column index
-                if group_var >= len(data.columns):
+                if group_var >= len(df.columns):
                     raise ValueError(f"Grouping column index {group_var} out of range")
-                groups_data[group_var] = data.iloc[:, group_var].values
-            elif group_var in data.columns:
-                groups_data[group_var] = data[group_var].values
+                groups_data[group_var] = df.iloc[:, group_var].values
+            elif group_var in df.columns:
+                groups_data[group_var] = df[group_var].values
             else:
                 raise ValueError(f"Grouping variable '{group_var}' not found in data")
 
@@ -303,11 +351,11 @@ def fit_gamm(
 
                 # Get the data for this variable
                 if isinstance(var_name, int):
-                    if var_name >= len(data.columns):
+                    if var_name >= len(df.columns):
                         raise ValueError(f"Smooth variable index {var_name} out of range")
-                    x_smooth = data.iloc[:, var_name].values
-                elif var_name in data.columns:
-                    x_smooth = data[var_name].values
+                    x_smooth = df.iloc[:, var_name].values
+                elif var_name in df.columns:
+                    x_smooth = df[var_name].values
                 else:
                     raise ValueError(f"Smooth variable '{var_name}' not found in data")
 
@@ -381,6 +429,10 @@ def fit_gamm(
     # Handle random effects
     if random_effects is None:
         random_effects = []
+
+    # A covariance set globally via fit_gamm(covariance=...) applies to every
+    # random effect that did not override it (both default to 'unstructured').
+    random_effects = _apply_global_covariance(random_effects, covariance)
 
     if len(random_effects) > 0:
         if groups_data is None:

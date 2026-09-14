@@ -256,7 +256,7 @@ def extract_random_effects(
     vector of random effect coefficients and organizes them by group
     for interpretation and prediction.
     """
-    random_effects = {}
+    random_effects: dict[str | int, dict[int, np.ndarray]] = {}
 
     for info in Z_info:
         grouping = info["grouping"]

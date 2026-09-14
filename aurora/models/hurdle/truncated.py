@@ -84,7 +84,7 @@ class TruncatedPoissonFamily:
         E[Y | Y > 0] = μ / [1 - exp(-μ)]
         """
         mu = np.maximum(np.asarray(mu, dtype=float), 1e-10)
-        return mu / (1 - np.exp(-mu))
+        return np.asarray(mu / (1 - np.exp(-mu)))
 
     def variance(self, mu: NDArray) -> NDArray:
         """Variance function for truncated Poisson.
@@ -94,7 +94,7 @@ class TruncatedPoissonFamily:
         mu = np.maximum(np.asarray(mu, dtype=float), 1e-10)
         p0 = np.exp(-mu)
         trunc_mean = mu / (1 - p0)
-        return trunc_mean * (1 - p0 * trunc_mean)
+        return np.asarray(trunc_mean * (1 - p0 * trunc_mean))
 
     def d_log_likelihood(self, y: NDArray, mu: NDArray) -> NDArray:
         """First derivative of log-likelihood w.r.t. μ.
@@ -103,7 +103,7 @@ class TruncatedPoissonFamily:
         """
         mu = np.maximum(np.asarray(mu, dtype=float), 1e-10)
         p0 = np.exp(-mu)
-        return y / mu - 1 - p0 / (1 - p0)
+        return np.asarray(y / mu - 1 - p0 / (1 - p0))
 
 
 class TruncatedNegBinFamily:

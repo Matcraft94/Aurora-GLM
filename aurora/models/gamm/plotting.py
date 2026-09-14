@@ -107,28 +107,30 @@ def plot_caterpillar(
     # Get random effects
     if result._Z_info is None or len(result._Z_info) == 0:
         raise ValueError("Model does not contain random effects")
+    z_info_all: list[dict] = result._Z_info
 
     # Determine which grouping to plot
     if grouping is None:
-        if len(result._Z_info) > 1:
+        if len(z_info_all) > 1:
             raise ValueError(
-                f"Model has {len(result._Z_info)} grouping variables. "
+                f"Model has {len(z_info_all)} grouping variables. "
                 "Please specify which one to plot using the 'grouping' parameter."
             )
-        grouping_to_plot = result._Z_info[0]["grouping"]
-        info = result._Z_info[0]
+        grouping_to_plot = z_info_all[0]["grouping"]
+        info = z_info_all[0]
     else:
         # Find the Z_info entry for this grouping
         info = None
-        for z_info in result._Z_info:
+        for z_info in z_info_all:
             if z_info["grouping"] == grouping:
                 info = z_info
                 grouping_to_plot = grouping
                 break
 
         if info is None:
-            available = [z["grouping"] for z in result._Z_info]
+            available = [z["grouping"] for z in z_info_all]
             raise ValueError(f"Grouping '{grouping}' not found in model. Available: {available}")
+    assert info is not None
 
     # Check effect_index is valid
     if effect_index >= info["n_effects"]:
@@ -149,7 +151,7 @@ def plot_caterpillar(
     # Compute approximate standard errors
     # Use posterior variance: Var(b|y) ≈ (Z'WZ + Ψ⁻¹)⁻¹
     # For simplicity, use empirical SE scaled by estimated variance
-    var_component = result.variance_components[result._Z_info.index(info)]
+    var_component = result.variance_components[z_info_all.index(info)]
 
     if var_component.ndim == 2:
         # Covariance matrix
@@ -182,7 +184,7 @@ def plot_caterpillar(
             figsize = (8, max(4, n_groups * 0.2))
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = ax.figure  # type: ignore[assignment]  # Figure | SubFigure
 
     # Plot horizontal lines for CIs
     y_positions = np.arange(n_groups)
@@ -265,27 +267,29 @@ def plot_random_effects_qq(
     # Get random effects
     if result._Z_info is None or len(result._Z_info) == 0:
         raise ValueError("Model does not contain random effects")
+    z_info_all: list[dict] = result._Z_info
 
     # Determine which grouping to plot
     if grouping is None:
-        if len(result._Z_info) > 1:
+        if len(z_info_all) > 1:
             raise ValueError(
                 "Model has multiple grouping variables. "
                 "Please specify which one to plot using the 'grouping' parameter."
             )
-        grouping_to_plot = result._Z_info[0]["grouping"]
-        info = result._Z_info[0]
+        grouping_to_plot = z_info_all[0]["grouping"]
+        info = z_info_all[0]
     else:
         info = None
-        for z_info in result._Z_info:
+        for z_info in z_info_all:
             if z_info["grouping"] == grouping:
                 info = z_info
                 grouping_to_plot = grouping
                 break
 
         if info is None:
-            available = [z["grouping"] for z in result._Z_info]
+            available = [z["grouping"] for z in z_info_all]
             raise ValueError(f"Grouping '{grouping}' not found. Available: {available}")
+    assert info is not None
 
     # Check effect_index
     if effect_index >= info["n_effects"]:
@@ -309,7 +313,7 @@ def plot_random_effects_qq(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = ax.figure  # type: ignore[assignment]  # Figure | SubFigure
 
     # Compute theoretical and sample quantiles
     stats.probplot(effects_std, dist="norm", plot=ax)
@@ -376,24 +380,26 @@ def plot_random_effects_density(
     # Get random effects
     if result._Z_info is None or len(result._Z_info) == 0:
         raise ValueError("Model does not contain random effects")
+    z_info_all: list[dict] = result._Z_info
 
     # Determine grouping
     if grouping is None:
-        if len(result._Z_info) > 1:
+        if len(z_info_all) > 1:
             raise ValueError("Model has multiple grouping variables. Please specify which one.")
-        grouping_to_plot = result._Z_info[0]["grouping"]
-        info = result._Z_info[0]
+        grouping_to_plot = z_info_all[0]["grouping"]
+        info = z_info_all[0]
     else:
         info = None
-        for z_info in result._Z_info:
+        for z_info in z_info_all:
             if z_info["grouping"] == grouping:
                 info = z_info
                 grouping_to_plot = grouping
                 break
 
         if info is None:
-            available = [z["grouping"] for z in result._Z_info]
+            available = [z["grouping"] for z in z_info_all]
             raise ValueError(f"Grouping '{grouping}' not found. Available: {available}")
+    assert info is not None
 
     # Check effect_index
     if effect_index >= info["n_effects"]:
@@ -410,7 +416,7 @@ def plot_random_effects_density(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = ax.figure  # type: ignore[assignment]  # Figure | SubFigure
 
     # Histogram
     ax.hist(
@@ -425,7 +431,7 @@ def plot_random_effects_density(
 
     # Overlay normal if requested
     if show_normal:
-        var_component = result.variance_components[result._Z_info.index(info)]
+        var_component = result.variance_components[z_info_all.index(info)]
 
         if var_component.ndim == 2:
             effect_var = var_component[effect_index, effect_index]
@@ -519,7 +525,7 @@ def plot_diagnostics(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = ax.figure  # type: ignore[assignment]  # Figure | SubFigure
 
     # Compute residuals
     residuals = result.residuals
@@ -944,10 +950,12 @@ def plot_smooth_effect(
     try:
         from aurora.smoothing.splines.bspline import BSplineBasis
 
-        n_knots = max(n_basis - 2, 4)  # n_basis = n_knots + degree - 1
-        knots = np.linspace(x_grid.min(), x_grid.max(), n_knots)
-        basis = BSplineBasis(knots=knots, degree=3)
-        X_grid = basis.design_matrix(x_grid)
+        degree = 3
+        # BSplineBasis: n_basis_ = len(knots) - degree - 1, so the knot
+        # vector needs n_basis + degree + 1 entries for n_basis columns.
+        knots = np.linspace(x_grid.min(), x_grid.max(), n_basis + degree + 1)
+        basis = BSplineBasis(knots=knots, degree=degree)
+        X_grid = basis.basis_matrix(x_grid)
     except Exception:
         # Fallback: polynomial basis
         X_grid = np.column_stack([x_grid**i for i in range(n_basis)])
@@ -974,7 +982,7 @@ def plot_smooth_effect(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
-        fig = ax.figure
+        fig = ax.figure  # type: ignore[assignment]  # Figure | SubFigure
 
     # Confidence band
     ax.fill_between(
@@ -994,7 +1002,7 @@ def plot_smooth_effect(
         # Compute partial residuals at data points
         try:
             basis_data = BSplineBasis(knots=knots, degree=3)
-            X_data = basis_data.design_matrix(x_data)
+            X_data = basis_data.basis_matrix(x_data)
         except Exception:
             X_data = np.column_stack([x_data**i for i in range(n_basis)])
 

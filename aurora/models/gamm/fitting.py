@@ -388,10 +388,11 @@ automatic selection of both smoothing parameters and variance components.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy import linalg
+from scipy.sparse import spmatrix
 
 from aurora.models.gamm.covariance import get_covariance_structure
 from aurora.models.gamm.estimation import (
@@ -462,7 +463,7 @@ class GAMMResult:
     coefficients: NDArray[np.floating]
     beta_parametric: NDArray[np.floating]
     beta_smooth: dict[str, NDArray[np.floating]]
-    random_effects: dict[str, NDArray[np.floating]]
+    random_effects: dict[Any, dict[Any, NDArray[np.floating]]]
     variance_components: list[NDArray[np.floating]]
     covariance_params: list[NDArray[np.floating]] | None
     residual_variance: float
@@ -483,7 +484,7 @@ class GAMMResult:
 
     # Internal storage for prediction
     _X_parametric: NDArray[np.floating] | None = None
-    _X_smooth: dict[str, NDArray[np.floating]] | None = None
+    _X_smooth: dict[str, NDArray[np.floating] | spmatrix] | None = None
     _Z: NDArray[np.floating] | None = None
     _Z_info: list[dict] | None = None
     _y: NDArray[np.floating] | None = None
@@ -754,7 +755,7 @@ def compute_edf(
 
 def fit_gamm_gaussian(
     X_parametric: np.ndarray,
-    X_smooth: dict[str, np.ndarray] | None,
+    X_smooth: dict[str, np.ndarray | spmatrix] | None,
     Z: np.ndarray,
     Z_info: list[dict],
     y: np.ndarray,
@@ -839,8 +840,6 @@ def fit_gamm_gaussian(
                 device = "cuda" if torch.cuda.is_available() else "cpu"
             torch_device = torch.device(device)
 
-            from scipy.sparse import issparse
-
             # Convert to torch tensors
             X_parametric_t = torch.tensor(X_parametric, dtype=torch.float64, device=torch_device)
             Z_t = torch.tensor(Z, dtype=torch.float64, device=torch_device)
@@ -858,7 +857,7 @@ def fit_gamm_gaussian(
                         torch.tensor(v.toarray(), dtype=torch.float64, device=torch_device)
                         .cpu()
                         .numpy()
-                        if issparse(v)
+                        if isinstance(v, spmatrix)
                         else torch.tensor(v, dtype=torch.float64, device=torch_device).cpu().numpy()
                     )
                     for k, v in X_smooth.items()
@@ -874,7 +873,6 @@ def fit_gamm_gaussian(
     elif backend == "jax":
         try:
             import jax.numpy as jnp
-            from scipy.sparse import issparse
 
             # Convert to JAX arrays
             X_parametric_j = jnp.array(X_parametric)
@@ -890,7 +888,7 @@ def fit_gamm_gaussian(
                 # Handle sparse matrices
                 X_smooth = {
                     k: np.asarray(jnp.array(v.toarray()))
-                    if issparse(v)
+                    if isinstance(v, spmatrix)
                     else np.asarray(jnp.array(v))
                     for k, v in X_smooth.items()
                 }
@@ -910,8 +908,6 @@ def fit_gamm_gaussian(
     smooth_end_cols = {}
 
     if X_smooth is not None:
-        from scipy.sparse import issparse
-
         col_idx = p_parametric
         for term_name, X_term in X_smooth.items():
             smooth_term_names.append(term_name)
@@ -920,7 +916,7 @@ def fit_gamm_gaussian(
             col_idx = smooth_end_cols[term_name]
 
             # Convert sparse to dense for GAMM (mixed model equations require dense)
-            if issparse(X_term):
+            if isinstance(X_term, spmatrix):
                 X_list.append(X_term.toarray())
             else:
                 X_list.append(X_term)
@@ -1201,7 +1197,7 @@ def predict_gamm(
     if include_random and Z_new is not None:
         # Flatten random effects coefficients
         # extract_random_effects returns {'grouping_var': {group_id: array, ...}}
-        b_flat = []
+        b_flat: list[float] = []
         for grouping_var in sorted(result.random_effects.keys()):
             group_effects = result.random_effects[grouping_var]
             # group_effects is a dict: {group_id: array of effects}
@@ -1216,4 +1212,4 @@ def predict_gamm(
         b_array = np.array(b_flat)
         pred += Z_new @ b_array
 
-    return pred
+    return np.asarray(pred)

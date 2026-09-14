@@ -13,64 +13,64 @@ import numpy as np
 class GAMResult:
     """Result of fitting a Generalized Additive Model.
 
-        Parameters
-        ----------
-        coefficients : ndarray
-            Spline coefficients.
-        fitted_values : ndarray
-            Fitted values at training data points.
-        residuals : ndarray
-            Residuals (y - fitted_values).
-        lambda_ : float
-            Smoothing parameter used.
-        edf : float
-            Effective degrees of freedom.
-        basis : object
-            Basis object (BSplineBasis or CubicSplineBasis).
-        x : ndarray
-            Training predictor values.
-        y : ndarray
-            Training response values.
-        weights : ndarray, optional
-            Observation weights.
-        gcv_score : float, optional
-            GCV score if lambda was selected automatically.
+    Parameters
+    ----------
+    coefficients : ndarray
+        Spline coefficients.
+    fitted_values : ndarray
+        Fitted values at training data points.
+    residuals : ndarray
+        Residuals (y - fitted_values).
+    lambda_ : float
+        Smoothing parameter used.
+    edf : float
+        Effective degrees of freedom.
+    basis : object
+        Basis object (BSplineBasis or CubicSplineBasis).
+    x : ndarray
+        Training predictor values.
+    y : ndarray
+        Training response values.
+    weights : ndarray, optional
+        Observation weights.
+    gcv_score : float, optional
+        GCV score if lambda was selected automatically.
 
-        Attributes
-        ----------
-        All parameters are stored as attributes.
-        n_obs_ : int
-            Number of observations.
+    Attributes
+    ----------
+    All parameters are stored as attributes.
+    n_obs_ : int
+        Number of observations.
 
-        lambda_opt : float
-            Alias for ``lambda_`` (optimal smoothing parameter).
+    lambda_opt : float
+        Alias for ``lambda_`` (optimal smoothing parameter).
 
-        r_squared : float
-            Coefficient of determination (R-squared), computed from the
-            residuals as ``1 - rss / tss``; can be negative.
+    r_squared : float
+        Coefficient of determination (R-squared), computed from the
+        residuals as ``1 - rss / tss``; can be negative.
 
-        >>> # Predict at new points
-        >>> y_pred = result.predict(np.linspace(0, 2 * np.pi, 2))
-        >>> print(result.summary())
-        >>> # Using dict with named variables
-        >>> data = {
-        ...     'response': y,
-        ...     'temp': X[:, 0],
-        ...     'humidity': X[:, 1]
-        ... }
-        >>> result = fit_gam_formula("response ~ s(temp) + humidity", data)
-        >>> print(result.summary())
+    >>> # Predict at new points
+    >>> y_pred = result.predict(np.linspace(0, 2 * np.pi, 2))
+    >>> print(result.summary())
+    >>> # Using dict with named variables
+    >>> data = {
+    ...     'response': y,
+    ...     'temp': X[:, 0],
+    ...     'humidity': X[:, 1]
+    ... }
+    >>> result = fit_gam_formula("response ~ s(temp) + humidity", data)
+    >>> print(result.summary())
 
-        See Also
-        --------
-        AdditiveGAMResult : Additive GAM with multiple smooth terms.
-        fit_gam_formula : R-style formula interface.
-        fit_glm : GLM fitting function.
+    See Also
+    --------
+    AdditiveGAMResult : Additive GAM with multiple smooth terms.
+    fit_gam_formula : R-style formula interface.
+    fit_glm : GLM fitting function.
 
-        References
-        ----------
-        Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
-        CRC Press.
+    References
+    ----------
+    Wood, S.N. (2017). Generalized Additive Models: An Introduction with R.
+    CRC Press.
     """
 
     def __init__(
@@ -113,7 +113,7 @@ class GAMResult:
             rss = np.sum(self.weights * self.residuals**2)
 
         tss = np.sum((self.y - np.mean(self.y)) ** 2)
-        return 1 - rss / tss
+        return float(1 - rss / tss)
 
     @property
     def lambda_opt(self) -> float:
@@ -150,7 +150,7 @@ class GAMResult:
         # Compute predictions
         y_pred = X_new @ self.coefficients
 
-        return y_pred
+        return np.asarray(y_pred)
 
     def summary(self) -> str:
         """Generate summary string of fit.

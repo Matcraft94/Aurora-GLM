@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from statistics import NormalDist
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -41,7 +41,7 @@ class ModelResult:
         from ...core.backends import get_backend
 
         backend_impl = get_backend(backend)
-        return backend_impl.array(design_matrix) @ backend_impl.array(self.params)
+        return cast(ArrayLike, backend_impl.array(design_matrix) @ backend_impl.array(self.params))
 
 
 __all__ = ["ModelResult"]
@@ -89,6 +89,9 @@ class GLMResult:
         Less than the number of columns indicates aliasing.
     condition_number_ : float, optional
         Largest condition number of XᵀWX observed during IRLS.
+    theta_ : float, optional
+        Estimated Negative Binomial dispersion, set only when fitting with
+        ``NegativeBinomialFamily(theta='estimate')`` (glm.nb two-step flow).
     std_errors_ : Array
         Standard errors for fitted coefficients (computed on demand).
         Based on the dispersion-scaled covariance; Wald statistics use the
@@ -123,6 +126,7 @@ class GLMResult:
     dispersion_: float = 1.0
     rank_: int | None = None
     condition_number_: float | None = None
+    theta_: float | None = None
     _coef_cov: Array | None = None
     _std_errors: Array | None = None
     _p_values: Array | None = None
@@ -655,9 +659,9 @@ def _to_numpy(value: Any | None) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value.astype(np.float64, copy=False)
     if hasattr(value, "detach"):
-        return value.detach().cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.detach().cpu().numpy(), dtype=np.float64)
     if hasattr(value, "cpu") and hasattr(value, "numpy"):
-        return value.cpu().numpy().astype(np.float64, copy=False)
+        return np.asarray(value.cpu().numpy(), dtype=np.float64)
     return np.asarray(value, dtype=np.float64)
 
 
@@ -718,7 +722,7 @@ def _standard_normal_sf_numpy(x: np.ndarray) -> np.ndarray:
     from scipy.special import ndtr
 
     x = np.asarray(x, dtype=np.float64)
-    return ndtr(-x)
+    return np.asarray(ndtr(-x))
 
 
 def _weighted_gram_numpy(X: np.ndarray, weights: np.ndarray) -> np.ndarray:
@@ -754,7 +758,7 @@ def _prediction_standard_errors(design: np.ndarray, covariance: np.ndarray) -> n
     projection = design @ covariance
     variances = np.einsum("ij,ij->i", projection, design)
     variances = np.clip(variances, 1e-12, None)
-    return np.sqrt(variances)
+    return np.asarray(np.sqrt(variances))
 
 
 def _significance_stars(p_value: float) -> str:

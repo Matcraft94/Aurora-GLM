@@ -287,7 +287,7 @@ convention differences, and the full claim-to-test mapping.
 - **User guide and API reference** (Sphinx): `docs/` — build with
   `cd docs && python -m sphinx -b html . _build/html`
 - **Validation methodology**: [docs/VALIDATION.md](docs/VALIDATION.md)
-- **Case studies**: 17 Jupyter notebooks in
+- **Case studies**: 16 Jupyter notebooks in
   [`examples/06_case_studies/`](examples/06_case_studies/) covering GLM,
   GAM and GAMM applications (insurance pricing, air quality, sleep
   study, clinical trials, …). See [examples/README.md](examples/README.md).

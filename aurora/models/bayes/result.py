@@ -10,7 +10,7 @@ and provide methods for posterior summaries and predictions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -125,7 +125,7 @@ class BayesianGLMResult:
         dict
             Summary with mean, std, percentiles for each parameter
         """
-        summary = {}
+        summary: dict[str, Any] = {}
 
         # Coefficients
         coef_samples = self.coef_samples_
@@ -288,7 +288,7 @@ class BayesianGLMResult:
         elif self.link == "probit":
             from scipy.stats import norm
 
-            return norm.cdf(eta)
+            return np.asarray(norm.cdf(eta))
         elif self.link == "inverse":
             return 1 / eta
         elif self.link == "sqrt":
@@ -339,7 +339,7 @@ class BayesianGLMResult:
                 y_pred[i] = np.random.gamma(shape, scale)
             elif self.family == "negative_binomial":
                 # Parameterized by mu and dispersion
-                theta = self.posterior_samples_.get("theta", np.array([1.0]))
+                theta: Any = self.posterior_samples_.get("theta", np.array([1.0]))
                 if hasattr(theta, "__len__"):
                     theta = float(np.mean(theta))
                 p = theta / (theta + mu)

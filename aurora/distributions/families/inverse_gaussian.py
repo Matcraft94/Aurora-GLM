@@ -140,7 +140,7 @@ class InverseGaussianFamily(Family):
         if isinstance(lambda_, str):
             if lambda_ != "estimate":
                 raise ValueError("lambda_ must be a positive float or 'estimate'")
-            self._lambda = lambda_
+            self._lambda: float | str = lambda_
         else:
             if lambda_ <= 0:
                 raise ValueError("lambda_ must be positive")

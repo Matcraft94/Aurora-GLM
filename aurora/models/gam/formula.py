@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from aurora.models.gam.terms import ParametricTerm, SmoothTerm
 
@@ -358,7 +359,7 @@ def _parse_random_effects_formula(formula_str: str) -> tuple[bool, tuple]:
         else:
             # Variable name or index
             try:
-                var = int(part)
+                var: int | str = int(part)
             except ValueError:
                 var = part
             variables.append(var)
@@ -389,12 +390,12 @@ def _parse_smooth_term(term_str: str) -> SmoothTerm:
 
     # Try to parse as integer (column index) or keep as string (column name)
     try:
-        variable = int(variable_str)
+        variable: int | str = int(variable_str)
     except ValueError:
         variable = variable_str
 
     # Parse options
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     for part in parts[1:]:
         if "=" not in part:
             raise ValueError(f"Invalid smooth term option: {part}")
@@ -435,7 +436,7 @@ def _parse_parametric_term(term_str: str) -> ParametricTerm:
     """Parse a parametric term like 'x1' or '2'."""
     # Try to parse as integer (column index)
     try:
-        variable = int(term_str)
+        variable: int | str = int(term_str)
     except ValueError:
         # Keep as string (column name)
         variable = term_str

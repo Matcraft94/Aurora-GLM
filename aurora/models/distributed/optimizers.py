@@ -96,7 +96,7 @@ class SGDOptimizer(Optimizer):
         else:
             update = grad
 
-        return params - self.learning_rate * update
+        return np.asarray(params - self.learning_rate * update)
 
     def reset(self):
         self._velocity = None
@@ -145,7 +145,7 @@ class AdamOptimizer(Optimizer):
     _t: int = field(default=0, repr=False)
 
     def step(self, params: NDArray, grad: NDArray) -> NDArray:
-        if self._m is None:
+        if self._m is None or self._v is None:
             self._m = np.zeros_like(params)
             self._v = np.zeros_like(params)
 

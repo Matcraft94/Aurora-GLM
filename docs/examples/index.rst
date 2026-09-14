@@ -4,10 +4,11 @@
 Examples & Case Studies
 ========================
 
-Real-world notebooks demonstrating Aurora-GLM across a range of statistical
-modeling tasks. Each case study walks through data preparation, model fitting,
-diagnostics, and interpretation using GLM, GAM, or GAMM workflows. All
-notebooks are available on GitHub and can be run locally or in Google Colab.
+Sixteen executable notebooks demonstrating Aurora-GLM across GLM, GAM, and
+GAMM workflows. Each case study walks through data preparation, model
+specification, fitting, diagnostics, and interpretation. Every model
+mentioned in a notebook is actually fitted in it. All notebooks are
+available on GitHub and can be run locally.
 
 .. _examples-glm:
 
@@ -17,41 +18,41 @@ Generalized Linear Models (GLM)
 .. grid:: 1 2 3 3
    :gutter: 2
 
-   .. grid-item-card:: Insurance Pricing with Gamma GLM
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/01_insurance_pricing_gamma_glm.ipynb
+   .. grid-item-card:: Insurance Pricing (Gamma GLM)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/01_insurance_gamma_glm.ipynb
 
-      Model claim severity using a Gamma GLM with log link. Demonstrates
-      how heavy-tailed insurance losses are handled by the Gamma family.
+      Medical insurance charges with a Gamma GLM: log vs identity link
+      comparison, age × BMI interaction, and risk segmentation.
 
-   .. grid-item-card:: Insurance Pricing (General)
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/01_insurance_pricing.ipynb
+   .. grid-item-card:: French Motor Claims (Poisson / Negative Binomial)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/02_french_motor_poisson_nb.ipynb
 
-      A broader look at insurance rating factors with GLM, comparing
-      Gaussian, Gamma, and Tweedie families for premium estimation.
+      Claim frequency with an exposure offset: overdispersion detection
+      and Negative Binomial with ML-estimated dispersion.
 
-   .. grid-item-card:: French Motor Claims (Poisson / NegBin)
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/09_french_motor_claims.ipynb
+   .. grid-item-card:: Telco Customer Churn (Binomial GLM)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/03_telco_churn_binomial_glm.ipynb
 
-      Model claim frequency on the classic French motor dataset, comparing
-      Poisson and Negative Binomial regressions and handling over-dispersion.
+      Logistic regression with odds ratios, ROC analysis, and
+      calibration diagnostics.
 
-   .. grid-item-card:: Medical Insurance Costs
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/10_medical_insurance_costs.ipynb
+   .. grid-item-card:: Restaurant Health Scores (Beta GLM)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/04_restaurant_health_beta_glm.ipynb
 
-      Predict individual medical charges using GLM with feature engineering,
-      residual analysis, and model comparison.
+      Beta regression for bounded scores, with spline regression for the
+      non-linear age effect.
 
-   .. grid-item-card:: Telco Customer Churn
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/12_telco_customer_churn.ipynb
+   .. grid-item-card:: Species Distribution (Poisson GLM)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/09_species_distribution_glm.ipynb
 
-      Binary classification of customer churn using a Binomial GLM with
-      logit link, including variable selection and ROC analysis.
+      Multi-model Poisson regression with rate ratios and nested-model
+      comparison.
 
-   .. grid-item-card:: Restaurant Health Scores (Beta Regression)
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/17_restaurant_health_beta_regression.ipynb
+   .. grid-item-card:: US Accidents (Binomial GLM at scale)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/10_us_accidents_binomial_glm.ipynb
 
-      Model bounded health-inspection scores on (0, 1) with a Beta
-      regression, showcasing Aurora's support for non-standard families.
+      Large-n binary classification with calibration and class-imbalance
+      analysis.
 
 .. _examples-gam:
 
@@ -62,41 +63,28 @@ Generalized Additive Models (GAM)
    :gutter: 2
 
    .. grid-item-card:: Air Quality with GAM
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/02_air_quality_gam.ipynb
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/05_air_quality_gam.ipynb
 
-      Use smooth splines to capture non-linear relationships between air
-      pollutants and health outcomes. Demonstrates basis selection and
-      GCV smoothing-parameter estimation.
+      Additive model with GCV smoothing-parameter selection and
+      identifiability constraints.
 
-   .. grid-item-card:: Species Distribution Modeling
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/03_species_distribution.ipynb
+   .. grid-item-card:: Bike-Sharing Demand
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/06_bike_sharing_gam.ipynb
 
-      Predict species presence/absence with a Binomial GAM using thin-plate
-      and tensor-product splines for spatial covariates.
-
-   .. grid-item-card:: Bike-Sharing Demand Forecasting
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/11_bike_sharing_demand.ipynb
-
-      Model hourly rental counts with GAM smooths for temperature, humidity,
-      and time-of-day effects. Compares Poisson and Negative Binomial families.
-
-   .. grid-item-card:: Breast Cancer Survival Analysis
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/13_breast_cancer_survival.ipynb
-
-      Apply GAM to survival-style outcomes, using smooth terms to capture
-      non-linear prognostic effects of clinical covariates.
+      Hourly rental counts with smooths for temperature, humidity, and
+      time-of-day effects.
 
    .. grid-item-card:: Wind Power Forecasting
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/14_wind_power_forecasting.ipynb
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/07_wind_power_gam.ipynb
 
-      Forecast wind turbine output with GAM smooths of wind speed and
-      direction, demonstrating tensor-product interactions.
+      Gamma GLM baseline vs GAM on log(power), with a power-curve
+      analysis.
 
-   .. grid-item-card:: US Accidents Severity
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/15_us_accidents_severity.ipynb
+   .. grid-item-card:: E-Commerce Conversion (Binomial GAMM with smooths)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/08_ecommerce_conversion_gam.ipynb
 
-      Model accident severity levels using GAM with ordered-categorical or
-      multinomial approaches and geographic smooths.
+      Conversion rates with smooth price, duration, and hour effects
+      (PQL) plus a random intercept per day-of-week.
 
 .. _examples-gamm:
 
@@ -107,45 +95,37 @@ Generalized Additive Mixed Models (GAMM)
    :gutter: 2
 
    .. grid-item-card:: Sleep Study (GAMM)
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/04_sleep_study_gamm.ipynb
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/11_sleep_study_gamm.ipynb
 
-      The classic sleep-study dataset with random intercepts and slopes for
-      subjects. Demonstrates PQL estimation and variance-component inference.
-
-   .. grid-item-card:: Clinical Trial Analysis
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/05_clinical_trial.ipynb
-
-      Analyze a clinical trial with Gaussian mixed models, covering random
-      treatment effects, BLUPs, and diagnostic caterpillar plots.
+      Random intercepts and slopes on the classic sleep-study dataset,
+      with marginal vs conditional R².
 
    .. grid-item-card:: Longitudinal Clinical Trial
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/06_clinical_trial_longitudinal.ipynb
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/12_clinical_trial_longitudinal_gamm.ipynb
 
-      Repeated-measures analysis with AR(1) and unstructured covariance
-      patterns, comparing REML fits and information criteria.
+      Repeated measures with an identity vs AR(1) covariance comparison
+      and effect sizes.
+
+   .. grid-item-card:: Clinical Trial (Multilevel)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/13_clinical_trial_multilevel.ipynb
+
+      Patients nested in clinics; the LPM-with-random-effects vs PQL
+      trade-off under separation.
 
    .. grid-item-card:: Psychometric Crossed Effects
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/07_psychometric_crossed_effects.ipynb
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/14_psychometric_crossed_gamm.ipynb
 
-      Fit crossed random effects for subjects and items in a psychometric
-      experiment, illustrating large sparse mixed-model computation.
+      Crossed random effects for subjects and items — the large sparse
+      mixed-model case.
 
-   .. grid-item-card:: Educational Multilevel Models
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/08_educational_multilevel.ipynb
+   .. grid-item-card:: Educational Multilevel Models (PISA UK)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/15_educational_multilevel_gamm.ipynb
 
-      Three-level hierarchical model with students nested in classes nested
-      in schools, demonstrating variance partitioning and random slopes.
+      Eight models from null to random slopes on real PISA UK data, with
+      variance partitioning.
 
-.. _examples-applied:
+   .. grid-item-card:: Breast Cancer Outcomes (Binomial GAMM, PQL)
+      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/16_breast_cancer_binomial_gamm.ipynb
 
-Applied & Domain-Specific
---------------------------
-
-.. grid:: 1 2 3 3
-   :gutter: 2
-
-   .. grid-item-card:: E-Commerce Conversion Optimization
-      :link: https://github.com/Matcraft94/Aurora-GLM/tree/main/examples/06_case_studies/16_ecommerce_conversion_optimization.ipynb
-
-      Model conversion rates with Binomial GLM/GAM, using smooth seasonality
-      terms and interaction effects to optimize marketing spend.
+      Multi-center binary outcome via Penalized Quasi-Likelihood: odds
+      ratios, latent-scale ICC, and PQL limitations.

@@ -60,7 +60,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 from scipy import stats
@@ -479,6 +479,10 @@ def _anova_compare(
         prev_params, prev_dev, _, prev_name = model_info[i - 1]
         curr_params, curr_dev, _, curr_name = model_info[i]
 
+        if prev_dev is None or curr_dev is None:
+            # A nested model without deviance info: fall back to LRT.
+            return _anova_compare_loglik(model_info, residual_df=residual_df)
+
         df_diff = int(curr_params - prev_params)
         ddev = float(prev_dev - curr_dev)
 
@@ -847,20 +851,20 @@ def _detect_boundary_conditions(model: Any, threshold: float = 1e-10) -> list[st
 def _get_loglik(model: Any) -> float:
     """Extract log-likelihood from model."""
     if hasattr(model, "log_likelihood_"):
-        return model.log_likelihood_
+        return float(model.log_likelihood_)
     if hasattr(model, "log_likelihood"):
-        return model.log_likelihood
+        return float(model.log_likelihood)
     if hasattr(model, "loglik"):
-        return model.loglik
+        return float(model.loglik)
     if hasattr(model, "llf"):
-        return model.llf
+        return float(model.llf)
     return np.nan
 
 
 def _get_n_params(model: Any) -> int:
     """Get number of (fixed-effects) parameters from model."""
     if hasattr(model, "df_model"):
-        return model.df_model + 1
+        return int(model.df_model) + 1
     if hasattr(model, "coef_"):
         n = len(np.atleast_1d(model.coef_))
         if getattr(model, "intercept_", None) is not None:
@@ -895,7 +899,7 @@ def _get_deviance(model: Any) -> float | None:
         return float(deviance)
     deviance = getattr(model, "deviance", None)
     if deviance is not None and np.isscalar(deviance):
-        return float(deviance)
+        return float(cast(Any, deviance))
     residuals = getattr(model, "residuals", None)
     if residuals is not None:
         # Response residuals; their sum of squares is the Gaussian deviance.

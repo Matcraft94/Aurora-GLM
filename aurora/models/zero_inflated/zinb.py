@@ -180,7 +180,7 @@ class ZeroInflatedNegBinFamily:
 
     def expected_count(self, mu: NDArray, pi: NDArray) -> NDArray:
         """Compute marginal expected count E[Y] = (1-π)μ."""
-        return (1 - pi) * mu
+        return np.asarray((1 - pi) * mu)
 
     def prob_zero(self, mu: NDArray, pi: NDArray, theta: float | None = None) -> NDArray:
         """Compute P(Y=0) = π + (1-π)(θ/(θ+μ))^θ."""
@@ -255,12 +255,11 @@ def fit_zinb(
     p_inflate = X_inflate.shape[1]
 
     # Initialize with NB fit
+    from aurora.distributions.families import NegativeBinomialFamily
     from aurora.models.glm import fit_glm
 
     try:
-        nb_result = fit_glm(
-            X_count, y, family="negativebinomial", link="log", family_params={"theta": 1.0}
-        )
+        nb_result = fit_glm(X_count, y, family=NegativeBinomialFamily(theta=1.0), link="log")
         beta = nb_result.coef_.copy()
     except Exception:
         beta = np.zeros(p_count)
@@ -387,12 +386,12 @@ def _estimate_theta_weighted(y: NDArray, mu: NDArray, weights: NDArray, theta_in
         term1 = np.sum(weights * psi_deriv)
         term2 = np.sum(weights * np.log(theta / (theta + mu)))
         term3 = np.sum(weights * (1 - (y + theta) / (theta + mu)))
-        return term1 + term2 + term3
+        return float(term1 + term2 + term3)
 
     # Search for root
     try:
         log_theta_opt = brentq(score, np.log(0.01), np.log(1e6), maxiter=50)
-        return np.exp(log_theta_opt)
+        return float(np.exp(log_theta_opt))
     except (ValueError, RuntimeError):
         return theta_init
 
@@ -560,14 +559,14 @@ class ZINBResult:
         pi = 1 / (1 + np.exp(-X_inflate @ self.coef_inflate_))
 
         if type == "response":
-            return (1 - pi) * mu
+            return np.asarray((1 - pi) * mu)
         elif type == "count":
-            return mu
+            return np.asarray(mu)
         elif type == "prob_zero":
             p_zero_nb = (self.theta_ / (self.theta_ + mu)) ** self.theta_
-            return pi + (1 - pi) * p_zero_nb
+            return np.asarray(pi + (1 - pi) * p_zero_nb)
         elif type == "prob_inflate":
-            return pi
+            return np.asarray(pi)
         else:
             raise ValueError(f"Unknown type: {type}")
 

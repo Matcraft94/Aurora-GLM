@@ -15,9 +15,20 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import numpy as np
+
+CovarianceKind: TypeAlias = Literal[
+    "unstructured",
+    "diagonal",
+    "identity",
+    "ar1",
+    "compound_symmetry",
+    "cs",
+    "exponential",
+    "matern",
+]
 
 
 @dataclass
@@ -102,16 +113,7 @@ class RandomEffect:
     grouping: str | int
     variables: tuple[str | int, ...] = field(default_factory=tuple)
     include_intercept: bool = True
-    covariance: Literal[
-        "unstructured",
-        "diagonal",
-        "identity",
-        "ar1",
-        "compound_symmetry",
-        "cs",
-        "exponential",
-        "matern",
-    ] = "unstructured"
+    covariance: CovarianceKind = "unstructured"
 
     def __post_init__(self):
         """Validate random effect specification."""

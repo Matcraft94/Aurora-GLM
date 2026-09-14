@@ -188,6 +188,8 @@ from scipy import linalg
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+    from aurora.models.gamm.fitting import GAMMResult
+
 from aurora.distributions.base import Family
 from aurora.distributions.families import (
     BinomialFamily,
@@ -515,11 +517,11 @@ def fit_pql(
         converged = False
 
     # Compute deviance
-    deviance = family_obj.deviance(y, mu)
+    deviance = float(np.real(family_obj.deviance(y, mu)))
 
     # Compute approximate log-likelihood
     # For PQL, this is approximate (not exact marginal likelihood)
-    log_likelihood = np.sum(family_obj.log_likelihood(y, mu))
+    log_likelihood = float(np.sum(family_obj.log_likelihood(y, mu)))
 
     return PQLResult(
         beta=beta,
@@ -743,7 +745,7 @@ def _update_variance_components(
         if np.min(eigvals) < 1e-6:
             psi_emp = psi_emp + (1e-6 - np.min(eigvals)) * np.eye(n_effects)
 
-        return psi_emp
+        return np.asarray(psi_emp)
 
     else:
         raise ValueError(f"Unknown method: {method}")
@@ -767,7 +769,7 @@ def _get_family(family_name: str) -> Family:
     ValueError
         If family name is unknown
     """
-    families = {
+    families: dict[str, type[Family]] = {
         "gaussian": GaussianFamily,
         "poisson": PoissonFamily,
         "binomial": BinomialFamily,
@@ -801,7 +803,7 @@ def fit_pql_gamm(
     tol_inner: float = 1e-6,
     backend: str = "numpy",
     device: str | None = None,
-):
+) -> GAMMResult:
     """Fit non-Gaussian GAMM using Penalized Quasi-Likelihood.
 
     This is the high-level interface that wraps fit_pql() and converts

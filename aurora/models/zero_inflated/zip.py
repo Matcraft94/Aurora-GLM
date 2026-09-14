@@ -166,7 +166,7 @@ class ZeroInflatedPoissonFamily:
         ndarray
             Marginal expected counts
         """
-        return (1 - pi) * mu
+        return np.asarray((1 - pi) * mu)
 
     def prob_zero(self, mu: NDArray, pi: NDArray) -> NDArray:
         """Compute probability of zero: P(Y=0) = π + (1-π)exp(-λ).
@@ -183,7 +183,7 @@ class ZeroInflatedPoissonFamily:
         ndarray
             Probability of observing zero
         """
-        return pi + (1 - pi) * np.exp(-mu)
+        return np.asarray(pi + (1 - pi) * np.exp(-mu))
 
 
 def fit_zip(
@@ -541,13 +541,13 @@ class ZIPResult:
         pi = 1 / (1 + np.exp(-X_inflate @ self.coef_inflate_))
 
         if type == "response":
-            return (1 - pi) * mu
+            return np.asarray((1 - pi) * mu)
         elif type == "count":
-            return mu
+            return np.asarray(mu)
         elif type == "prob_zero":
-            return pi + (1 - pi) * np.exp(-mu)
+            return np.asarray(pi + (1 - pi) * np.exp(-mu))
         elif type == "prob_inflate":
-            return pi
+            return np.asarray(pi)
         else:
             raise ValueError(
                 f"Unknown type: {type}. Use 'response', 'count', 'prob_zero', or 'prob_inflate'"
