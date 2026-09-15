@@ -311,10 +311,10 @@ If you use Aurora-GLM in your research, please cite it using the
 information in [CITATION.cff](CITATION.cff), or the BibTeX entry:
 
 ```bibtex
-@software{aurora_glm2025,
+@software{aurora_glm2026,
   title = {Aurora-GLM: Generalized Linear and Additive Models},
   author = {Arias, Lucy Eduardo},
-  year = {2025},
+  year = {2026},
   version = {1.0.0},
   url = {https://github.com/Matcraft94/Aurora-GLM},
   license = {MIT}

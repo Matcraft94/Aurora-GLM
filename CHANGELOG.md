@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-14
+
 ### Fixed
 
 - fix(models): GLM fit statistics now propagate prior weights — deviance,
@@ -127,10 +129,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- ci: new `.github/workflows/tests.yml` — test matrix (Python 3.10/3.12,
-  `pytest -m "not slow" --no-cov`), ruff lint/format gate, and an
-  R-validation job (`r-lib/actions/setup-r@v2` + `jsonlite`) running
-  `tests/test_models/test_glm_vs_r.py`
 - test(models): validation tests for prior weights, grouped binomial,
   Gaussian/Poisson standard errors and dispersion-scaled log-likelihood
   against statsmodels (previously no SE comparison existed)
@@ -181,10 +179,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   e-commerce); duplicate insurance notebooks merged; notebooks renumbered
   as a GLM → GAM → GAMM learning path; both example READMEs and
   `docs/examples/index.rst` rewritten with truthful descriptions
+- chore(types): mypy cleaned from 404 errors to **0 across 138 source
+  files** — typing-only fixes plus real defects caught by the checker:
+  ZINB negative-binomial initialization was silently dead (`family_params=`
+  kwarg swallowed by `except Exception`), `plot(kind='diagnostics')` raised
+  TypeError for GLM results, `plot_smooth_effect` always fell back to a
+  polynomial basis (`design_matrix` → `basis_matrix` with the correct knot
+  count), `anova_glm` crashed on models without deviance (now falls back
+  to the LRT path); each fix carries a regression test
+- test(benchmarks): R validation harness fixed and green — `toJSON` gains
+  `digits = 15` (was truncating every value to 4 decimals, producing false
+  failures), the test uses `sys.executable`, and the Gamma AIC is compared
+  under R's `Gamma()$aic` convention (φ = D/n, dispersion counted as a
+  parameter; see `docs/VALIDATION.md` §3.4). **All 20 family × replicate
+  comparisons match R to ≤ 1.4e-13**
+- docs: `theta='estimate'` (glm.nb two-step flow) documented in the GLM
+  guide; stale `family_params=` examples removed from family docstrings
+- chore: case-study datasets — the 6 small CSVs (4 KB–1.1 MB) are now
+  tracked with provenance in `examples/06_case_studies/data/SOURCES.md`;
+  the 36 MB `freMTPL2freq.csv` stays downloaded-on-demand via OpenML
+- chore: repository history cleaned (git filter-repo) — machine-specific
+  config (`.Renviron`, `.Rprofile`, `renv/`), `verify_references.py`,
+  `docs/make.bat`, `AUTHORS.txt` (folded into README), CI workflows
+  (deferred until after release), and embedded notebook outputs removed;
+  pack size 44 MB → 7.7 MB
+- chore: `requirements.txt` files removed; documentation dependencies moved
+  to the `docs` extra (`pip install -e ".[docs]"`)
+- test(integration): `test_pisa_debug.py` renamed to `test_pisa_low_level.py`
 
-## [1.0.0] - 2026-04-01
-
-### Added
+### Added (earlier in the 1.0.0 cycle)
 
 #### Numerical Stability & Inference Enhancements
 - **Step-halving line search in IRLS** (`aurora/core/optimization/irls.py`):
