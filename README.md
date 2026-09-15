@@ -284,7 +284,8 @@ convention differences, and the full claim-to-test mapping.
 
 ## Documentation and examples
 
-- **User guide and API reference** (Sphinx): `docs/` — build with
+- **User guide and API reference** (Sphinx): `docs/` — install the docs
+  dependencies with `pip install -e ".[docs]"` and build with
   `cd docs && python -m sphinx -b html . _build/html`
 - **Validation methodology**: [docs/VALIDATION.md](docs/VALIDATION.md)
 - **Case studies**: 16 Jupyter notebooks in
